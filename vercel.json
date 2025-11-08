@@ -19,14 +19,6 @@
       "dest": "backend/index.js"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/frontend/assets/$1"
-    },
-    {
-      "src": "/vite.svg",
-      "dest": "/frontend/vite.svg"
-    },
-    {
       "handle": "filesystem"
     },
     {
