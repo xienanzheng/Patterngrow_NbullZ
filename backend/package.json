@@ -1,0 +1,20 @@
+{
+  "name": "stock-dashboard-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "NODE_ENV=development node --watch index.js",
+    "start": "NODE_ENV=production node index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.78.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "date-fns": "^4.1.0",
+    "express": "^4.21.1"
+  }
+}
