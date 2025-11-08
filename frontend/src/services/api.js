@@ -1,7 +1,20 @@
-const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+const rawBase = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
+const apiBase =
+  rawBase === '' || rawBase === '/'
+    ? ''
+    : rawBase.endsWith('/') && rawBase.length > 1
+      ? rawBase.slice(0, -1)
+      : rawBase;
 
 function buildUrl(path) {
-  return `${apiBase}${path}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (!apiBase) {
+    return normalizedPath;
+  }
+  if (apiBase.startsWith('/') && normalizedPath.startsWith(apiBase)) {
+    return normalizedPath;
+  }
+  return `${apiBase}${normalizedPath}`;
 }
 
 async function parseJson(response) {
