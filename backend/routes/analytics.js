@@ -21,6 +21,8 @@ router.get('/metadata', async (req, res) => {
       dividendProfile,
       styleFactor,
       minIpoYear,
+      page = '1',
+      pageSize = '100',
     } = req.query;
 
     const filters = {
@@ -34,6 +36,10 @@ router.get('/metadata', async (req, res) => {
       style_factor: styleFactor,
     };
 
+    const pageNum = Math.max(1, Number(page) || 1);
+    const sizeNum = Math.min(200, Math.max(1, Number(pageSize) || 100));
+    const offset = (pageNum - 1) * sizeNum;
+
     if (minIpoYear != null) {
       const parsed = Number(minIpoYear);
       if (Number.isFinite(parsed)) {
@@ -41,10 +47,10 @@ router.get('/metadata', async (req, res) => {
       }
     }
 
-    const rows = await listMetadata(filters);
+    const rows = await listMetadata(filters, { limit: sizeNum, offset });
     const facets = await listFacetOptions();
 
-    res.json({ rows, facets, count: rows.length });
+    res.json({ rows, facets, count: rows.length, page: pageNum, pageSize: sizeNum });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

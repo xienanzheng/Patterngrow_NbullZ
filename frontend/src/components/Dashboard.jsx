@@ -74,6 +74,8 @@ export default function Dashboard({ user, session, onSignOut }) {
     styleFactor: '',
   });
   const [metadataEntry, setMetadataEntry] = useState(null);
+  const [metadataPage, setMetadataPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [backtestSummary, setBacktestSummary] = useState(null);
   const [simulationSeries, setSimulationSeries] = useState([]);
@@ -293,6 +295,14 @@ export default function Dashboard({ user, session, onSignOut }) {
         return true;
       })
       .sort((a, b) => (b.ipo_year ?? 0) - (a.ipo_year ?? 0));
+  }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMetadata.length / itemsPerPage));
+  const safePage = Math.min(metadataPage, totalPages);
+  const visibleMetadata = filteredMetadata.slice(0, safePage * itemsPerPage);
+
+  useEffect(() => {
+    setMetadataPage(1);
   }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows]);
 
   const indicatorSnapshotDisplay = useMemo(() => {
@@ -897,7 +907,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       <td colSpan="7" className="px-4 py-3 text-slate-500">No tickers match the current facet selection.</td>
                     </tr>
                   ) : (
-                    filteredMetadata.slice(0, 12).map((row) => (
+                    visibleMetadata.map((row) => (
                       <tr key={row.symbol} className={row.symbol === symbol ? 'bg-blue-500/5' : ''}>
                         <td className="px-4 py-2 font-semibold text-white">{row.symbol}</td>
                         <td className="px-4 py-2 text-slate-300">{row.industryGroup || row.industry_group || row.sector}</td>
@@ -917,6 +927,38 @@ export default function Dashboard({ user, session, onSignOut }) {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+              <span>
+                Showing {Math.min(visibleMetadata.length, filteredMetadata.length)} of {filteredMetadata.length} tickers
+                {totalPages > 1 ? ` · Page ${safePage}/${totalPages}` : ''}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMetadataPage((prev) => Math.max(1, prev - 1))}
+                  disabled={safePage <= 1}
+                  className="rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetadataPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={safePage >= totalPages}
+                  className="rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetadataPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={safePage >= totalPages}
+                  className="rounded-lg border border-blue-500/60 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-200 transition hover:border-blue-400 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Load more
+                </button>
+              </div>
             </div>
           </section>
           </section>
