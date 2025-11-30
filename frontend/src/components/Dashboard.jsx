@@ -4,7 +4,7 @@ import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
 import AdvancedBacktest from './AdvancedBacktest';
 import MiniAssistant from './MiniAssistant';
-import { getInsights, getNews } from '../services/api';
+import { getInsights, getMetadata, getNews } from '../services/api';
 
 const formatCurrency = (value) => {
   if (value == null) return 'N/A';
@@ -61,6 +61,19 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [newsItems, setNewsItems] = useState([]);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState(null);
+  const [metadataRows, setMetadataRows] = useState([]);
+  const [metadataFacets, setMetadataFacets] = useState(null);
+  const [metadataLoading, setMetadataLoading] = useState(true);
+  const [metadataError, setMetadataError] = useState(null);
+  const [prototypeThreshold, setPrototypeThreshold] = useState(0.6);
+  const [facetFilters, setFacetFilters] = useState({
+    sector: '',
+    region: '',
+    marketCapBucket: '',
+    riskBucket: '',
+    styleFactor: '',
+  });
+  const [metadataEntry, setMetadataEntry] = useState(null);
 
   const [backtestSummary, setBacktestSummary] = useState(null);
   const [simulationSeries, setSimulationSeries] = useState([]);
@@ -88,11 +101,13 @@ export default function Dashboard({ user, session, onSignOut }) {
       setPriceTargets(null);
       setTechnicalSummary(null);
       setDataSource('unavailable');
+      setMetadataEntry(null);
       return;
     }
 
     setStockData(payload.history ?? []);
     setQuote(payload.quote ?? null);
+    setMetadataEntry(payload.metadata ?? null);
 
     const totalSignals = (payload.signalSummary?.buy ?? 0) + (payload.signalSummary?.sell ?? 0);
     const enrichedSignals = (payload.signals ?? [])
@@ -175,6 +190,31 @@ export default function Dashboard({ user, session, onSignOut }) {
     };
   }, [symbol]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setMetadataLoading(true);
+      setMetadataError(null);
+      try {
+        const payload = await getMetadata();
+        if (cancelled) return;
+        setMetadataRows(payload?.rows ?? []);
+        setMetadataFacets(payload?.facets ?? null);
+      } catch (err) {
+        if (cancelled) return;
+        setMetadataRows([]);
+        setMetadataFacets(null);
+        setMetadataError(err instanceof Error ? err.message : 'Unable to load metadata.');
+      } finally {
+        if (!cancelled) setMetadataLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleRunBacktest = () => {
     loadInsights();
   };
@@ -226,6 +266,27 @@ export default function Dashboard({ user, session, onSignOut }) {
   const totalReturn = simulationSummary?.totalReturn ?? (finalPortfolioValue != null
     ? ((finalPortfolioValue - initialCapital) / initialCapital) * 100
     : null);
+
+  const currentMetadata = useMemo(() => {
+    if (metadataEntry) return metadataEntry;
+    return metadataRows.find((row) => row.symbol === symbol) ?? null;
+  }, [metadataEntry, metadataRows, symbol]);
+
+  const filteredMetadata = useMemo(() => {
+    return metadataRows
+      .filter((row) => {
+        if (prototypeThreshold != null && row.prototypeScore != null && row.prototypeScore < prototypeThreshold) {
+          return false;
+        }
+        if (facetFilters.sector && row.sector !== facetFilters.sector) return false;
+        if (facetFilters.region && row.region !== facetFilters.region) return false;
+        if (facetFilters.marketCapBucket && row.marketCapBucket !== facetFilters.marketCapBucket) return false;
+        if (facetFilters.riskBucket && row.riskBucket !== facetFilters.riskBucket) return false;
+        if (facetFilters.styleFactor && !row.styleFactors.includes(facetFilters.styleFactor)) return false;
+        return true;
+      })
+      .sort((a, b) => (b.prototypeScore ?? 0) - (a.prototypeScore ?? 0));
+  }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, metadataRows, prototypeThreshold]);
 
   const indicatorSnapshotDisplay = useMemo(() => {
     const snapshot = indicatorSnapshots?.[primaryIndicator];
@@ -450,6 +511,187 @@ export default function Dashboard({ user, session, onSignOut }) {
               {insightsError}
             </div>
           ) : null}
+
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Metadata Explorer</h3>
+                <p className="text-xs text-slate-400">
+                  Prototype/periphery scores, rule-based regions, and faceted tags for quick retrieval. Threshold filters the list below.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-xs uppercase tracking-wide text-slate-400">
+                  Prototype min ({prototypeThreshold.toFixed(2)})
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={prototypeThreshold}
+                    onChange={(event) => setPrototypeThreshold(Number(event.target.value))}
+                    className="mt-1 w-48 accent-blue-500"
+                  />
+                </label>
+                <label className="text-xs uppercase tracking-wide text-slate-400">
+                  Sector
+                  <select
+                    value={facetFilters.sector}
+                    onChange={(event) => setFacetFilters((prev) => ({ ...prev, sector: event.target.value }))}
+                    className="mt-1 w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  >
+                    <option value="">All</option>
+                    {(metadataFacets?.sector ?? []).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs uppercase tracking-wide text-slate-400">
+                  Region
+                  <select
+                    value={facetFilters.region}
+                    onChange={(event) => setFacetFilters((prev) => ({ ...prev, region: event.target.value }))}
+                    className="mt-1 w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  >
+                    <option value="">All</option>
+                    {(metadataFacets?.region ?? []).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs uppercase tracking-wide text-slate-400">
+                  Risk Bucket
+                  <select
+                    value={facetFilters.riskBucket}
+                    onChange={(event) => setFacetFilters((prev) => ({ ...prev, riskBucket: event.target.value }))}
+                    className="mt-1 w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  >
+                    <option value="">All</option>
+                    {(metadataFacets?.riskBucket ?? []).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs uppercase tracking-wide text-slate-400">
+                  Style Factor
+                  <select
+                    value={facetFilters.styleFactor}
+                    onChange={(event) => setFacetFilters((prev) => ({ ...prev, styleFactor: event.target.value }))}
+                    className="mt-1 w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  >
+                    <option value="">All</option>
+                    {(metadataFacets?.styleFactors ?? []).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {metadataError ? (
+              <p className="mt-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                {metadataError}
+              </p>
+            ) : null}
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-400">Current Symbol</p>
+                {currentMetadata ? (
+                  <div className="mt-2 space-y-1 text-sm text-slate-200">
+                    <p className="text-lg font-semibold text-white">{currentMetadata.symbol}</p>
+                    <p className="text-slate-400">{currentMetadata.industryGroup} · {currentMetadata.region}</p>
+                    <p className="text-slate-300">
+                      Prototype score: <span className="font-semibold text-blue-300">{currentMetadata.prototypeScore?.toFixed(2) ?? '--'}</span>
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {currentMetadata.evidence}
+                    </p>
+                    {currentMetadata.categoryModel?.prototype?.anchor?.length ? (
+                      <p className="text-xs text-slate-500">
+                        Prototype anchor: {currentMetadata.categoryModel.prototype.anchor.join(', ')}
+                      </p>
+                    ) : null}
+                    {currentMetadata.categoryModel?.classical?.regionRule ? (
+                      <p className="text-xs text-slate-500">
+                        Region rule: {currentMetadata.categoryModel.classical.regionRule}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : metadataLoading ? (
+                  <p className="mt-2 text-sm text-slate-400">Loading metadata…</p>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-400">No metadata available for {symbol}.</p>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-400">Facet Summary</p>
+                <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                  <li>Sector → {facetFilters.sector || 'Any'}</li>
+                  <li>Region → {facetFilters.region || 'Any'}</li>
+                  <li>Risk → {facetFilters.riskBucket || 'Any'}</li>
+                  <li>Style → {facetFilters.styleFactor || 'Any'}</li>
+                  <li>Prototype ≥ {prototypeThreshold.toFixed(2)}</li>
+                  <li>Matches → {filteredMetadata.length}</li>
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-400">Faceted Retrieval Examples</p>
+                <ul className="mt-2 space-y-2 text-sm text-slate-300">
+                  <li className="rounded-lg border border-slate-800 bg-slate-900/80 p-2">US · High Vol · Momentum → AI-adjacent semis</li>
+                  <li className="rounded-lg border border-slate-800 bg-slate-900/80 p-2">EU · Growth → Lithography prototype</li>
+                  <li className="rounded-lg border border-slate-800 bg-slate-900/80 p-2">Mega Cap · Low Vol → Core software</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+              <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-200">
+                <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Symbol</th>
+                    <th className="px-4 py-2 text-left">Sector</th>
+                    <th className="px-4 py-2 text-left">Region</th>
+                    <th className="px-4 py-2 text-left">Prototype</th>
+                    <th className="px-4 py-2 text-left">Risk</th>
+                    <th className="px-4 py-2 text-left">Style</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {metadataLoading ? (
+                    <tr>
+                      <td colSpan="6" className="px-4 py-3 text-slate-400">Loading metadata…</td>
+                    </tr>
+                  ) : filteredMetadata.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="px-4 py-3 text-slate-500">No tickers match the current facet selection.</td>
+                    </tr>
+                  ) : (
+                    filteredMetadata.slice(0, 12).map((row) => (
+                      <tr key={row.symbol} className={row.symbol === symbol ? 'bg-blue-500/5' : ''}>
+                        <td className="px-4 py-2 font-semibold text-white">{row.symbol}</td>
+                        <td className="px-4 py-2 text-slate-300">{row.industryGroup || row.sector}</td>
+                        <td className="px-4 py-2 text-slate-300">{row.region}</td>
+                        <td className="px-4 py-2 text-blue-300">{row.prototypeScore?.toFixed(2) ?? '--'}</td>
+                        <td className="px-4 py-2">{row.riskBucket}</td>
+                        <td className="px-4 py-2 text-slate-300">{row.styleFactors?.join(', ')}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">

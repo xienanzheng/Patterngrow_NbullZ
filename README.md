@@ -102,7 +102,7 @@ The React app proxies API requests to `http://localhost:4000/api/*` by default (
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_KEY` (Server only – mark as encrypted)
-   - `ALPHA_VANTAGE_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY` (optional)
+- `ALPHA_VANTAGE_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY` (optional)
 
 3. Vercel detects `vercel.json` and builds the frontend via `frontend/package.json`. The backend is exposed as serverless functions mounted under `/api/*`.
 4. Add OAuth redirect URLs to Supabase for the deployed domain (e.g., `https://your-vercel-app.vercel.app/*`).
@@ -113,5 +113,6 @@ The React app proxies API requests to `http://localhost:4000/api/*` by default (
 - The frontend retains client-side indicator overlays for responsive charting while the backend handles data retrieval, signal generation, forecasting heuristics, Supabase-authenticated watchlist CRUD, and a textual technical summary surfaced on the dashboard.
 - The dashboard includes tabs for market overview, an advanced backtesting lab, and the "Mini NZ Assistant" AI chat (OpenAI/Gemini) powered by the `/api/analytics/chat` endpoint.
 - `vercel.json` maps `/api/*` requests to the Express backend and serves the Vite build output from `frontend/dist`.
+- **Metadata Explorer**: `/api/analytics/metadata` returns prototype/periphery scores, region rules, and facet tags (sector, region, market cap bucket, risk bucket, style factors). The Market Overview tab now includes a prototype slider, facet filters, and per-symbol evidence text that mirrors the course’s category focus. No extra env vars are required for this; data is bundled in `backend/utils/metadata.js`.
 
 Happy shipping!

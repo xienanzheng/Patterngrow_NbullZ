@@ -1,11 +1,53 @@
 import express from 'express';
 import { computeSignals } from '../utils/computeSignals.js';
 import { fetchNews, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
+import { getTickerMetadata, listFacetOptions, listMetadata } from '../utils/metadata.js';
 
 const router = express.Router();
 
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'analytics' });
+});
+
+router.get('/metadata', (req, res) => {
+  try {
+    const {
+      symbol,
+      sector,
+      industryGroup,
+      region,
+      marketCapBucket,
+      riskBucket,
+      dividendProfile,
+      styleFactor,
+      minPrototypeScore,
+    } = req.query;
+
+    const filters = {
+      symbol,
+      sector,
+      industryGroup,
+      region,
+      marketCapBucket,
+      riskBucket,
+      dividendProfile,
+      styleFactor,
+    };
+
+    if (minPrototypeScore != null) {
+      const parsed = Number(minPrototypeScore);
+      if (Number.isFinite(parsed)) {
+        filters.minPrototypeScore = parsed;
+      }
+    }
+
+    const rows = listMetadata(filters);
+    const facets = listFacetOptions();
+
+    res.json({ rows, facets, count: rows.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.get('/quote', async (req, res) => {
@@ -72,7 +114,9 @@ router.get('/insights', async (req, res) => {
       initialCapital: initialCapital ? Number(initialCapital) : undefined,
     });
 
-    res.json(payload);
+    const metadata = getTickerMetadata(symbol);
+
+    res.json({ ...payload, metadata });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

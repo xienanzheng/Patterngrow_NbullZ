@@ -68,6 +68,17 @@ export function getInsights(symbol, options = {}) {
   return request(`/api/analytics/insights?${params.toString()}`);
 }
 
+export function getMetadata(filters = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value == null || value === '') return;
+    params.set(key, value);
+  });
+  const query = params.toString();
+  const path = query ? `/api/analytics/metadata?${query}` : '/api/analytics/metadata';
+  return request(path);
+}
+
 export function getWatchlist(token) {
   return request('/api/watchlist', { token });
 }
