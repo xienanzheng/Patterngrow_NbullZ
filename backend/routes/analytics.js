@@ -9,7 +9,7 @@ router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'analytics' });
 });
 
-router.get('/metadata', (req, res) => {
+router.get('/metadata', async (req, res) => {
   try {
     const {
       symbol,
@@ -20,29 +20,29 @@ router.get('/metadata', (req, res) => {
       riskBucket,
       dividendProfile,
       styleFactor,
-      minPrototypeScore,
+      minIpoYear,
     } = req.query;
 
     const filters = {
       symbol,
       sector,
-      industryGroup,
+      industry_group: industryGroup,
       region,
-      marketCapBucket,
-      riskBucket,
-      dividendProfile,
-      styleFactor,
+      market_cap_bucket: marketCapBucket,
+      risk_bucket: riskBucket,
+      dividend_profile: dividendProfile,
+      style_factor: styleFactor,
     };
 
-    if (minPrototypeScore != null) {
-      const parsed = Number(minPrototypeScore);
+    if (minIpoYear != null) {
+      const parsed = Number(minIpoYear);
       if (Number.isFinite(parsed)) {
-        filters.minPrototypeScore = parsed;
+        filters.min_ipo_year = parsed;
       }
     }
 
-    const rows = listMetadata(filters);
-    const facets = listFacetOptions();
+    const rows = await listMetadata(filters);
+    const facets = await listFacetOptions();
 
     res.json({ rows, facets, count: rows.length });
   } catch (error) {
@@ -114,7 +114,7 @@ router.get('/insights', async (req, res) => {
       initialCapital: initialCapital ? Number(initialCapital) : undefined,
     });
 
-    const metadata = getTickerMetadata(symbol);
+    const metadata = await getTickerMetadata(symbol);
 
     res.json({ ...payload, metadata });
   } catch (error) {

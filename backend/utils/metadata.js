@@ -1,187 +1,209 @@
-// Static metadata profiles used to demonstrate prototype/periphery, rule-based taxonomy, and faceted classification.
-// In a production system these would be hydrated from a datastore, but the shape here is sufficient for the UI + API to reason about categories.
+import { supabaseAdmin } from './supabaseClient.js';
 
-const prototypeProfiles = {
-  Semiconductors: {
-    prototypeSymbols: ['NVDA', 'TSM', 'ASML'],
-    description:
-      'Prototype members are vertically integrated or design-first chip leaders with high R&D intensity and dominant market share.',
-  },
-  Software: {
-    prototypeSymbols: ['MSFT', 'ADBE'],
-    description: 'Prototype members deliver scaled subscription software with diversified revenue and high gross margins.',
-  },
-};
-
-const metadataTable = [
+// Small fallback sample for offline/dev use.
+const staticMetadata = [
   {
     symbol: 'NVDA',
     name: 'NVIDIA Corporation',
+    exchange: 'NASDAQ',
     sector: 'Technology',
-    industryGroup: 'Semiconductors',
-    prototypeScore: 0.95,
-    marketCapBucket: 'Mega',
+    industry_group: 'Semiconductors',
+    prototype_score: 0.95,
+    market_cap_bucket: 'Mega',
     region: 'US',
-    riskBucket: 'High Volatility',
-    styleFactors: ['Growth', 'Momentum'],
-    dividendProfile: 'Low',
+    risk_bucket: 'High Volatility',
+    style_factors: ['Growth', 'Momentum'],
+    dividend_profile: 'Low',
+    ipo_year: 1999,
     evidence: 'Fabless GPU and AI systems leader; >80% revenue from chips and platforms; NASDAQ listing; US-incorporated.',
   },
   {
     symbol: 'TSM',
     name: 'Taiwan Semiconductor Manufacturing',
+    exchange: 'NYSE',
     sector: 'Technology',
-    industryGroup: 'Semiconductors',
-    prototypeScore: 0.93,
-    marketCapBucket: 'Mega',
+    industry_group: 'Semiconductors',
+    prototype_score: 0.93,
+    market_cap_bucket: 'Mega',
     region: 'APAC',
-    riskBucket: 'Medium Volatility',
-    styleFactors: ['Growth'],
-    dividendProfile: 'Stable',
-    evidence: 'Pure-play foundry; TSMC ADR on NYSE; APAC revenue base; high capex/R&D.',
-  },
-  {
-    symbol: 'ASML',
-    name: 'ASML Holding',
-    sector: 'Technology',
-    industryGroup: 'Semiconductors',
-    prototypeScore: 0.91,
-    marketCapBucket: 'Mega',
-    region: 'EU',
-    riskBucket: 'Medium Volatility',
-    styleFactors: ['Growth'],
-    dividendProfile: 'Moderate',
-    evidence: 'EUV lithography monopoly; EURONEXT/NASDAQ dual listing; Netherlands-incorporated.',
-  },
-  {
-    symbol: 'AMD',
-    name: 'Advanced Micro Devices',
-    sector: 'Technology',
-    industryGroup: 'Semiconductors',
-    prototypeScore: 0.77,
-    marketCapBucket: 'Large',
-    region: 'US',
-    riskBucket: 'High Volatility',
-    styleFactors: ['Growth', 'Momentum'],
-    dividendProfile: 'None',
-    evidence: 'Fabless CPU/GPU designer; NASDAQ listing; high R&D; revenue tied to chips but more cyclical — peripheral member.',
-  },
-  {
-    symbol: 'SMCI',
-    name: 'Super Micro Computer',
-    sector: 'Technology',
-    industryGroup: 'Infrastructure / AI-adjacent',
-    prototypeScore: 0.62,
-    marketCapBucket: 'Mid',
-    region: 'US',
-    riskBucket: 'High Volatility',
-    styleFactors: ['Momentum'],
-    dividendProfile: 'None',
-    evidence: 'Server and rack systems; AI adjacency; NASDAQ listing; peripheral to the semiconductor prototype.',
+    risk_bucket: 'Medium Volatility',
+    style_factors: ['Growth'],
+    dividend_profile: 'Stable',
+    ipo_year: 1997,
+    evidence: 'Pure-play foundry; ADR on NYSE; APAC revenue base; high capex/R&D.',
   },
   {
     symbol: 'MSFT',
     name: 'Microsoft Corporation',
+    exchange: 'NASDAQ',
     sector: 'Technology',
-    industryGroup: 'Software',
-    prototypeScore: 0.88,
-    marketCapBucket: 'Mega',
+    industry_group: 'Software',
+    prototype_score: 0.88,
+    market_cap_bucket: 'Mega',
     region: 'US',
-    riskBucket: 'Low Volatility',
-    styleFactors: ['Growth'],
-    dividendProfile: 'Growing',
-    evidence: 'Scaled subscription + cloud software; NASDAQ listing; diversified revenue; prototype member for software.',
+    risk_bucket: 'Low Volatility',
+    style_factors: ['Growth'],
+    dividend_profile: 'Growing',
+    ipo_year: 1986,
+    evidence: 'Scaled subscription + cloud software; diversified revenue; prototype member for software.',
   },
   {
     symbol: 'AAPL',
     name: 'Apple Inc.',
+    exchange: 'NASDAQ',
     sector: 'Technology',
-    industryGroup: 'Hardware / Devices',
-    prototypeScore: 0.7,
-    marketCapBucket: 'Mega',
+    industry_group: 'Hardware / Devices',
+    prototype_score: 0.7,
+    market_cap_bucket: 'Mega',
     region: 'US',
-    riskBucket: 'Medium Volatility',
-    styleFactors: ['Growth'],
-    dividendProfile: 'Moderate',
-    evidence: 'Hybrid hardware/services; NASDAQ listing; high margin services keep it closer to prototype than pure hardware.',
+    risk_bucket: 'Medium Volatility',
+    style_factors: ['Growth'],
+    dividend_profile: 'Moderate',
+    ipo_year: 1980,
+    evidence: 'Hardware + services mix; high-margin services lift resemblance to software prototype.',
+  },
+  {
+    symbol: 'ASML',
+    name: 'ASML Holding',
+    exchange: 'NASDAQ',
+    sector: 'Technology',
+    industry_group: 'Semiconductors',
+    prototype_score: 0.91,
+    market_cap_bucket: 'Mega',
+    region: 'EU',
+    risk_bucket: 'Medium Volatility',
+    style_factors: ['Growth'],
+    dividend_profile: 'Moderate',
+    ipo_year: 1995,
+    evidence: 'EUV lithography monopoly; EU/US listings; Netherlands-incorporated.',
+  },
+  {
+    symbol: 'AMD',
+    name: 'Advanced Micro Devices',
+    exchange: 'NASDAQ',
+    sector: 'Technology',
+    industry_group: 'Semiconductors',
+    prototype_score: 0.77,
+    market_cap_bucket: 'Large',
+    region: 'US',
+    risk_bucket: 'High Volatility',
+    style_factors: ['Growth', 'Momentum'],
+    dividend_profile: 'None',
+    ipo_year: 1972,
+    evidence: 'Fabless CPU/GPU designer; NASDAQ listing; peripheral to the semiconductor prototype.',
+  },
+  {
+    symbol: 'SMCI',
+    name: 'Super Micro Computer',
+    exchange: 'NASDAQ',
+    sector: 'Technology',
+    industry_group: 'Infrastructure / AI-adjacent',
+    prototype_score: 0.62,
+    market_cap_bucket: 'Mid',
+    region: 'US',
+    risk_bucket: 'High Volatility',
+    style_factors: ['Momentum'],
+    dividend_profile: 'None',
+    ipo_year: 2007,
+    evidence: 'Server and rack systems; AI adjacency; peripheral to the semiconductor prototype.',
   },
 ];
 
-const allowedFacets = ['sector', 'industryGroup', 'region', 'marketCapBucket', 'riskBucket', 'styleFactors', 'dividendProfile'];
+const allowedFacets = ['sector', 'industry_group', 'region', 'market_cap_bucket', 'risk_bucket', 'style_factors', 'dividend_profile'];
 
 function normalizeSymbol(symbol) {
   return typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
 }
 
-export function listMetadata(filters = {}) {
-  return metadataTable.filter((row) => {
-    // Apply exact-match filters for scalar facets
-    for (const facet of ['sector', 'industryGroup', 'region', 'marketCapBucket', 'riskBucket', 'dividendProfile']) {
+function applyLocalFilters(rows, filters) {
+  return rows.filter((row) => {
+    if (filters.symbol && normalizeSymbol(filters.symbol) !== row.symbol) return false;
+    for (const facet of ['sector', 'industry_group', 'region', 'market_cap_bucket', 'risk_bucket', 'dividend_profile']) {
       if (filters[facet] && row[facet] !== filters[facet]) return false;
     }
-    // Style factors can be multi-valued
-    if (filters.styleFactor && !row.styleFactors.includes(filters.styleFactor)) {
-      return false;
-    }
-    if (filters.minPrototypeScore != null && typeof filters.minPrototypeScore === 'number') {
-      if ((row.prototypeScore ?? 0) < filters.minPrototypeScore) return false;
-    }
-    if (filters.symbol && normalizeSymbol(filters.symbol) !== row.symbol) return false;
+    if (filters.style_factor && !(row.style_factors || []).includes(filters.style_factor)) return false;
+    if (filters.min_ipo_year && row.ipo_year && row.ipo_year < filters.min_ipo_year) return false;
     return true;
   });
 }
 
-export function getTickerMetadata(symbol) {
-  const row = metadataTable.find((item) => item.symbol === normalizeSymbol(symbol));
-  if (!row) return null;
-  const prototypeProfile = prototypeProfiles[row.industryGroup] || prototypeProfiles[row.sector] || null;
-  return {
-    ...row,
-    categoryModel: {
-      prototype: {
-        anchor: prototypeProfile?.prototypeSymbols ?? [],
-        description: prototypeProfile?.description ?? 'Prototype not defined for this sector.',
-        score: row.prototypeScore,
-      },
-      classical: {
-        regionRule: row.region ? `Primary listing region = ${row.region}; incorporation & exchange satisfy rule.` : null,
-      },
-      facets: {
-        sector: row.sector,
-        industryGroup: row.industryGroup,
-        region: row.region,
-        marketCapBucket: row.marketCapBucket,
-        riskBucket: row.riskBucket,
-        styleFactors: row.styleFactors,
-        dividendProfile: row.dividendProfile,
-      },
-    },
-  };
+async function listMetadataFromSupabase(filters = {}, { limit = 100, offset = 0 } = {}) {
+  const query = supabaseAdmin.from('ticker_metadata').select('*').range(offset, offset + limit - 1);
+
+  if (filters.symbol) query.eq('symbol', normalizeSymbol(filters.symbol));
+  if (filters.sector) query.eq('sector', filters.sector);
+  if (filters.industry_group) query.eq('industry_group', filters.industry_group);
+  if (filters.region) query.eq('region', filters.region);
+  if (filters.market_cap_bucket) query.eq('market_cap_bucket', filters.market_cap_bucket);
+  if (filters.risk_bucket) query.eq('risk_bucket', filters.risk_bucket);
+  if (filters.dividend_profile) query.eq('dividend_profile', filters.dividend_profile);
+  if (filters.style_factor) query.contains('style_factors', [filters.style_factor]);
+  if (filters.min_ipo_year) query.gte('ipo_year', filters.min_ipo_year);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
 }
 
-export function listFacetOptions() {
-  const options = {
+export async function listMetadata(filters = {}, options = {}) {
+  try {
+    const rows = await listMetadataFromSupabase(filters, options);
+    if (rows.length > 0) return rows;
+  } catch (err) {
+    // Fall through to static sample if Supabase is unavailable
+    console.warn('Supabase metadata unavailable, falling back to static sample', err.message);
+  }
+  return applyLocalFilters(staticMetadata, filters).slice(0, options.limit ?? 100);
+}
+
+export async function getTickerMetadata(symbol) {
+  if (!symbol) return null;
+  try {
+    const { data, error } = await supabaseAdmin.from('ticker_metadata').select('*').eq('symbol', normalizeSymbol(symbol)).maybeSingle();
+    if (error) throw error;
+    if (data) return data;
+  } catch (err) {
+    console.warn('Supabase metadata unavailable for symbol', symbol, err.message);
+  }
+  return staticMetadata.find((item) => item.symbol === normalizeSymbol(symbol)) ?? null;
+}
+
+export async function listFacetOptions() {
+  const sets = {
     sector: new Set(),
-    industryGroup: new Set(),
+    industry_group: new Set(),
     region: new Set(),
-    marketCapBucket: new Set(),
-    riskBucket: new Set(),
-    styleFactors: new Set(),
-    dividendProfile: new Set(),
+    market_cap_bucket: new Set(),
+    risk_bucket: new Set(),
+    style_factors: new Set(),
+    dividend_profile: new Set(),
   };
 
-  metadataTable.forEach((row) => {
-    options.sector.add(row.sector);
-    options.industryGroup.add(row.industryGroup);
-    options.region.add(row.region);
-    options.marketCapBucket.add(row.marketCapBucket);
-    options.riskBucket.add(row.riskBucket);
-    options.dividendProfile.add(row.dividendProfile);
-    row.styleFactors.forEach((factor) => options.styleFactors.add(factor));
+  let rows = [];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('ticker_metadata')
+      .select('sector,industry_group,region,market_cap_bucket,risk_bucket,style_factors,dividend_profile,ipo_year')
+      .limit(500);
+    if (error) throw error;
+    rows = data ?? [];
+  } catch (err) {
+    console.warn('Supabase metadata facets fallback to static sample', err.message);
+    rows = staticMetadata;
+  }
+
+  rows.forEach((row) => {
+    if (row.sector) sets.sector.add(row.sector);
+    if (row.industry_group) sets.industry_group.add(row.industry_group);
+    if (row.region) sets.region.add(row.region);
+    if (row.market_cap_bucket) sets.market_cap_bucket.add(row.market_cap_bucket);
+    if (row.risk_bucket) sets.risk_bucket.add(row.risk_bucket);
+    if (row.dividend_profile) sets.dividend_profile.add(row.dividend_profile);
+    (row.style_factors ?? []).forEach((factor) => sets.style_factors.add(factor));
   });
 
   const serialize = (set) => Array.from(set).sort();
-  return Object.fromEntries(Object.entries(options).map(([key, set]) => [key, serialize(set)]));
+  return Object.fromEntries(Object.entries(sets).map(([key, set]) => [key, serialize(set)]));
 }
 
 export function getAllowedFacetKeys() {
