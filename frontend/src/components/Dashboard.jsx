@@ -74,6 +74,24 @@ export default function Dashboard({ user, session, onSignOut }) {
     riskBucket: '',
     styleFactor: '',
   });
+  const metadataFilters = useMemo(
+    () => ({
+      sector: facetFilters.sector || undefined,
+      region: facetFilters.region || undefined,
+      marketCapBucket: facetFilters.marketCapBucket || undefined,
+      riskBucket: facetFilters.riskBucket || undefined,
+      styleFactor: facetFilters.styleFactor || undefined,
+      minIpoYear: ipoYearMin || undefined,
+    }),
+    [
+      facetFilters.marketCapBucket,
+      facetFilters.region,
+      facetFilters.riskBucket,
+      facetFilters.sector,
+      facetFilters.styleFactor,
+      ipoYearMin,
+    ],
+  );
   const [metadataEntry, setMetadataEntry] = useState(null);
   const [metadataPage, setMetadataPage] = useState(1);
   const itemsPerPage = 10;
@@ -202,7 +220,7 @@ export default function Dashboard({ user, session, onSignOut }) {
       setMetadataLoading(true);
       setMetadataError(null);
       try {
-        const payload = await getMetadata();
+        const payload = await getMetadata(metadataFilters);
         if (cancelled) return;
         setMetadataRows(payload?.rows ?? []);
         setMetadataFacets(payload?.facets ?? null);
@@ -219,7 +237,7 @@ export default function Dashboard({ user, session, onSignOut }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [metadataFilters]);
 
   const handleRunBacktest = () => {
     loadInsights();
@@ -304,6 +322,11 @@ export default function Dashboard({ user, session, onSignOut }) {
   const totalPages = Math.max(1, Math.ceil(filteredMetadata.length / itemsPerPage));
   const safePage = Math.min(metadataPage, totalPages);
   const visibleMetadata = filteredMetadata.slice(0, safePage * itemsPerPage);
+
+  const symbolMissingFromResults = useMemo(
+    () => Boolean(symbol && !metadataLoading && !filteredMetadata.some((row) => row.symbol === symbol)),
+    [filteredMetadata, metadataLoading, symbol],
+  );
 
   useEffect(() => {
     setMetadataPage(1);
@@ -867,7 +890,9 @@ export default function Dashboard({ user, session, onSignOut }) {
                   ) : metadataLoading ? (
                     <p className="mt-2 text-sm text-slate-400">Loading metadata…</p>
                   ) : (
-                    <p className="mt-2 text-sm text-slate-400">No metadata available for {symbol}.</p>
+                    <p className="mt-2 text-sm text-slate-400">
+                      No metadata available for {symbol}. Use the Add Single Ticker form below to seed it.
+                    </p>
                   )}
                 </div>
 
