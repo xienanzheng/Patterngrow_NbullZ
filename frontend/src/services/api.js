@@ -79,6 +79,20 @@ export function getMetadata(filters = {}) {
   return request(path);
 }
 
+export function upsertMetadataRow(row) {
+  return request('/api/analytics/metadata/manual', {
+    method: 'POST',
+    body: row,
+  });
+}
+
+export function uploadMetadataCsv(csv) {
+  return request('/api/analytics/metadata/csv', {
+    method: 'POST',
+    body: { csv },
+  });
+}
+
 export function getWatchlist(token) {
   return request('/api/watchlist', { token });
 }

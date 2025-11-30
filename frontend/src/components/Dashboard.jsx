@@ -4,7 +4,7 @@ import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
 import AdvancedBacktest from './AdvancedBacktest';
 import MiniAssistant from './MiniAssistant';
-import { getInsights, getMetadata, getNews } from '../services/api';
+import { getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
 
 const formatCurrency = (value) => {
   if (value == null) return 'N/A';
@@ -77,7 +77,9 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [metadataEntry, setMetadataEntry] = useState(null);
   const [metadataPage, setMetadataPage] = useState(1);
   const itemsPerPage = 10;
-  const [metadataSearch, setMetadataSearch] = useState('');
+  const [newTicker, setNewTicker] = useState({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
+  const [csvText, setCsvText] = useState('');
+  const [metadataActionStatus, setMetadataActionStatus] = useState('');
 
   const [backtestSummary, setBacktestSummary] = useState(null);
   const [simulationSeries, setSimulationSeries] = useState([]);
@@ -284,14 +286,8 @@ export default function Dashboard({ user, session, onSignOut }) {
   const currentIpoYear = currentMetadata?.ipo_year ?? currentMetadata?.ipoYear ?? null;
 
   const filteredMetadata = useMemo(() => {
-    const term = metadataSearch.trim().toUpperCase();
     return metadataRows
       .filter((row) => {
-        if (term) {
-          const symbolMatch = row.symbol?.toUpperCase().includes(term);
-          const nameMatch = row.name?.toUpperCase().includes(term);
-          if (!symbolMatch && !nameMatch) return false;
-        }
         if (ipoYearMin && row.ipo_year && row.ipo_year < ipoYearMin) {
           return false;
         }
@@ -311,7 +307,7 @@ export default function Dashboard({ user, session, onSignOut }) {
 
   useEffect(() => {
     setMetadataPage(1);
-  }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows, metadataSearch]);
+  }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows]);
 
   const indicatorSnapshotDisplay = useMemo(() => {
     const snapshot = indicatorSnapshots?.[primaryIndicator];
@@ -837,16 +833,6 @@ export default function Dashboard({ user, session, onSignOut }) {
                       ))}
                     </select>
                   </label>
-                  <label className="text-xs uppercase tracking-wide text-slate-400">
-                    Search
-                    <input
-                      type="text"
-                      value={metadataSearch}
-                      onChange={(event) => setMetadataSearch(event.target.value)}
-                      placeholder="Symbol or name"
-                      className="mt-1 w-48 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                    />
-                  </label>
                 </div>
               </div>
 
@@ -885,11 +871,11 @@ export default function Dashboard({ user, session, onSignOut }) {
                   )}
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Facet Summary</p>
-                  <ul className="mt-2 space-y-1 text-sm text-slate-300">
-                    <li>Sector → {facetFilters.sector || 'Any'}</li>
-                    <li>Region → {facetFilters.region || 'Any'}</li>
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-400">Facet Summary</p>
+                <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                  <li>Sector → {facetFilters.sector || 'Any'}</li>
+                  <li>Region → {facetFilters.region || 'Any'}</li>
                     <li>Risk → {facetFilters.riskBucket || 'Any'}</li>
                     <li>Style → {facetFilters.styleFactor || 'Any'}</li>
                     <li>IPO Year ≥ {ipoYearMin}</li>
@@ -906,6 +892,116 @@ export default function Dashboard({ user, session, onSignOut }) {
                   </ul>
                 </div>
               </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Add Single Ticker</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="Symbol (required)"
+                      value={newTicker.symbol}
+                      onChange={(e) => setNewTicker((prev) => ({ ...prev, symbol: e.target.value }))}
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Name"
+                      value={newTicker.name}
+                      onChange={(e) => setNewTicker((prev) => ({ ...prev, name: e.target.value }))}
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Sector"
+                      value={newTicker.sector}
+                      onChange={(e) => setNewTicker((prev) => ({ ...prev, sector: e.target.value }))}
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Region"
+                      value={newTicker.region}
+                      onChange={(e) => setNewTicker((prev) => ({ ...prev, region: e.target.value }))}
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <input
+                      type="number"
+                      placeholder="IPO Year"
+                      value={newTicker.ipoYear}
+                      onChange={(e) => setNewTicker((prev) => ({ ...prev, ipoYear: e.target.value }))}
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setMetadataActionStatus('');
+                      if (!newTicker.symbol.trim()) {
+                        setMetadataActionStatus('Symbol is required to add a ticker.');
+                        return;
+                      }
+                      try {
+                        await upsertMetadataRow({
+                          symbol: newTicker.symbol,
+                          name: newTicker.name || undefined,
+                          sector: newTicker.sector || undefined,
+                          region: newTicker.region || undefined,
+                          ipo_year: newTicker.ipoYear ? Number(newTicker.ipoYear) : undefined,
+                        });
+                        setMetadataActionStatus(`Saved ${newTicker.symbol.toUpperCase()}.`);
+                        setNewTicker({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
+                        const payload = await getMetadata();
+                        setMetadataRows(payload?.rows ?? []);
+                        setMetadataFacets(payload?.facets ?? null);
+                      } catch (err) {
+                        setMetadataActionStatus(err instanceof Error ? err.message : 'Unable to add ticker.');
+                      }
+                    }}
+                    className="mt-3 rounded-lg bg-blue-500 px-3 py-2 text-sm font-semibold text-blue-900 transition hover:bg-blue-400"
+                  >
+                    Add Ticker
+                  </button>
+                </div>
+
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Upload CSV (header: symbol,name,sector,region,ipo_year)</p>
+                  <textarea
+                    value={csvText}
+                    onChange={(e) => setCsvText(e.target.value)}
+                    rows={6}
+                    placeholder="symbol,name,sector,region,ipo_year&#10;AAPL,Apple Inc.,Technology,US,1980"
+                    className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setMetadataActionStatus('');
+                      if (!csvText.trim()) {
+                        setMetadataActionStatus('Paste CSV text before uploading.');
+                        return;
+                      }
+                      try {
+                        await uploadMetadataCsv(csvText);
+                        setMetadataActionStatus('CSV uploaded.');
+                        setCsvText('');
+                        const payload = await getMetadata();
+                        setMetadataRows(payload?.rows ?? []);
+                        setMetadataFacets(payload?.facets ?? null);
+                      } catch (err) {
+                        setMetadataActionStatus(err instanceof Error ? err.message : 'Unable to upload CSV.');
+                      }
+                    }}
+                    className="mt-3 rounded-lg border border-blue-500/60 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-200 transition hover:border-blue-400 hover:bg-blue-500/20"
+                  >
+                    Upload CSV
+                  </button>
+                </div>
+              </div>
+
+              {metadataActionStatus ? (
+                <p className="mt-3 text-sm text-blue-200">{metadataActionStatus}</p>
+              ) : null}
 
               <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
                 <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-200">

@@ -1,7 +1,7 @@
 import express from 'express';
 import { computeSignals } from '../utils/computeSignals.js';
 import { fetchNews, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
-import { getTickerMetadata, listFacetOptions, listMetadata } from '../utils/metadata.js';
+import { getTickerMetadata, listFacetOptions, listMetadata, upsertMetadataRows } from '../utils/metadata.js';
 
 const router = express.Router();
 
@@ -51,6 +51,46 @@ router.get('/metadata', async (req, res) => {
     const facets = await listFacetOptions();
 
     res.json({ rows, facets, count: rows.length, page: pageNum, pageSize: sizeNum });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/metadata/manual', async (req, res) => {
+  try {
+    const payload = req.body;
+    const rows = Array.isArray(payload?.rows) ? payload.rows : payload ? [payload] : [];
+    if (!rows.length) {
+      return res.status(400).json({ error: 'Provide a row or rows array with at least symbol.' });
+    }
+    const inserted = await upsertMetadataRows(rows);
+    res.status(201).json({ insertedCount: inserted.length, rows: inserted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/metadata/csv', async (req, res) => {
+  try {
+    const { csv } = req.body ?? {};
+    if (!csv || typeof csv !== 'string') {
+      return res.status(400).json({ error: 'Provide csv text in request body.' });
+    }
+    const lines = csv.trim().split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) {
+      return res.status(400).json({ error: 'CSV must include header and at least one row.' });
+    }
+    const headers = lines[0].split(',').map((h) => h.trim());
+    const rows = lines.slice(1).map((line) => {
+      const cols = line.split(',');
+      const obj = {};
+      headers.forEach((key, idx) => {
+        obj[key] = cols[idx]?.trim();
+      });
+      return obj;
+    });
+    const inserted = await upsertMetadataRows(rows);
+    res.status(201).json({ insertedCount: inserted.length });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

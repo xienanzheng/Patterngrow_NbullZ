@@ -232,6 +232,18 @@ async function upsertSupabaseMetadata(row) {
   return row;
 }
 
+export async function upsertMetadataRows(rows = []) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const sanitized = rows.map((row) => ({
+    ...row,
+    symbol: normalizeSymbol(row.symbol),
+  })).filter((row) => row.symbol);
+  if (sanitized.length === 0) return [];
+  const { data, error } = await supabaseAdmin.from('ticker_metadata').upsert(sanitized, { onConflict: 'symbol' }).select();
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function getTickerMetadata(symbol) {
   if (!symbol) return null;
   try {
