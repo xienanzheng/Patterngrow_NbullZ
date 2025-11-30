@@ -67,6 +67,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [metadataLoading, setMetadataLoading] = useState(true);
   const [metadataError, setMetadataError] = useState(null);
   const [ipoYearMin, setIpoYearMin] = useState(1990);
+  const [metadataSymbolFilter, setMetadataSymbolFilter] = useState('');
   const [facetFilters, setFacetFilters] = useState({
     sector: '',
     region: '',
@@ -76,6 +77,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   });
   const metadataFilters = useMemo(
     () => ({
+      symbol: metadataSymbolFilter || undefined,
       sector: facetFilters.sector || undefined,
       region: facetFilters.region || undefined,
       marketCapBucket: facetFilters.marketCapBucket || undefined,
@@ -90,6 +92,7 @@ export default function Dashboard({ user, session, onSignOut }) {
       facetFilters.sector,
       facetFilters.styleFactor,
       ipoYearMin,
+      metadataSymbolFilter,
     ],
   );
   const [metadataEntry, setMetadataEntry] = useState(null);
@@ -308,6 +311,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const filteredMetadata = useMemo(() => {
     return metadataRows
       .filter((row) => {
+        if (metadataSymbolFilter && row.symbol !== metadataSymbolFilter) return false;
         if (ipoYearMin && row.ipo_year && row.ipo_year < ipoYearMin) {
           return false;
         }
@@ -319,7 +323,7 @@ export default function Dashboard({ user, session, onSignOut }) {
         return true;
       })
       .sort((a, b) => (b.ipo_year ?? 0) - (a.ipo_year ?? 0));
-  }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows]);
+  }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows, metadataSymbolFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredMetadata.length / itemsPerPage));
   const safePage = Math.min(metadataPage, totalPages);
@@ -332,7 +336,7 @@ export default function Dashboard({ user, session, onSignOut }) {
 
   useEffect(() => {
     setMetadataPage(1);
-  }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows]);
+  }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows, metadataSymbolFilter]);
 
   const indicatorSnapshotDisplay = useMemo(() => {
     const snapshot = indicatorSnapshots?.[primaryIndicator];
@@ -898,9 +902,21 @@ export default function Dashboard({ user, session, onSignOut }) {
                   )}
                 </div>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-400">Facet Summary</p>
-                <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Facet Summary</p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                    <li className="flex items-center gap-2">
+                      <span>Symbol → {metadataSymbolFilter || 'Any'}</span>
+                      {metadataSymbolFilter ? (
+                        <button
+                          type="button"
+                          onClick={() => setMetadataSymbolFilter('')}
+                          className="text-xs font-semibold text-blue-300 underline-offset-2 hover:underline"
+                        >
+                          Clear
+                        </button>
+                      ) : null}
+                    </li>
                   <li>Sector → {facetFilters.sector || 'Any'}</li>
                   <li>Region → {facetFilters.region || 'Any'}</li>
                     <li>Risk → {facetFilters.riskBucket || 'Any'}</li>
@@ -1087,8 +1103,17 @@ export default function Dashboard({ user, session, onSignOut }) {
                         <td colSpan="7" className="px-4 py-3 text-slate-500">No tickers match the current facet selection.</td>
                       </tr>
                     ) : (
-                      visibleMetadata.map((row) => (
-                        <tr key={row.symbol} className={row.symbol === symbol ? 'bg-blue-500/5' : ''}>
+                      visibleMetadata.map((row) => {
+                        const isActive = row.symbol === symbol || row.symbol === metadataSymbolFilter;
+                        return (
+                          <tr
+                            key={row.symbol}
+                            onClick={() => {
+                              setSymbol(row.symbol);
+                              setMetadataSymbolFilter(row.symbol);
+                            }}
+                            className={`${isActive ? 'bg-blue-500/10' : ''} cursor-pointer transition hover:bg-blue-500/5`}
+                          >
                           <td className="px-4 py-2 font-semibold text-white">{row.symbol}</td>
                           <td className="px-4 py-2 text-slate-300">{row.industryGroup || row.industry_group || row.sector}</td>
                           <td className="px-4 py-2 text-slate-300">{row.region}</td>
@@ -1102,8 +1127,9 @@ export default function Dashboard({ user, session, onSignOut }) {
                           </td>
                           <td className="px-4 py-2">{row.riskBucket || row.risk_bucket}</td>
                           <td className="px-4 py-2 text-slate-300">{(row.styleFactors || row.style_factors || []).join(', ')}</td>
-                        </tr>
-                      ))
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
