@@ -1,3 +1,4 @@
+import { fetchYahooProfile } from './marketData.js';
 import { supabaseAdmin } from './supabaseClient.js';
 
 // Small fallback sample for offline/dev use.
@@ -156,12 +157,79 @@ export async function listMetadata(filters = {}, options = {}) {
   return applyLocalFilters(staticMetadata, filters).slice(0, options.limit ?? 100);
 }
 
+function classifyMarketCapBucket(cap) {
+  if (!cap || !Number.isFinite(cap)) return null;
+  if (cap >= 200_000_000_000) return 'Mega';
+  if (cap >= 10_000_000_000) return 'Large';
+  if (cap >= 2_000_000_000) return 'Mid';
+  if (cap >= 300_000_000) return 'Small';
+  return 'Micro';
+}
+
+function classifyRegion(country) {
+  if (!country) return null;
+  const normalized = country.toUpperCase();
+  if (['UNITED STATES', 'USA', 'US'].includes(normalized)) return 'US';
+  if (['CANADA', 'CA'].includes(normalized)) return 'Americas';
+  if (['NETHERLANDS', 'GERMANY', 'FRANCE', 'UNITED KINGDOM', 'UK', 'GB'].includes(normalized)) return 'EU';
+  if (['TAIWAN', 'JAPAN', 'KOREA', 'SOUTH KOREA', 'CHINA', 'SINGAPORE', 'HONG KONG'].includes(normalized)) return 'APAC';
+  return 'Global';
+}
+
+function buildMetadataFromYahoo(symbol, yahoo) {
+  if (!yahoo) return null;
+  const price = yahoo.price ?? {};
+  const profile = yahoo.profile ?? {};
+  const marketCap = price.marketCap ?? price.marketCapRaw ?? null;
+  const region = profile.country ? classifyRegion(profile.country) : null;
+  const riskBucket = price.beta != null
+    ? price.beta > 1.2
+      ? 'High Volatility'
+      : price.beta > 0.8
+        ? 'Medium Volatility'
+        : 'Low Volatility'
+    : null;
+
+  return {
+    symbol: symbol,
+    name: price.longName ?? price.shortName ?? symbol,
+    exchange: price.exchangeName ?? price.fullExchangeName ?? null,
+    sector: profile.sector ?? null,
+    industry_group: profile.industry ?? null,
+    region,
+    market_cap_bucket: classifyMarketCapBucket(marketCap),
+    risk_bucket: riskBucket,
+    style_factors: [],
+    dividend_profile: price.trailingAnnualDividendRate ? 'Payer' : 'None/Unknown',
+    prototype_score: null,
+    ipo_year: null,
+    evidence: profile.longBusinessSummary
+      ? `${profile.longBusinessSummary.slice(0, 200)}...`
+      : 'Auto-enriched from Yahoo profile.',
+    source: 'yahoo',
+  };
+}
+
+async function upsertSupabaseMetadata(row) {
+  const { error } = await supabaseAdmin.from('ticker_metadata').upsert(row, { onConflict: 'symbol' });
+  if (error) throw error;
+  return row;
+}
+
 export async function getTickerMetadata(symbol) {
   if (!symbol) return null;
   try {
     const { data, error } = await supabaseAdmin.from('ticker_metadata').select('*').eq('symbol', normalizeSymbol(symbol)).maybeSingle();
     if (error) throw error;
     if (data) return data;
+
+    // Try to fetch and upsert from Yahoo if not found.
+    const yahoo = await fetchYahooProfile(symbol);
+    const row = buildMetadataFromYahoo(symbol, yahoo);
+    if (row) {
+      await upsertSupabaseMetadata(row);
+      return row;
+    }
   } catch (err) {
     console.warn('Supabase metadata unavailable for symbol', symbol, err.message);
   }

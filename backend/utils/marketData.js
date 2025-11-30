@@ -58,6 +58,20 @@ export async function fetchYahooHistory(symbol, range = '1y', interval = '1d') {
   }
 }
 
+export async function fetchYahooProfile(symbol) {
+  const data = await fetchJson(`${yahooBase}/v10/finance/quoteSummary/${encodeURIComponent(symbol)}`, {
+    modules: 'price,summaryProfile',
+  });
+  const summary = data?.quoteSummary?.result?.[0];
+  if (!summary) {
+    throw new Error('Yahoo profile unavailable.');
+  }
+  return {
+    price: summary.price ?? {},
+    profile: summary.summaryProfile ?? {},
+  };
+}
+
 export async function fetchQuote(symbol) {
   try {
     const data = await fetchJson(`${yahooBase}/v7/finance/quote`, { symbols: symbol });
