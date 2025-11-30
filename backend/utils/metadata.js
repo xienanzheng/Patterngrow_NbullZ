@@ -130,6 +130,53 @@ function normalizeSymbol(symbol) {
   return typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
 }
 
+function coerceNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function coerceArray(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value !== 'string') return [];
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item).trim()).filter(Boolean);
+    }
+  } catch (err) {
+    // Not JSON, fall through to delimiter parsing.
+  }
+  return trimmed
+    .split(/[|,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeMetadataRow(row = {}) {
+  const symbol = normalizeSymbol(row.symbol);
+  if (!symbol) return null;
+
+  return {
+    symbol,
+    name: row.name ?? null,
+    exchange: row.exchange ?? null,
+    sector: row.sector ?? null,
+    industry_group: row.industry_group ?? row.industryGroup ?? null,
+    prototype_score: coerceNumber(row.prototype_score ?? row.prototypeScore),
+    market_cap_bucket: row.market_cap_bucket ?? row.marketCapBucket ?? null,
+    region: row.region ?? null,
+    risk_bucket: row.risk_bucket ?? row.riskBucket ?? null,
+    style_factors: coerceArray(row.style_factors ?? row.styleFactors),
+    dividend_profile: row.dividend_profile ?? row.dividendProfile ?? null,
+    ipo_year: coerceNumber(row.ipo_year ?? row.ipoYear),
+    evidence: row.evidence ?? null,
+  };
+}
+
 function applyLocalFilters(rows, filters) {
   return rows.filter((row) => {
     if (filters.symbol && normalizeSymbol(filters.symbol) !== row.symbol) return false;
@@ -234,12 +281,12 @@ async function upsertSupabaseMetadata(row) {
 
 export async function upsertMetadataRows(rows = []) {
   if (!Array.isArray(rows) || rows.length === 0) return [];
-  const sanitized = rows.map((row) => ({
-    ...row,
-    symbol: normalizeSymbol(row.symbol),
-  })).filter((row) => row.symbol);
+  const sanitized = rows
+    .map((row) => normalizeMetadataRow(row))
+    .filter(Boolean);
   if (sanitized.length === 0) return [];
-  const { data, error } = await supabaseAdmin.from('ticker_metadata').upsert(sanitized, { onConflict: 'symbol' }).select();
+  const deduped = Array.from(new Map(sanitized.map((row) => [row.symbol, row])).values());
+  const { data, error } = await supabaseAdmin.from('ticker_metadata').upsert(deduped, { onConflict: 'symbol' }).select();
   if (error) throw error;
   return data ?? [];
 }

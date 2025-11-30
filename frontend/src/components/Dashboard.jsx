@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
@@ -97,7 +97,9 @@ export default function Dashboard({ user, session, onSignOut }) {
   const itemsPerPage = 10;
   const [newTicker, setNewTicker] = useState({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
   const [csvText, setCsvText] = useState('');
+  const [metadataUploading, setMetadataUploading] = useState(false);
   const [metadataActionStatus, setMetadataActionStatus] = useState('');
+  const csvFileInputRef = useRef(null);
 
   const [backtestSummary, setBacktestSummary] = useState(null);
   const [simulationSeries, setSimulationSeries] = useState([]);
@@ -991,6 +993,35 @@ export default function Dashboard({ user, session, onSignOut }) {
 
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                   <p className="text-xs uppercase tracking-wide text-slate-400">Upload CSV (header: symbol,name,sector,region,ipo_year)</p>
+                  <input
+                    ref={csvFileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const text = await file.text();
+                        setCsvText(text);
+                        setMetadataActionStatus(`Loaded ${file.name}. Review and click Upload CSV to save.`);
+                      } catch (err) {
+                        setMetadataActionStatus('Unable to read CSV file. Try again or paste the contents.');
+                      } finally {
+                        event.target.value = '';
+                      }
+                    }}
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => csvFileInputRef.current?.click()}
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-blue-500 hover:text-blue-200"
+                    >
+                      Choose CSV File
+                    </button>
+                    <span className="text-xs text-slate-400">or paste CSV text below.</span>
+                  </div>
                   <textarea
                     value={csvText}
                     onChange={(e) => setCsvText(e.target.value)}
@@ -1003,23 +1034,28 @@ export default function Dashboard({ user, session, onSignOut }) {
                     onClick={async () => {
                       setMetadataActionStatus('');
                       if (!csvText.trim()) {
-                        setMetadataActionStatus('Paste CSV text before uploading.');
+                        setMetadataActionStatus('Choose a CSV file or paste CSV text before uploading.');
                         return;
                       }
+                      setMetadataUploading(true);
+                      setMetadataActionStatus('Uploading CSV…');
                       try {
                         await uploadMetadataCsv(csvText);
-                        setMetadataActionStatus('CSV uploaded.');
+                        setMetadataActionStatus('CSV uploaded and saved.');
                         setCsvText('');
                         const payload = await getMetadata();
                         setMetadataRows(payload?.rows ?? []);
                         setMetadataFacets(payload?.facets ?? null);
                       } catch (err) {
                         setMetadataActionStatus(err instanceof Error ? err.message : 'Unable to upload CSV.');
+                      } finally {
+                        setMetadataUploading(false);
                       }
                     }}
+                    disabled={metadataUploading}
                     className="mt-3 rounded-lg border border-blue-500/60 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-200 transition hover:border-blue-400 hover:bg-blue-500/20"
                   >
-                    Upload CSV
+                    {metadataUploading ? 'Uploading…' : 'Upload CSV'}
                   </button>
                 </div>
               </div>
