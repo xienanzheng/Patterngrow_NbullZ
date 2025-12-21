@@ -1,4 +1,4 @@
-# StockDashboard Backend
+# StockDashboard Backend (Streamlit has been deprecated.)
 
 Express-based API that mirrors the analytics previously implemented in Streamlit. The server exposes two route groups:
 
