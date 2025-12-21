@@ -1,4 +1,4 @@
-# StockDashboard Monorepo
+# StockDashboard (Made using contents and knowledge learnt from INFO253A, INFO202 and other coding classes)
 
 Modernised full-stack workspace for the StockDashboard project. The legacy Streamlit app has been replaced with a React + Vite frontend and a Node.js + Express analytics API that integrate with Supabase for authentication, database, and storage. The repository matches Vercel's hybrid deployment model so the same codebase can be deployed locally or on Vercel with minimal configuration changes.
 
@@ -115,4 +115,4 @@ The React app proxies API requests to `http://localhost:4000/api/*` by default (
 - `vercel.json` maps `/api/*` requests to the Express backend and serves the Vite build output from `frontend/dist`.
 - **Metadata Explorer**: `/api/analytics/metadata` returns prototype/periphery scores, region rules, and facet tags (sector, region, market cap bucket, risk bucket, style factors). The Market Overview tab now includes a prototype slider, facet filters, and per-symbol evidence text that mirrors the course’s category focus. No extra env vars are required for this; data is bundled in `backend/utils/metadata.js`.
 
-Happy shipping!
+Have fun. :) 
