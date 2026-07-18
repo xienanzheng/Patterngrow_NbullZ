@@ -132,49 +132,85 @@ export function backtestStrategy(points, indicator) {
   return { signals, context: {} };
 }
 
-export function runTradingSimulation(points, signals, initialCapital) {
+function signalWeight(signal) {
+  if (signal.endsWith('strong')) return 0.5;
+  if (signal.endsWith('medium')) return 0.3;
+  if (signal.endsWith('weak')) return 0.1;
+  return 1;
+}
+
+export function runTradingSimulationDetailed(points, signals, initialCapital, options = {}) {
+  const { transactionCostPct = 0.001, slippagePct = 0.0005, stopLossPct = null } = options;
   const portfolio = [];
+  const trades = [];
   let cash = initialCapital;
   let shares = 0;
   let position = 0;
+  let entryPrice = null;
+  let costsPaid = 0;
 
   points.forEach((row, index) => {
-    if (index === 0) {
-      portfolio.push({ date: row.date, value: initialCapital });
+    const price = getClose(row);
+    if (index === 0 || !Number.isFinite(price) || price <= 0) {
+      portfolio.push({ date: row.date, value: cash + shares * (Number.isFinite(price) ? price : 0) });
       return;
     }
-    const price = getClose(row);
+
+    // Stop-loss exits before any new signal is considered on the same bar.
+    if (stopLossPct != null && position === 1 && entryPrice != null
+        && price <= entryPrice * (1 - stopLossPct)) {
+      const execPrice = price * (1 - slippagePct);
+      const proceeds = shares * execPrice;
+      const fee = proceeds * transactionCostPct;
+      cash += proceeds - fee;
+      costsPaid += fee;
+      trades.push({ type: 'stop', date: row.date, price: execPrice, pnlPct: ((execPrice - entryPrice) / entryPrice) * 100 });
+      shares = 0;
+      position = 0;
+      entryPrice = null;
+    }
+
     const signal = signals[index]?.signal ?? 'hold';
-
     if (signal.startsWith('buy') && position === 0) {
-      let weight = 1;
-      if (signal.endsWith('strong')) weight = 0.5;
-      else if (signal.endsWith('medium')) weight = 0.3;
-      else if (signal.endsWith('weak')) weight = 0.1;
-
-      const toInvest = cash * weight;
-      const purchased = toInvest / price;
-      shares += purchased;
-      cash -= toInvest;
-      if (shares > 0) position = 1;
+      const toInvest = cash * signalWeight(signal);
+      const execPrice = price * (1 + slippagePct);
+      const fee = toInvest * transactionCostPct;
+      const purchased = (toInvest - fee) / execPrice;
+      if (purchased > 0) {
+        shares += purchased;
+        cash -= toInvest;
+        costsPaid += fee;
+        entryPrice = execPrice;
+        position = 1;
+        trades.push({ type: 'buy', date: row.date, price: execPrice });
+      }
     } else if (signal.startsWith('sell') && position === 1) {
-      let weight = 1;
-      if (signal.endsWith('strong')) weight = 0.5;
-      else if (signal.endsWith('medium')) weight = 0.3;
-      else if (signal.endsWith('weak')) weight = 0.1;
-
-      const toSell = shares * weight;
-      cash += toSell * price;
+      const toSell = shares * signalWeight(signal);
+      const execPrice = price * (1 - slippagePct);
+      const proceeds = toSell * execPrice;
+      const fee = proceeds * transactionCostPct;
+      cash += proceeds - fee;
+      costsPaid += fee;
+      trades.push({
+        type: 'sell',
+        date: row.date,
+        price: execPrice,
+        pnlPct: entryPrice ? ((execPrice - entryPrice) / entryPrice) * 100 : null,
+      });
       shares -= toSell;
       if (shares <= 1e-6) {
         shares = 0;
         position = 0;
+        entryPrice = null;
       }
     }
 
-    const value = cash + shares * price;
-    portfolio.push({ date: row.date, value });
+    portfolio.push({ date: row.date, value: cash + shares * price });
   });
 
-  return portfolio;
+  return { portfolio, trades, costsPaid };
+}
+
+export function runTradingSimulation(points, signals, initialCapital, options = {}) {
+  return runTradingSimulationDetailed(points, signals, initialCapital, options).portfolio;
 }
