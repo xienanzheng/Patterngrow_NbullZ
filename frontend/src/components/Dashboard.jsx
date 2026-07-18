@@ -329,11 +329,6 @@ export default function Dashboard({ user, session, onSignOut }) {
   const safePage = Math.min(metadataPage, totalPages);
   const visibleMetadata = filteredMetadata.slice(0, safePage * itemsPerPage);
 
-  const symbolMissingFromResults = useMemo(
-    () => Boolean(symbol && !metadataLoading && !filteredMetadata.some((row) => row.symbol === symbol)),
-    [filteredMetadata, metadataLoading, symbol],
-  );
-
   useEffect(() => {
     setMetadataPage(1);
   }, [facetFilters.marketCapBucket, facetFilters.region, facetFilters.riskBucket, facetFilters.sector, facetFilters.styleFactor, ipoYearMin, metadataRows, metadataSymbolFilter]);
@@ -1021,7 +1016,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                         const text = await file.text();
                         setCsvText(text);
                         setMetadataActionStatus(`Loaded ${file.name}. Review and click Upload CSV to save.`);
-                      } catch (err) {
+                      } catch {
                         setMetadataActionStatus('Unable to read CSV file. Try again or paste the contents.');
                       } finally {
                         event.target.value = '';
