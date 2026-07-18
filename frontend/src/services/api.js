@@ -79,17 +79,19 @@ export function getMetadata(filters = {}) {
   return request(path);
 }
 
-export function upsertMetadataRow(row) {
+export function upsertMetadataRow(row, token) {
   return request('/api/analytics/metadata/manual', {
     method: 'POST',
     body: row,
+    token,
   });
 }
 
-export function uploadMetadataCsv(csv) {
+export function uploadMetadataCsv(csv, token) {
   return request('/api/analytics/metadata/csv', {
     method: 'POST',
     body: { csv },
+    token,
   });
 }
 
@@ -112,7 +114,7 @@ export function removeWatchlistSymbol(id, token) {
   });
 }
 
-export function postChatMessage({ prompt, provider, model, apiKey, temperature }) {
+export function postChatMessage({ prompt, provider, model, apiKey, temperature }, token) {
   return request('/api/analytics/chat', {
     method: 'POST',
     body: {
@@ -122,5 +124,6 @@ export function postChatMessage({ prompt, provider, model, apiKey, temperature }
       apiKey,
       temperature,
     },
+    token,
   });
 }

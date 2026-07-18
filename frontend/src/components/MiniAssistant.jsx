@@ -20,7 +20,7 @@ function saveKey(key, value) {
   }
 }
 
-export default function MiniAssistant() {
+export default function MiniAssistant({ accessToken }) {
   const [provider, setProvider] = useState('openai');
   const [model, setModel] = useState(PROVIDERS[0].defaultModel);
   const [prompt, setPrompt] = useState('Summarise bullish and bearish drivers for TSLA this week.');
@@ -60,7 +60,7 @@ export default function MiniAssistant() {
         model,
         apiKey: apiKey || undefined,
         temperature,
-      });
+      }, accessToken);
       setHistory((prev) => [
         {
           id: Date.now(),
