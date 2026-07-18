@@ -4,7 +4,7 @@ import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
 import AdvancedBacktest from './AdvancedBacktest';
 import MiniAssistant from './MiniAssistant';
-import { getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
+import { getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
 
 const formatCurrency = (value) => {
   if (value == null) return 'N/A';
@@ -113,6 +113,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [priceTargets, setPriceTargets] = useState(null);
   const [conviction, setConviction] = useState(null);
   const [directional, setDirectional] = useState(null);
+  const [accountability, setAccountability] = useState(null);
   const [technicalSummary, setTechnicalSummary] = useState(null);
   const [dataSource, setDataSource] = useState('yahoo');
   const [activeTab, setActiveTab] = useState('overview');
@@ -205,6 +206,22 @@ export default function Dashboard({ user, session, onSignOut }) {
       cancelRef.current = true;
     };
   }, [loadInsights]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAccountability = async () => {
+      try {
+        const payload = await getAccountability(symbol);
+        if (!cancelled) setAccountability(payload ?? null);
+      } catch {
+        if (!cancelled) setAccountability(null);
+      }
+    };
+    loadAccountability();
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
 
   useEffect(() => {
     let cancelled = false;
@@ -780,6 +797,52 @@ export default function Dashboard({ user, session, onSignOut }) {
                     {priceTargets?.conservative ? `$${priceTargets.conservative.toFixed(2)}` : 'N/A'}
                   </p>
                 </div>
+              </div>
+            </section>
+          ) : null}
+
+          {accountability?.rows?.length ? (
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+              <h3 className="text-lg font-semibold text-white">Forecast Accountability</h3>
+              <p className="mt-1 text-xs text-slate-400">
+                What the models said on past days vs. what actually happened.
+                {accountability.summary?.bandHitRate != null
+                  ? ` Band hit rate ${(accountability.summary.bandHitRate * 100).toFixed(0)}% · direction ${(accountability.summary.directionHitRate * 100).toFixed(0)}% over ${accountability.summary.graded} graded forecasts.`
+                  : ''}
+              </p>
+              <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+                <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-200">
+                  <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Forecast date</th>
+                      <th className="px-4 py-2 text-left">Model</th>
+                      <th className="px-4 py-2 text-right">Predicted</th>
+                      <th className="px-4 py-2 text-right">Band</th>
+                      <th className="px-4 py-2 text-right">Actual</th>
+                      <th className="px-4 py-2 text-center">In band</th>
+                      <th className="px-4 py-2 text-center">Direction</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {accountability.rows.slice(0, 10).map((row) => (
+                      <tr key={`${row.snapshotDate}-${row.model}`}>
+                        <td className="px-4 py-2 text-slate-300">{row.snapshotDate}</td>
+                        <td className="px-4 py-2 text-slate-300">{row.model}</td>
+                        <td className="px-4 py-2 text-right">${row.base.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right text-slate-400">
+                          {row.lower != null ? `${row.lower.toFixed(2)}–${row.upper.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold text-white">${row.actual.toFixed(2)}</td>
+                        <td className={`px-4 py-2 text-center ${row.inBand ? 'text-emerald-300' : 'text-red-300'}`}>
+                          {row.inBand == null ? '—' : row.inBand ? 'Yes' : 'No'}
+                        </td>
+                        <td className={`px-4 py-2 text-center ${row.directionHit ? 'text-emerald-300' : 'text-red-300'}`}>
+                          {row.directionHit == null ? '—' : row.directionHit ? 'Hit' : 'Miss'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           ) : null}
