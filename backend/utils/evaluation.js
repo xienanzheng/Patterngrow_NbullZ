@@ -73,7 +73,10 @@ export function evaluateForecastModel(history, model, { folds = 4, horizon = 10,
     const actual = test.map((r) => Number(r.close));
     return forecastMetrics(predicted, actual, lastTrainClose);
   });
-  return { model, folds: perFold.length, horizon, ...averageMetrics(perFold) };
+  // Report only folds that actually contributed metrics, so the payload
+  // never claims more out-of-sample coverage than was used.
+  const contributing = perFold.filter((f) => f.mae != null).length;
+  return { model, folds: contributing, horizon, ...averageMetrics(perFold) };
 }
 
 export function evaluateNaiveBaseline(history, { folds = 4, horizon = 10, minTrain = 60 } = {}) {
@@ -93,7 +96,8 @@ export function evaluateNaiveBaseline(history, { folds = 4, horizon = 10, minTra
     });
     return { ...base, directionalAccuracy: count ? up / count : null };
   });
-  return { model: 'naive', folds: perFold.length, horizon, ...averageMetrics(perFold) };
+  const contributing = perFold.filter((f) => f.mae != null).length;
+  return { model: 'naive', folds: contributing, horizon, ...averageMetrics(perFold) };
 }
 
 export function maxDrawdownPct(portfolio) {

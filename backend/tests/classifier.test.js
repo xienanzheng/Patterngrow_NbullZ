@@ -20,6 +20,15 @@ const mkMomentumHistory = (n) => {
 };
 
 describe('buildDataset', () => {
+  it('drops rows whose label-bar close is invalid instead of mislabeling them 0', () => {
+    const history = mkMomentumHistory(300);
+    const clean = buildDataset(history, 5);
+    history[100] = { ...history[100], close: NaN };
+    const gappy = buildDataset(history, 5);
+    expect(gappy.X.length).toBeLessThan(clean.X.length);
+    gappy.y.forEach((label) => expect([0, 1]).toContain(label));
+  });
+
   it('builds finite feature rows with binary labels', () => {
     const { X, y } = buildDataset(mkMomentumHistory(300), 5);
     expect(X.length).toBeGreaterThan(200);

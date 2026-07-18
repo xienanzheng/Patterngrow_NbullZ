@@ -89,7 +89,17 @@ export function predictFuturePrices(points, _indicator = 'sma', model = 'drift',
   if (closes.length < 10 || !FORECAST_MODEL_IDS.includes(resolved)) return [];
 
   const horizon = Math.max(1, Math.min(365, Number(days) || 60));
-  const lastDate = new Date(points[points.length - 1].date);
+  // Anchor the forecast dates at the last bar with a valid close so the
+  // series doesn't jump when trailing bars carry null/zero closes.
+  let lastDate = null;
+  for (let i = points.length - 1; i >= 0; i -= 1) {
+    const c = Number(points[i].close);
+    if (Number.isFinite(c) && c > 0) {
+      lastDate = new Date(points[i].date);
+      break;
+    }
+  }
+  if (!lastDate) return [];
   const last = closes[closes.length - 1];
   const returns = logReturns(closes);
   const sigma = stdDev(returns);

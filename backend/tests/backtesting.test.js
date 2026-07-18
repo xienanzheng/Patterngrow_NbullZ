@@ -25,6 +25,25 @@ describe('runTradingSimulationDetailed', () => {
     expect(trades.some((t) => t.type === 'stop')).toBe(true);
   });
 
+  it('marks open positions at the last valid price on bad data bars (no phantom drawdown)', () => {
+    const points = [100, 100, NaN, 100, 100].map((c, i) => day(i, c));
+    const signals = [hold, buy, hold, hold, hold];
+    const { portfolio } = runTradingSimulationDetailed(points, signals, 10000, {
+      transactionCostPct: 0, slippagePct: 0,
+    });
+    // Bar 2 has an invalid close; the position must not be valued at zero.
+    expect(portfolio[2].value).toBeCloseTo(portfolio[1].value, 6);
+  });
+
+  it('winRate inputs are net of fees: a sub-fee gross gain is a losing trade', () => {
+    const points = [100, 100, 100.15].map((c, i) => day(i, c));
+    const signals = [hold, buy, sell];
+    const { trades, portfolio } = runTradingSimulationDetailed(points, signals, 10000, {});
+    const exit = trades.find((t) => t.type === 'sell');
+    expect(exit.pnlPct).toBeLessThan(0);
+    expect(portfolio.at(-1).value).toBeLessThan(10000);
+  });
+
   it('portfolio has one row per input bar and legacy wrapper matches', () => {
     const points = [100, 101, 102].map((c, i) => day(i, c));
     const signals = [hold, hold, hold];

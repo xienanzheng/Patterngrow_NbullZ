@@ -6,7 +6,7 @@ import { evaluateForecastModel, evaluateNaiveBaseline, evaluateStrategy } from '
 import { FORECAST_MODEL_IDS } from '../utils/predictions.js';
 import { fetchNews, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
 import { getTickerMetadata, listFacetOptions, listMetadata, upsertMetadataRows } from '../utils/metadata.js';
-import { chatLimiter, publicLimiter } from '../utils/rateLimits.js';
+import { chatLimiter, evaluateLimiter, publicLimiter } from '../utils/rateLimits.js';
 
 const router = express.Router();
 
@@ -175,7 +175,7 @@ router.get('/insights', async (req, res) => {
   }
 });
 
-router.get('/evaluate', async (req, res) => {
+router.get('/evaluate', evaluateLimiter, async (req, res) => {
   try {
     const { symbol, range = '2y', interval = '1d', indicator = 'sma' } = req.query;
     if (!symbol) {

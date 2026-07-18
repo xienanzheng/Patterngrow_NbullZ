@@ -9,6 +9,15 @@ export const publicLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Walk-forward evaluation is the most CPU-expensive route (grid-search fits,
+// logistic training, multiple folds) — cap it tighter than general reads.
+export const evaluateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+
 // Mounted after requireAuth, so req.user is always present — no IP fallback needed.
 export const chatLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
