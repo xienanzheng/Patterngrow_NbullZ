@@ -116,6 +116,34 @@ export function scanWatchlist(token) {
   return request('/api/watchlist/scan', { token });
 }
 
+export function getAlerts(token) {
+  return request('/api/alerts', { token });
+}
+
+export function createAlert({ symbol, ruleType, threshold }, token) {
+  return request('/api/alerts', { method: 'POST', body: { symbol, ruleType, threshold }, token });
+}
+
+export function deleteAlert(id, token) {
+  return request(`/api/alerts/${encodeURIComponent(id)}`, { method: 'DELETE', token });
+}
+
+export function markAlertEventsSeen(token) {
+  return request('/api/alerts/events/seen', { method: 'POST', body: {}, token });
+}
+
+export function getPositions(token) {
+  return request('/api/positions', { token });
+}
+
+export function createPosition({ symbol, shares, costBasis, openedAt }, token) {
+  return request('/api/positions', { method: 'POST', body: { symbol, shares, costBasis, openedAt }, token });
+}
+
+export function deletePosition(id, token) {
+  return request(`/api/positions/${encodeURIComponent(id)}`, { method: 'DELETE', token });
+}
+
 export function addWatchlistSymbol(symbol, token) {
   return request('/api/watchlist', {
     method: 'POST',
