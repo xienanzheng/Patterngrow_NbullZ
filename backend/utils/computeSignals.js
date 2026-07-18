@@ -1,4 +1,4 @@
-import { backtestStrategy, runTradingSimulation } from './backtesting.js';
+import { backtestStrategy, runTradingSimulationDetailed } from './backtesting.js';
 import {
   calculateADX,
   calculateBollingerBands,
@@ -7,11 +7,48 @@ import {
   calculateSMA,
   calculateStochasticOscillator,
   calculateVWAP,
+  ema,
 } from './indicators.js';
+import { directionalForecast } from './classifier.js';
 import { predictFuturePrices } from './predictions.js';
 import { fetchNews, fetchQuote, fetchYahooHistory, generateMockHistory } from './marketData.js';
 
-const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+// A qualitative state only flips after the (smoothed) indicator confirms it
+// for `n` consecutive sessions — one noisy bar can't rewrite the narrative.
+export function confirmedState(series, predicate, n = 2) {
+  const tail = series.filter((v) => v != null).slice(-n);
+  return tail.length === n && tail.every(predicate);
+}
+
+export function computeConvictionScore(history) {
+  const close = Number(history.at(-1)?.close);
+  const sma = calculateSMA(history).at(-1);
+  const rsiSmoothed = ema(calculateRSI(history), 3).at(-1);
+  const { macd, signal } = calculateMACD(history);
+  const macdDiv = macd.at(-1) != null && signal.at(-1) != null ? macd.at(-1) - signal.at(-1) : null;
+  const bands = calculateBollingerBands(history);
+  const { percentK } = calculateStochasticOscillator(history);
+  const { adx, plusDI, minusDI } = calculateADX(history);
+  const k = percentK.at(-1);
+
+  const votes = {
+    sma: sma != null && Number.isFinite(close) ? (close > sma ? 1 : -1) : 0,
+    rsi: rsiSmoothed == null ? 0 : rsiSmoothed < 30 ? 1 : rsiSmoothed > 70 ? -1 : 0,
+    macd: macdDiv == null ? 0 : macdDiv > 0 ? 1 : -1,
+    bollinger: bands.upper.at(-1) == null || !Number.isFinite(close) ? 0
+      : close < bands.lower.at(-1) ? 1 : close > bands.upper.at(-1) ? -1 : 0,
+    stochastic: k == null ? 0 : k < 20 ? 1 : k > 80 ? -1 : 0,
+    adx: adx.at(-1) == null || adx.at(-1) < 25 ? 0
+      : (plusDI.at(-1) ?? 0) > (minusDI.at(-1) ?? 0) ? 1 : -1,
+  };
+  const weights = { sma: 0.2, rsi: 0.2, macd: 0.2, bollinger: 0.15, stochastic: 0.15, adx: 0.1 };
+  const score = Object.entries(votes).reduce((acc, [key, vote]) => acc + weights[key] * vote, 0);
+  const label = score >= 0.5 ? 'Strong Buy'
+    : score >= 0.2 ? 'Buy'
+      : score > -0.2 ? 'Neutral'
+        : score > -0.5 ? 'Sell' : 'Strong Sell';
+  return { score: Number(score.toFixed(3)), label, votes };
+}
 
 function summariseSignals(signals) {
   return signals.reduce(
@@ -84,7 +121,7 @@ function formatNumber(value, digits = 2) {
   return Number(value).toFixed(digits);
 }
 
-function buildTechnicalSummary({ indicatorSnapshots, momentum, signalSummary, priceTargets }) {
+function buildTechnicalSummary({ history, indicatorSnapshots, momentum, signalSummary, priceTargets, conviction }) {
   const parts = [];
 
   if (momentum) {
@@ -96,9 +133,14 @@ function buildTechnicalSummary({ indicatorSnapshots, momentum, signalSummary, pr
 
   const rsi = indicatorSnapshots?.rsi;
   if (rsi != null) {
-    if (rsi >= 70) parts.push(`RSI sits at ${formatNumber(rsi)} → overbought territory.`);
-    else if (rsi <= 30) parts.push(`RSI sits at ${formatNumber(rsi)} → oversold territory.`);
-    else parts.push(`RSI is neutral at ${formatNumber(rsi)}.`);
+    const rsiSeries = ema(calculateRSI(history), 3);
+    if (confirmedState(rsiSeries, (v) => v >= 70)) {
+      parts.push(`RSI has held overbought for 2+ sessions (now ${formatNumber(rsi)}).`);
+    } else if (confirmedState(rsiSeries, (v) => v <= 30)) {
+      parts.push(`RSI has held oversold for 2+ sessions (now ${formatNumber(rsi)}).`);
+    } else {
+      parts.push(`RSI is neutral/unconfirmed at ${formatNumber(rsi)}.`);
+    }
   }
 
   const macdDiv = indicatorSnapshots?.macd?.divergence;
@@ -110,8 +152,12 @@ function buildTechnicalSummary({ indicatorSnapshots, momentum, signalSummary, pr
   const adxBlock = indicatorSnapshots?.adx;
   const adxValue = adxBlock?.adx ?? null;
   if (adxValue != null) {
-    if (adxValue >= 25) parts.push(`ADX ${formatNumber(adxValue)} indicates a trending market.`);
-    else parts.push(`ADX ${formatNumber(adxValue)} suggests weak trend strength.`);
+    const adxSeries = calculateADX(history).adx;
+    if (confirmedState(adxSeries, (v) => v >= 25)) {
+      parts.push(`ADX ${formatNumber(adxValue)} confirms a trending market (2+ sessions).`);
+    } else {
+      parts.push(`ADX ${formatNumber(adxValue)} — trend not yet confirmed.`);
+    }
     if (adxBlock.plusDI != null && adxBlock.minusDI != null) {
       const dominance = adxBlock.plusDI > adxBlock.minusDI ? 'buyers' : 'sellers';
       parts.push(`Directional movement favours ${dominance} (+DI ${formatNumber(adxBlock.plusDI)} vs −DI ${formatNumber(adxBlock.minusDI)}).`);
@@ -132,8 +178,12 @@ function buildTechnicalSummary({ indicatorSnapshots, momentum, signalSummary, pr
 
   if (priceTargets?.base != null) {
     parts.push(
-      `Model targets → base ${priceTargets.base.toFixed(2)}, conservative ${priceTargets.conservative?.toFixed(2)}, optimistic ${priceTargets.optimistic?.toFixed(2)}.`,
+      `Model targets (80% volatility band) → base ${priceTargets.base.toFixed(2)}, lower ${priceTargets.conservative?.toFixed(2)}, upper ${priceTargets.optimistic?.toFixed(2)}.`,
     );
+  }
+
+  if (conviction) {
+    parts.push(`Ensemble conviction: ${conviction.label} (score ${conviction.score >= 0 ? '+' : ''}${conviction.score}).`);
   }
 
   return parts.join(' ');
@@ -198,7 +248,9 @@ export async function computeSignals(symbol, options = {}) {
   }
 
   const { signals } = backtestStrategy(history, indicator);
-  const simulation = runTradingSimulation(history, signals, initialCapital);
+  const { portfolio: simulation, trades, costsPaid } = runTradingSimulationDetailed(
+    history, signals, initialCapital, {},
+  );
   const prediction = predictFuturePrices(history, indicator, forecastModel, forecastHorizon);
 
   const summary = summariseSignals(signals);
@@ -218,16 +270,25 @@ export async function computeSignals(symbol, options = {}) {
   const latestClose = history.at(-1)?.close ?? null;
   const priceTargets = prediction.length
     ? {
-        optimistic: clamp(prediction.at(-1).value * 1.08, 0, Number.POSITIVE_INFINITY),
+        optimistic: prediction.at(-1).upper,
         base: prediction.at(-1).value,
-        conservative: clamp(prediction.at(-1).value * 0.92, 0, Number.POSITIVE_INFINITY),
+        conservative: prediction.at(-1).lower,
       }
     : null;
+  const conviction = computeConvictionScore(history);
+  let directional = null;
+  try {
+    directional = directionalForecast(history, { horizon: 5 });
+  } catch {
+    directional = null;
+  }
   const technicalSummary = buildTechnicalSummary({
+    history,
     indicatorSnapshots,
     momentum,
     signalSummary: summary,
     priceTargets,
+    conviction,
   });
 
   const dataSource = history[0]?.source ?? 'unknown';
@@ -251,10 +312,14 @@ export async function computeSignals(symbol, options = {}) {
       initialCapital,
       finalValue,
       totalReturn,
+      trades: trades.length,
+      costsPaid,
     },
     forecastModel,
     forecast: prediction,
     priceTargets,
+    conviction,
+    directional,
     technicalSummary,
     dataSource,
   };
