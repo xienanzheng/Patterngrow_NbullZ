@@ -108,6 +108,10 @@ export function getWatchlist(token) {
   return request('/api/watchlist', { token });
 }
 
+export function scanWatchlist(token) {
+  return request('/api/watchlist/scan', { token });
+}
+
 export function addWatchlistSymbol(symbol, token) {
   return request('/api/watchlist', {
     method: 'POST',
