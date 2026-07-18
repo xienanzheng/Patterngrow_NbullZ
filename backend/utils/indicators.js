@@ -10,7 +10,7 @@ const getHigh = (row) => toNumber(row.high);
 const getLow = (row) => toNumber(row.low);
 const getVolume = (row) => toNumber(row.volume);
 
-const ema = (values, period) => {
+export const ema = (values, period) => {
   const multiplier = 2 / (period + 1);
   const result = new Array(values.length).fill(null);
   let previous = null;
