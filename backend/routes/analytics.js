@@ -1,4 +1,5 @@
 import express from 'express';
+import { requireAuth } from '../utils/authMiddleware.js';
 import { computeSignals } from '../utils/computeSignals.js';
 import { fetchNews, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
 import { getTickerMetadata, listFacetOptions, listMetadata, upsertMetadataRows } from '../utils/metadata.js';
@@ -56,7 +57,7 @@ router.get('/metadata', async (req, res) => {
   }
 });
 
-router.post('/metadata/manual', async (req, res) => {
+router.post('/metadata/manual', requireAuth, async (req, res) => {
   try {
     const payload = req.body;
     const rows = Array.isArray(payload?.rows) ? payload.rows : payload ? [payload] : [];
@@ -70,7 +71,7 @@ router.post('/metadata/manual', async (req, res) => {
   }
 });
 
-router.post('/metadata/csv', async (req, res) => {
+router.post('/metadata/csv', requireAuth, async (req, res) => {
   try {
     const { csv } = req.body ?? {};
     if (!csv || typeof csv !== 'string') {
@@ -180,7 +181,7 @@ const MINI_NZ_DIRECTIVE = [
   'Tone: decisive, professional, evidence-driven; never evasive.',
 ].join('\n');
 
-router.post('/chat', async (req, res) => {
+router.post('/chat', requireAuth, async (req, res) => {
   try {
     const { prompt, provider = 'openai', model, apiKey, temperature } = req.body ?? {};
     if (!prompt || typeof prompt !== 'string') {
