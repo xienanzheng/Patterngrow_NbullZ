@@ -1,6 +1,9 @@
 import express from 'express';
 import { requireAuth } from '../utils/authMiddleware.js';
+import { directionalForecast } from '../utils/classifier.js';
 import { computeSignals } from '../utils/computeSignals.js';
+import { evaluateForecastModel, evaluateNaiveBaseline, evaluateStrategy } from '../utils/evaluation.js';
+import { FORECAST_MODEL_IDS } from '../utils/predictions.js';
 import { fetchNews, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
 import { getTickerMetadata, listFacetOptions, listMetadata, upsertMetadataRows } from '../utils/metadata.js';
 import { chatLimiter, publicLimiter } from '../utils/rateLimits.js';
@@ -167,6 +170,33 @@ router.get('/insights', async (req, res) => {
     const metadata = await getTickerMetadata(symbol);
 
     res.json({ ...payload, metadata });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/evaluate', async (req, res) => {
+  try {
+    const { symbol, range = '2y', interval = '1d', indicator = 'sma' } = req.query;
+    if (!symbol) {
+      return res.status(400).json({ error: 'Query parameter "symbol" is required.' });
+    }
+    const horizon = Math.min(30, Math.max(3, Number(req.query.horizon) || 10));
+    const folds = Math.min(8, Math.max(2, Number(req.query.folds) || 4));
+    const history = await fetchYahooHistory(symbol, range, interval);
+
+    const forecasts = FORECAST_MODEL_IDS.map((model) =>
+      evaluateForecastModel(history, model, { folds, horizon }));
+    const baseline = evaluateNaiveBaseline(history, { folds, horizon });
+    const strategy = evaluateStrategy(history, indicator, {});
+    let directional = null;
+    try {
+      directional = directionalForecast(history, { horizon: 5 });
+    } catch {
+      directional = null;
+    }
+
+    res.json({ symbol, range, horizon, folds, forecasts, baseline, strategy, directional });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
