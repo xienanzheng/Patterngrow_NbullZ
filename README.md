@@ -122,6 +122,25 @@ The React app proxies API requests to `http://localhost:4000/api/*` by default (
 - **Simulation realism** (`backend/utils/backtesting.js`): transaction costs, slippage, and optional stop-loss are modeled; the insights payload reports trade count and total costs paid.
 - Honest-by-design: none of this predicts the market reliably; the point of the evaluation harness is that every number ships with its out-of-sample track record instead of an in-sample illusion.
 
+## Product suite (setup required)
+
+The alerts, portfolio, and accountability features need two one-time steps:
+
+1. **Supabase tables** — run `backend/sql/features.sql` once in the Supabase SQL editor
+   (creates `forecast_log`, `alerts`, `alert_events`, `positions`). All backend code
+   degrades gracefully (warns + returns empty) until the tables exist.
+2. **`CRON_SECRET`** — set this env var in Vercel so the weekday alerts cron
+   (`vercel.json` → `/api/alerts/run`, 20:30 UTC Mon–Fri) can authenticate. Without it
+   the run endpoint rejects everything.
+
+Feature map:
+- **Grounded assistant** — `/api/analytics/chat` accepts a `symbol`; the server injects live quote/indicators/conviction/forecast/news into the prompt.
+- **Watchlist scan** — `GET /api/watchlist/scan` ranks your watchlist by ensemble conviction (auth required).
+- **Forecast accountability** — every real `/insights` call snapshots the day's forecast to `forecast_log`; `GET /api/analytics/accountability?symbol=` grades past forecasts against what actually happened (band hit rate, direction hit rate).
+- **Alerts** — CRUD under `/api/alerts` (auth), rules: price above/below, confirmed RSI overbought/oversold, conviction flip; events surface in the Alerts tab.
+- **Ensemble weights** — `?weights={"sma":0.3,...}` on `/insights` and `/evaluate`; `indicator=ensemble` backtests the weighted vote as a strategy (±0.3 score crossings).
+- **Portfolio** — `/api/positions` (auth) with live P&L and a same-period SPY benchmark.
+
 ## Backend tests
 
 ```
