@@ -54,7 +54,9 @@ export function useSupabaseAuth() {
     setUser(null);
     if (typeof window !== 'undefined') {
       try {
-        window.localStorage.removeItem(`${supabase.storageKey ?? 'supabase.auth'}-code-verifier`);
+        // Matches storageKey 'stock-dashboard-auth' in lib/supabaseClient.js;
+        // supabase-js stores the PKCE verifier under `<storageKey>-code-verifier`.
+        window.localStorage.removeItem('stock-dashboard-auth-code-verifier');
       } catch {
         // ignore cleanup errors
       }
