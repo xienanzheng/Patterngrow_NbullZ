@@ -95,6 +95,10 @@ export function uploadMetadataCsv(csv, token) {
   });
 }
 
+export function getAccountability(symbol) {
+  return request(`/api/analytics/accountability?symbol=${encodeURIComponent(symbol)}`);
+}
+
 export function getEvaluation(symbol, options = {}) {
   const params = new URLSearchParams({ symbol });
   Object.entries(options).forEach(([key, value]) => {

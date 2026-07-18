@@ -1,4 +1,5 @@
 import express from 'express';
+import { fetchSnapshots, gradeSnapshots, logForecastSnapshot } from '../utils/accountability.js';
 import { buildAssistantContext } from '../utils/assistantContext.js';
 import { requireAuth } from '../utils/authMiddleware.js';
 import { directionalForecast } from '../utils/classifier.js';
@@ -170,7 +171,56 @@ router.get('/insights', async (req, res) => {
 
     const metadata = await getTickerMetadata(symbol);
 
+    // Accountability: record today's forecast so it can be graded later.
+    // Only real market data is logged, and only fire-and-forget.
+    if (payload.dataSource === 'yahoo' && payload.forecast?.length && payload.latestClose != null) {
+      const lastPoint = payload.forecast.at(-1);
+      logForecastSnapshot({
+        symbol: payload.symbol,
+        lastClose: payload.latestClose,
+        forecastModel: payload.forecastModel,
+        horizon: payload.forecast.length,
+        base: lastPoint.value,
+        lower: lastPoint.lower ?? null,
+        upper: lastPoint.upper ?? null,
+        convictionScore: payload.conviction?.score ?? null,
+        convictionLabel: payload.conviction?.label ?? null,
+        probUp: payload.directional?.probUp ?? null,
+      });
+    }
+
     res.json({ ...payload, metadata });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/accountability', async (req, res) => {
+  try {
+    const { symbol } = req.query;
+    if (!symbol) {
+      return res.status(400).json({ error: 'Query parameter "symbol" is required.' });
+    }
+    const normalized = String(symbol).trim().toUpperCase();
+    let snapshots = [];
+    try {
+      snapshots = await fetchSnapshots(normalized);
+    } catch (err) {
+      console.warn('forecast_log unavailable:', err.message);
+      return res.json({ symbol: normalized, rows: [], summary: { graded: 0, bandHitRate: null, directionHitRate: null }, note: 'forecast_log table not available yet.' });
+    }
+    if (!snapshots.length) {
+      return res.json({ symbol: normalized, rows: [], summary: { graded: 0, bandHitRate: null, directionHitRate: null } });
+    }
+    const history = await fetchYahooHistory(normalized, '1y', '1d');
+    const closesByDate = {};
+    history.forEach((row) => {
+      if (row.date && Number.isFinite(Number(row.close))) {
+        closesByDate[row.date.slice(0, 10)] = Number(row.close);
+      }
+    });
+    const graded = gradeSnapshots(snapshots, closesByDate);
+    res.json({ symbol: normalized, ...graded });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
