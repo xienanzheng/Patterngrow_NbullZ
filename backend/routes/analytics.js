@@ -1,4 +1,5 @@
 import express from 'express';
+import { buildAssistantContext } from '../utils/assistantContext.js';
 import { requireAuth } from '../utils/authMiddleware.js';
 import { directionalForecast } from '../utils/classifier.js';
 import { computeSignals } from '../utils/computeSignals.js';
@@ -216,7 +217,7 @@ const MINI_NZ_DIRECTIVE = [
 
 router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
-    const { prompt, provider = 'openai', model, apiKey, temperature } = req.body ?? {};
+    const { prompt, provider = 'openai', model, apiKey, temperature, symbol } = req.body ?? {};
     if (!prompt || typeof prompt !== 'string') {
       return res.status(400).json({ error: 'Prompt is required.' });
     }
@@ -224,6 +225,17 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     const normalizedProvider = String(provider).toLowerCase();
     const temp = typeof temperature === 'number' && temperature >= 0 && temperature <= 1 ? temperature : 0.3;
     const userPrompt = prompt.trim();
+
+    // Ground the assistant in the app's own analytics for the active symbol.
+    let systemDirective = MINI_NZ_DIRECTIVE;
+    let grounded = false;
+    if (symbol && typeof symbol === 'string' && /^[A-Z0-9.^-]{1,12}$/i.test(symbol.trim())) {
+      const context = await buildAssistantContext(symbol.trim().toUpperCase());
+      if (context) {
+        systemDirective = `${MINI_NZ_DIRECTIVE}\n\n${context}`;
+        grounded = true;
+      }
+    }
 
     if (normalizedProvider === 'openai') {
       const key = apiKey || process.env.OPENAI_API_KEY;
@@ -240,7 +252,7 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
           model: model || 'gpt-4o-mini',
           temperature: temp,
           input: [
-            { role: 'system', content: MINI_NZ_DIRECTIVE },
+            { role: 'system', content: systemDirective },
             { role: 'user', content: userPrompt },
           ],
         }),
@@ -251,7 +263,7 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
       }
       const data = await response.json();
       const text = data?.output?.[0]?.content?.[0]?.text || data?.output_text || data?.choices?.[0]?.message?.content || 'No response.';
-      return res.json({ provider: 'openai', model: model || 'gpt-4o-mini', message: text });
+      return res.json({ provider: 'openai', model: model || 'gpt-4o-mini', message: text, grounded });
     }
 
     if (normalizedProvider === 'google' || normalizedProvider === 'gemini') {
@@ -272,7 +284,7 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
           },
           contents: [
             {
-              parts: [{ text: `${MINI_NZ_DIRECTIVE}\n\nUser prompt:\n${userPrompt}` }],
+              parts: [{ text: `${systemDirective}\n\nUser prompt:\n${userPrompt}` }],
             },
           ],
         }),
@@ -286,7 +298,7 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
         data?.candidates?.[0]?.content?.parts?.map((part) => part.text).join('\n') ||
         data?.candidates?.[0]?.output_text ||
         'No response.';
-      return res.json({ provider: 'google', model: selectedModel, message: text });
+      return res.json({ provider: 'google', model: selectedModel, message: text, grounded });
     }
 
     return res.status(400).json({ error: `Unsupported provider: ${provider}` });

@@ -123,7 +123,7 @@ export function removeWatchlistSymbol(id, token) {
   });
 }
 
-export function postChatMessage({ prompt, provider, model, apiKey, temperature }, token) {
+export function postChatMessage({ prompt, provider, model, apiKey, temperature, symbol }, token) {
   return request('/api/analytics/chat', {
     method: 'POST',
     body: {
@@ -132,6 +132,7 @@ export function postChatMessage({ prompt, provider, model, apiKey, temperature }
       model,
       apiKey,
       temperature,
+      symbol,
     },
     token,
   });

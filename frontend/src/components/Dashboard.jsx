@@ -1200,7 +1200,7 @@ export default function Dashboard({ user, session, onSignOut }) {
 
         {activeTab === 'advanced' ? <AdvancedBacktest /> : null}
 
-        {activeTab === 'assistant' ? <MiniAssistant accessToken={session?.access_token} /> : null}
+        {activeTab === 'assistant' ? <MiniAssistant accessToken={session?.access_token} symbol={symbol} /> : null}
       </main>
 
       <footer className="mx-auto mt-10 max-w-7xl px-6 text-xs text-slate-500">
