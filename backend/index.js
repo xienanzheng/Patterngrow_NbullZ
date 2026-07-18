@@ -1,7 +1,9 @@
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
+import alertsRouter from './routes/alerts.js';
 import analyticsRouter from './routes/analytics.js';
+import positionsRouter from './routes/positions.js';
 import watchlistRouter from './routes/watchlist.js';
 
 const app = express();
@@ -33,7 +35,9 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'stock-dashboard-api' });
 });
 
+app.use('/api/alerts', alertsRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/positions', positionsRouter);
 app.use('/api/watchlist', watchlistRouter);
 
 app.use((err, _req, res, _next) => {

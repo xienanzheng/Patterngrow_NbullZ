@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "crons": [
+    {
+      "path": "/api/alerts/run",
+      "schedule": "30 20 * * 1-5"
+    }
+  ],
   "builds": [
     {
       "src": "backend/index.js",
