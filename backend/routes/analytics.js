@@ -3,8 +3,11 @@ import { requireAuth } from '../utils/authMiddleware.js';
 import { computeSignals } from '../utils/computeSignals.js';
 import { fetchNews, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
 import { getTickerMetadata, listFacetOptions, listMetadata, upsertMetadataRows } from '../utils/metadata.js';
+import { chatLimiter, publicLimiter } from '../utils/rateLimits.js';
 
 const router = express.Router();
+
+router.use(publicLimiter);
 
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'analytics' });
@@ -181,7 +184,7 @@ const MINI_NZ_DIRECTIVE = [
   'Tone: decisive, professional, evidence-driven; never evasive.',
 ].join('\n');
 
-router.post('/chat', requireAuth, async (req, res) => {
+router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const { prompt, provider = 'openai', model, apiKey, temperature } = req.body ?? {};
     if (!prompt || typeof prompt !== 'string') {
