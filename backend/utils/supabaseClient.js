@@ -2,20 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_KEY;
-const anonKey = process.env.SUPABASE_ANON_KEY ?? serviceKey;
 
 if (!supabaseUrl || !serviceKey) {
   throw new Error('Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.');
 }
 
 export const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
-
-export const supabaseAnon = createClient(supabaseUrl, anonKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
