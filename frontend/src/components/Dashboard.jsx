@@ -986,7 +986,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                           sector: newTicker.sector || undefined,
                           region: newTicker.region || undefined,
                           ipo_year: newTicker.ipoYear ? Number(newTicker.ipoYear) : undefined,
-                        });
+                        }, session?.access_token);
                         setMetadataActionStatus(`Saved ${newTicker.symbol.toUpperCase()}.`);
                         setNewTicker({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
                         const payload = await getMetadata();
@@ -1051,7 +1051,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       setMetadataUploading(true);
                       setMetadataActionStatus('Uploading CSV…');
                       try {
-                        await uploadMetadataCsv(csvText);
+                        await uploadMetadataCsv(csvText, session?.access_token);
                         setMetadataActionStatus('CSV uploaded and saved.');
                         setCsvText('');
                         const payload = await getMetadata();
@@ -1167,7 +1167,7 @@ export default function Dashboard({ user, session, onSignOut }) {
 
         {activeTab === 'advanced' ? <AdvancedBacktest /> : null}
 
-        {activeTab === 'assistant' ? <MiniAssistant /> : null}
+        {activeTab === 'assistant' ? <MiniAssistant accessToken={session?.access_token} /> : null}
       </main>
 
       <footer className="mx-auto mt-10 max-w-7xl px-6 text-xs text-slate-500">
