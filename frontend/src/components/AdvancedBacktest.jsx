@@ -34,13 +34,17 @@ const INDICATORS = [
 ];
 
 function toPoints(history = []) {
+  const toNum = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
   return history.map((row) => ({
     date: row.date,
-    open: Number(row.open) ?? null,
-    high: Number(row.high) ?? null,
-    low: Number(row.low) ?? null,
-    close: Number(row.close) ?? null,
-    volume: Number(row.volume) ?? null,
+    open: toNum(row.open),
+    high: toNum(row.high),
+    low: toNum(row.low),
+    close: toNum(row.close),
+    volume: toNum(row.volume),
   }));
 }
 
