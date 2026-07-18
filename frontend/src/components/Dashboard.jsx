@@ -3,7 +3,9 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
 import AdvancedBacktest from './AdvancedBacktest';
+import AlertsPanel from './AlertsPanel';
 import MiniAssistant from './MiniAssistant';
+import PortfolioPanel from './PortfolioPanel';
 import { getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
 
 const formatCurrency = (value) => {
@@ -47,6 +49,8 @@ const TABS = [
   { id: 'overview', label: 'Market Overview' },
   { id: 'metadata', label: 'Metadata Explorer' },
   { id: 'advanced', label: 'Advanced Lab' },
+  { id: 'alerts', label: 'Alerts' },
+  { id: 'portfolio', label: 'Portfolio' },
   { id: 'assistant', label: 'Mini NZ Assistant' },
 ];
 
@@ -1262,6 +1266,10 @@ export default function Dashboard({ user, session, onSignOut }) {
         ) : null}
 
         {activeTab === 'advanced' ? <AdvancedBacktest /> : null}
+
+        {activeTab === 'alerts' ? <AlertsPanel accessToken={session?.access_token} defaultSymbol={symbol} /> : null}
+
+        {activeTab === 'portfolio' ? <PortfolioPanel accessToken={session?.access_token} /> : null}
 
         {activeTab === 'assistant' ? <MiniAssistant accessToken={session?.access_token} symbol={symbol} /> : null}
       </main>
