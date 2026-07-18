@@ -17,6 +17,22 @@ describe('evaluateAlertRule', () => {
     expect(evaluateAlertRule({ ...alert, threshold: 105 }, ctx()).triggered).toBe(false);
   });
 
+  it('level rules are edge-triggered: no re-fire while the condition holds', () => {
+    const alert = { symbol: 'AAPL', rule_type: 'price_above', threshold: 95, last_state: null };
+    const first = evaluateAlertRule(alert, ctx());
+    expect(first.triggered).toBe(true);
+    expect(first.newState).toBe('above');
+    // Next run with the stored state: condition still true, but no new event.
+    const second = evaluateAlertRule({ ...alert, last_state: 'above' }, ctx());
+    expect(second.triggered).toBe(false);
+    expect(second.newState).toBe('above');
+    // Price drops back, state resets, then a re-entry fires again.
+    const reset = evaluateAlertRule({ ...alert, last_state: 'above' }, ctx({ close: 90 }));
+    expect(reset.triggered).toBe(false);
+    expect(reset.newState).toBe('below');
+    expect(evaluateAlertRule({ ...alert, last_state: 'below' }, ctx()).triggered).toBe(true);
+  });
+
   it('price_below triggers under the threshold', () => {
     const alert = { symbol: 'AAPL', rule_type: 'price_below', threshold: 105 };
     expect(evaluateAlertRule(alert, ctx()).triggered).toBe(true);

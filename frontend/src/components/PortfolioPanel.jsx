@@ -126,6 +126,9 @@ export default function PortfolioPanel({ accessToken }) {
             <p className={`mt-1 text-xl font-semibold ${pnlColor(summary.totalPnl)}`}>
               {money(summary.totalPnl)} {summary.totalPnlPct != null ? `(${pct(summary.totalPnlPct)})` : ''}
             </p>
+            {summary.unpricedCount > 0 ? (
+              <p className="text-xs text-amber-300">Excludes {summary.unpricedCount} position{summary.unpricedCount > 1 ? 's' : ''} with no live quote.</p>
+            ) : null}
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
             <p className="text-xs uppercase tracking-wide text-slate-400">SPY (same period)</p>

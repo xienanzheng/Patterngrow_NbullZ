@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import { buildAlertContext, evaluateAlertRule, RULE_TYPES } from '../utils/alertRules.js';
 import { requireAuth } from '../utils/authMiddleware.js';
@@ -14,7 +15,10 @@ const RUN_SYMBOL_CAP = 40;
 const runAlerts = async (req, res) => {
   const secret = process.env.CRON_SECRET;
   const header = req.headers.authorization ?? '';
-  if (!secret || header !== `Bearer ${secret}`) {
+  const expected = `Bearer ${secret}`;
+  const headerBuf = Buffer.from(header);
+  const expectedBuf = Buffer.from(expected);
+  if (!secret || headerBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(headerBuf, expectedBuf)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -22,7 +26,8 @@ const runAlerts = async (req, res) => {
     const { data: alerts, error } = await supabaseAdmin
       .from('alerts')
       .select('*')
-      .eq('active', true);
+      .eq('active', true)
+      .order('created_at', { ascending: true });
     if (error) throw error;
     if (!alerts?.length) return res.json({ evaluated: 0, triggered: 0 });
 
@@ -74,7 +79,12 @@ const runAlerts = async (req, res) => {
       }
     }
 
-    res.json({ evaluated, triggered, symbols: symbols.length });
+    res.json({
+      evaluated,
+      triggered,
+      symbols: symbols.length,
+      skippedSymbols: Math.max(0, bySymbol.size - symbols.length),
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

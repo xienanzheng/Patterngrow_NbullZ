@@ -34,10 +34,14 @@ export async function logForecastSnapshot({
 // A snapshot is gradable once some close exists on/after its target date.
 export function gradeSnapshots(snapshots, closesByDate) {
   const sortedDates = Object.keys(closesByDate).sort();
+  const firstDate = sortedDates[0];
   const rows = [];
 
   snapshots.forEach((snap) => {
     const target = addCalendarDays(snap.snapshot_date, snap.horizon);
+    // A target before the fetched history window would otherwise "match" the
+    // window's first bar and grade the forecast against a far-later close.
+    if (firstDate && target < firstDate) return;
     const actualDate = sortedDates.find((d) => d >= target);
     if (!actualDate) return; // horizon not reached yet
     const actual = closesByDate[actualDate];

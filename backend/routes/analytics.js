@@ -187,7 +187,9 @@ router.get('/insights', async (req, res) => {
     // Only real market data is logged, and only fire-and-forget.
     if (payload.dataSource === 'yahoo' && payload.forecast?.length && payload.latestClose != null) {
       const lastPoint = payload.forecast.at(-1);
-      logForecastSnapshot({
+      // Awaited: on Vercel, un-awaited I/O can be frozen with the instance
+      // before it completes, silently losing the snapshot.
+      await logForecastSnapshot({
         symbol: payload.symbol,
         lastClose: payload.latestClose,
         forecastModel: payload.forecastModel,
@@ -334,7 +336,10 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
         return res.status(400).json({ error: 'Google Generative AI key missing. Provide apiKey or set GOOGLE_API_KEY.' });
       }
       const selectedModel = model || 'gemini-1.5-flash-latest';
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${key}`;
+      if (!/^[\w.-]+$/.test(selectedModel)) {
+        return res.status(400).json({ error: 'Invalid model name.' });
+      }
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent?key=${key}`;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {

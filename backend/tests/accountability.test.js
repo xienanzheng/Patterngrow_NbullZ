@@ -32,6 +32,15 @@ describe('gradeSnapshots', () => {
     expect(summary.directionHitRate).toBeCloseTo(0.5, 6);
   });
 
+  it('skips snapshots whose target predates the fetched history window', () => {
+    // Without this guard the first bar of the window would "match" and the
+    // forecast would be graded against a far-later close.
+    const { rows } = gradeSnapshots([
+      { snapshot_date: '2025-06-01', horizon: 5, last_close: 100, base: 110, lower: 90, upper: 120, forecast_model: 'drift' },
+    ], closes);
+    expect(rows).toHaveLength(0);
+  });
+
   it('skips snapshots whose horizon has not been reached', () => {
     const { rows } = gradeSnapshots([
       { snapshot_date: '2026-01-19', horizon: 30, last_close: 100, base: 110, lower: 90, upper: 120, forecast_model: 'drift' },

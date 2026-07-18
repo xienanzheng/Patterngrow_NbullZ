@@ -19,8 +19,11 @@ export function normalizeEnsembleWeights(weights) {
   const merged = {};
   let sum = 0;
   for (const key of Object.keys(DEFAULT_ENSEMBLE_WEIGHTS)) {
-    const value = Number(weights[key]);
-    merged[key] = Number.isFinite(value) && value >= 0 ? value : 0;
+    const raw = weights[key];
+    // Omitted keys keep their default weight — a partial override tweaks the
+    // mix instead of silently zeroing the other five indicators.
+    const value = Number(raw);
+    merged[key] = raw == null ? DEFAULT_ENSEMBLE_WEIGHTS[key] : Number.isFinite(value) ? Math.max(0, value) : 0;
     sum += merged[key];
   }
   if (sum <= 0) return { ...DEFAULT_ENSEMBLE_WEIGHTS };
@@ -29,6 +32,9 @@ export function normalizeEnsembleWeights(weights) {
   });
   return merged;
 }
+
+// Bars before the indicator warm-up horizon carry no meaningful votes.
+export const ENSEMBLE_WARMUP_BARS = 30;
 
 // Per-bar weighted vote in [-1, 1] across the six indicators — the same votes
 // computeConvictionScore uses for the latest bar, computed over the whole series.
@@ -43,12 +49,17 @@ export function computeEnsembleScoreSeries(points, weights) {
   const { adx, plusDI, minusDI } = calculateADX(points);
 
   return points.map((_, i) => {
+    // Warm-up guard mirrors computeConvictionScore's 30-bar minimum: scoring
+    // on 1-2 live indicators would fire signals the product refuses to display.
+    if (i < ENSEMBLE_WARMUP_BARS) return 0;
     const close = closes[i];
+    const validClose = close != null && close > 0;
+    const macdDiv = macd[i] == null || signal[i] == null ? null : macd[i] - signal[i];
     const votes = {
-      sma: sma[i] != null && Number.isFinite(close) ? (close > sma[i] ? 1 : -1) : 0,
+      sma: sma[i] != null && validClose ? (close > sma[i] ? 1 : -1) : 0,
       rsi: rsiSmoothed[i] == null ? 0 : rsiSmoothed[i] < 30 ? 1 : rsiSmoothed[i] > 70 ? -1 : 0,
-      macd: macd[i] == null || signal[i] == null ? 0 : macd[i] - signal[i] > 0 ? 1 : -1,
-      bollinger: bands.upper[i] == null || !Number.isFinite(close) ? 0
+      macd: macdDiv == null || macdDiv === 0 ? 0 : macdDiv > 0 ? 1 : -1,
+      bollinger: bands.upper[i] == null || !validClose ? 0
         : close < bands.lower[i] ? 1 : close > bands.upper[i] ? -1 : 0,
       stochastic: percentK[i] == null ? 0 : percentK[i] < 20 ? 1 : percentK[i] > 80 ? -1 : 0,
       adx: adx[i] == null || adx[i] < 25 ? 0 : (plusDI[i] ?? 0) > (minusDI[i] ?? 0) ? 1 : -1,
