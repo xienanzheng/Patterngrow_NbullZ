@@ -157,6 +157,19 @@ export default function StockChart({ data, selectedIndicators }) {
             ) : null}
             {forecastStartIndex > -1 ? (
               <>
+                {/* Uncertainty cone: 80% confidence band as a translucent area. */}
+                <Area
+                  type="monotone"
+                  dataKey="forecastBand"
+                  yAxisId="price"
+                  stroke="none"
+                  fill="#f472b6"
+                  fillOpacity={0.12}
+                  connectNulls={false}
+                  name="80% band"
+                  legendType="none"
+                  tooltipType="none"
+                />
                 <Line
                   type="monotone"
                   dataKey="forecast"
@@ -166,26 +179,6 @@ export default function StockChart({ data, selectedIndicators }) {
                   strokeDasharray="6 3"
                   dot={false}
                   name="Forecast"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="forecastUpper"
-                  yAxisId="price"
-                  stroke="#94a3b8"
-                  strokeWidth={1}
-                  strokeDasharray="2 4"
-                  dot={false}
-                  name="Forecast Upper (80%)"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="forecastLower"
-                  yAxisId="price"
-                  stroke="#94a3b8"
-                  strokeWidth={1}
-                  strokeDasharray="2 4"
-                  dot={false}
-                  name="Forecast Lower (80%)"
                 />
               </>
             ) : null}
