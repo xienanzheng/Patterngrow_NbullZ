@@ -37,7 +37,11 @@ const INDICATORS = [
   { label: 'Bollinger Bands', value: 'bollinger' },
   { label: 'Stochastic Oscillator', value: 'stochastic' },
   { label: 'VWAP', value: 'vwap' },
+  { label: 'Ensemble (weighted vote)', value: 'ensemble' },
 ];
+
+const DEFAULT_WEIGHTS = { sma: 20, rsi: 20, macd: 20, bollinger: 15, stochastic: 15, adx: 10 };
+const WEIGHT_LABELS = { sma: 'SMA', rsi: 'RSI', macd: 'MACD', bollinger: 'Bollinger', stochastic: 'Stochastic', adx: 'ADX' };
 
 const FORECAST_MODELS = [
   { label: 'Drift (mean return)', value: 'drift' },
@@ -60,6 +64,8 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [selectedIndicators, setSelectedIndicators] = useState(['sma', 'bollinger']);
   const [forecastModel, setForecastModel] = useState('drift');
   const [initialCapital, setInitialCapital] = useState(10000);
+  const [draftWeights, setDraftWeights] = useState(DEFAULT_WEIGHTS);
+  const [appliedWeights, setAppliedWeights] = useState(DEFAULT_WEIGHTS);
 
   const [stockData, setStockData] = useState([]);
   const [quote, setQuote] = useState(null);
@@ -187,6 +193,9 @@ export default function Dashboard({ user, session, onSignOut }) {
           indicator: primaryIndicator,
           forecastModel,
           initialCapital,
+          weights: JSON.stringify(
+            Object.fromEntries(Object.entries(appliedWeights).map(([key, value]) => [key, value / 100])),
+          ),
         });
 
         if (cancelRef?.current) return;
@@ -200,7 +209,7 @@ export default function Dashboard({ user, session, onSignOut }) {
         if (!silent && !cancelRef?.current) setInsightsLoading(false);
       }
     },
-    [applyInsights, symbol, range, primaryIndicator, forecastModel, initialCapital],
+    [applyInsights, symbol, range, primaryIndicator, forecastModel, initialCapital, appliedWeights],
   );
 
   useEffect(() => {
@@ -570,6 +579,50 @@ export default function Dashboard({ user, session, onSignOut }) {
               </button>
             </div>
           </section>
+
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-inner">
+              <h2 className="text-lg font-semibold text-white">Ensemble Weights</h2>
+              <p className="mb-3 text-xs text-slate-400">
+                How much each indicator counts in the conviction score (and the ensemble strategy). Normalized automatically.
+              </p>
+              <div className="space-y-2">
+                {Object.keys(DEFAULT_WEIGHTS).map((key) => (
+                  <label key={key} className="block text-xs uppercase tracking-wide text-slate-400">
+                    {WEIGHT_LABELS[key]} ({draftWeights[key]})
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={draftWeights[key]}
+                      onChange={(event) =>
+                        setDraftWeights((prev) => ({ ...prev, [key]: Number(event.target.value) }))
+                      }
+                      className="mt-1 w-full accent-blue-500"
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAppliedWeights(draftWeights)}
+                  className="flex-1 rounded-lg bg-blue-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-400"
+                >
+                  Apply Weights
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftWeights(DEFAULT_WEIGHTS);
+                    setAppliedWeights(DEFAULT_WEIGHTS);
+                  }}
+                  className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-blue-500 hover:text-blue-200"
+                >
+                  Reset
+                </button>
+              </div>
+            </section>
 
             <WatchlistTable
               user={session?.user ?? user}

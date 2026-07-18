@@ -1,4 +1,4 @@
-import { backtestStrategy, runTradingSimulationDetailed } from './backtesting.js';
+import { backtestStrategy, normalizeEnsembleWeights, runTradingSimulationDetailed } from './backtesting.js';
 import {
   calculateADX,
   calculateBollingerBands,
@@ -28,7 +28,7 @@ const NEUTRAL_CONVICTION = {
   insufficientData: true,
 };
 
-export function computeConvictionScore(history) {
+export function computeConvictionScore(history, customWeights) {
   // Indicator warm-up needs real history; EMA-based votes on a handful of
   // bars would produce confident garbage.
   const validCloses = history.filter((r) => Number.isFinite(Number(r.close)) && Number(r.close) > 0).length;
@@ -53,7 +53,7 @@ export function computeConvictionScore(history) {
     adx: adx.at(-1) == null || adx.at(-1) < 25 ? 0
       : (plusDI.at(-1) ?? 0) > (minusDI.at(-1) ?? 0) ? 1 : -1,
   };
-  const weights = { sma: 0.2, rsi: 0.2, macd: 0.2, bollinger: 0.15, stochastic: 0.15, adx: 0.1 };
+  const weights = normalizeEnsembleWeights(customWeights);
   const score = Object.entries(votes).reduce((acc, [key, vote]) => acc + weights[key] * vote, 0);
   const label = score >= 0.5 ? 'Strong Buy'
     : score >= 0.2 ? 'Buy'
@@ -210,6 +210,7 @@ export async function computeSignals(symbol, options = {}) {
     forecastHorizon = 60,
     initialCapital = 10000,
     includeNews = true,
+    weights = null,
   } = options;
 
   let history = [];
@@ -259,7 +260,7 @@ export async function computeSignals(symbol, options = {}) {
     throw new Error('No historical data available for the requested symbol.');
   }
 
-  const { signals } = backtestStrategy(history, indicator);
+  const { signals } = backtestStrategy(history, indicator, { weights });
   const { portfolio: simulation, trades, costsPaid } = runTradingSimulationDetailed(
     history, signals, initialCapital, {},
   );
@@ -287,7 +288,7 @@ export async function computeSignals(symbol, options = {}) {
         conservative: prediction.at(-1).lower,
       }
     : null;
-  const conviction = computeConvictionScore(history);
+  const conviction = computeConvictionScore(history, weights);
   let directional = null;
   try {
     directional = directionalForecast(history, { horizon: 5 });
