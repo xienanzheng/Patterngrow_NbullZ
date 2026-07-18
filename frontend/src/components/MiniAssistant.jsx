@@ -20,9 +20,10 @@ function saveKey(key, value) {
   }
 }
 
-export default function MiniAssistant({ accessToken }) {
+export default function MiniAssistant({ accessToken, symbol }) {
   const [provider, setProvider] = useState('openai');
   const [model, setModel] = useState(PROVIDERS[0].defaultModel);
+  const [groundWithData, setGroundWithData] = useState(true);
   const [prompt, setPrompt] = useState('Summarise bullish and bearish drivers for TSLA this week.');
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState('');
@@ -60,6 +61,7 @@ export default function MiniAssistant({ accessToken }) {
         model,
         apiKey: apiKey || undefined,
         temperature,
+        symbol: groundWithData && symbol ? symbol : undefined,
       }, accessToken);
       setHistory((prev) => [
         {
@@ -135,6 +137,17 @@ export default function MiniAssistant({ accessToken }) {
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
           </label>
+          {symbol ? (
+            <label className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
+              <input
+                type="checkbox"
+                checked={groundWithData}
+                onChange={(event) => setGroundWithData(event.target.checked)}
+                className="h-4 w-4 accent-blue-500"
+              />
+              Ground with live {symbol} data (indicators, conviction, forecast, news)
+            </label>
+          ) : null}
           <label className="text-xs uppercase tracking-wide text-slate-400">
             Temperature ({temperature.toFixed(2)})
             <input
