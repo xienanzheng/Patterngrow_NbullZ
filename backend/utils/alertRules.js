@@ -16,38 +16,45 @@ export function buildAlertContext(history) {
 }
 
 // Returns { triggered, message, newState } — newState persists as alerts.last_state.
+// Level rules are edge-triggered against last_state: a standing condition fires
+// once on entry, not one event per cron run forever.
 export function evaluateAlertRule(alert, context) {
   const { close, rsiSeries, conviction } = context;
   const threshold = alert.threshold != null ? Number(alert.threshold) : null;
+  const lastState = alert.last_state ?? null;
+
+  const edge = (met, onState, offState, message) => ({
+    triggered: met && lastState !== onState,
+    newState: met ? onState : offState,
+    message,
+  });
 
   switch (alert.rule_type) {
     case 'price_above': {
       if (close == null || threshold == null) return { triggered: false };
-      return {
-        triggered: close > threshold,
-        message: `${alert.symbol} closed at ${close.toFixed(2)}, above your ${threshold.toFixed(2)} level.`,
-      };
+      return edge(
+        close > threshold, 'above', 'below',
+        `${alert.symbol} closed at ${close.toFixed(2)}, above your ${threshold.toFixed(2)} level.`,
+      );
     }
     case 'price_below': {
       if (close == null || threshold == null) return { triggered: false };
-      return {
-        triggered: close < threshold,
-        message: `${alert.symbol} closed at ${close.toFixed(2)}, below your ${threshold.toFixed(2)} level.`,
-      };
+      return edge(
+        close < threshold, 'below', 'above',
+        `${alert.symbol} closed at ${close.toFixed(2)}, below your ${threshold.toFixed(2)} level.`,
+      );
     }
     case 'rsi_overbought': {
-      const confirmed = confirmedState(rsiSeries, (v) => v >= 70);
-      return {
-        triggered: confirmed,
-        message: `${alert.symbol} RSI has held overbought (≥70) for 2+ sessions.`,
-      };
+      return edge(
+        confirmedState(rsiSeries, (v) => v >= 70), 'overbought', 'normal',
+        `${alert.symbol} RSI has held overbought (≥70) for 2+ sessions.`,
+      );
     }
     case 'rsi_oversold': {
-      const confirmed = confirmedState(rsiSeries, (v) => v <= 30);
-      return {
-        triggered: confirmed,
-        message: `${alert.symbol} RSI has held oversold (≤30) for 2+ sessions.`,
-      };
+      return edge(
+        confirmedState(rsiSeries, (v) => v <= 30), 'oversold', 'normal',
+        `${alert.symbol} RSI has held oversold (≤30) for 2+ sessions.`,
+      );
     }
     case 'conviction_flip': {
       if (!conviction || conviction.insufficientData) return { triggered: false };

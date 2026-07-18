@@ -43,11 +43,12 @@ export function computeConvictionScore(history, customWeights) {
   const { adx, plusDI, minusDI } = calculateADX(history);
   const k = percentK.at(-1);
 
+  const validClose = Number.isFinite(close) && close > 0;
   const votes = {
-    sma: sma != null && Number.isFinite(close) ? (close > sma ? 1 : -1) : 0,
+    sma: sma != null && validClose ? (close > sma ? 1 : -1) : 0,
     rsi: rsiSmoothed == null ? 0 : rsiSmoothed < 30 ? 1 : rsiSmoothed > 70 ? -1 : 0,
-    macd: macdDiv == null ? 0 : macdDiv > 0 ? 1 : -1,
-    bollinger: bands.upper.at(-1) == null || !Number.isFinite(close) ? 0
+    macd: macdDiv == null || macdDiv === 0 ? 0 : macdDiv > 0 ? 1 : -1,
+    bollinger: bands.upper.at(-1) == null || !validClose ? 0
       : close < bands.lower.at(-1) ? 1 : close > bands.upper.at(-1) ? -1 : 0,
     stochastic: k == null ? 0 : k < 20 ? 1 : k > 80 ? -1 : 0,
     adx: adx.at(-1) == null || adx.at(-1) < 25 ? 0

@@ -1,6 +1,9 @@
 // Technical indicator helpers translated from the Python implementation.
 
 const toNumber = (value) => {
+  // Number(null) === 0, which would silently turn data gaps into price 0
+  // and poison every window that touches them.
+  if (value == null || value === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
@@ -60,6 +63,12 @@ export const calculateRSI = (points, window = 14) => {
   let lossAvg = 0;
 
   for (let i = 1; i < closes.length; i += 1) {
+    if (closes[i] == null || closes[i - 1] == null) {
+      // Data gap: carry the previous reading instead of coercing null to 0,
+      // which would register a phantom crash and skew the averages.
+      result[i] = result[i - 1];
+      continue;
+    }
     const change = closes[i] - closes[i - 1];
     const gain = change > 0 ? change : 0;
     const loss = change < 0 ? -change : 0;
@@ -125,9 +134,12 @@ export const calculateStochasticOscillator = (points, kWindow = 14, dWindow = 3)
   const percentK = new Array(points.length).fill(null);
   for (let i = 0; i < points.length; i += 1) {
     if (i + 1 < kWindow) continue;
-    const rangeHigh = Math.max(...highs.slice(i + 1 - kWindow, i + 1));
-    const rangeLow = Math.min(...lows.slice(i + 1 - kWindow, i + 1));
+    const windowHighs = highs.slice(i + 1 - kWindow, i + 1).filter((v) => v != null);
+    const windowLows = lows.slice(i + 1 - kWindow, i + 1).filter((v) => v != null);
     const close = closes[i];
+    if (!windowHighs.length || !windowLows.length || close == null) continue;
+    const rangeHigh = Math.max(...windowHighs);
+    const rangeLow = Math.min(...windowLows);
     if (rangeHigh === rangeLow) {
       percentK[i] = 0;
     } else {
@@ -135,7 +147,11 @@ export const calculateStochasticOscillator = (points, kWindow = 14, dWindow = 3)
     }
   }
 
-  const percentD = rolling(percentK, dWindow, (slice) => slice.reduce((acc, value) => acc + value, 0) / slice.length);
+  const percentD = rolling(percentK, dWindow, (slice) => {
+    const valid = slice.filter((value) => value != null);
+    if (!valid.length) return null;
+    return valid.reduce((acc, value) => acc + value, 0) / valid.length;
+  });
   return { percentK, percentD };
 };
 
@@ -146,8 +162,15 @@ export const calculateVWAP = (points) => {
 
   points.forEach((row, index) => {
     const volume = getVolume(row);
-    if (!volume) return;
-    const typicalPrice = (getHigh(row) + getLow(row) + getClose(row)) / 3;
+    const high = getHigh(row);
+    const low = getLow(row);
+    const close = getClose(row);
+    if (!volume || high == null || low == null || close == null) {
+      // Carry the running VWAP through data gaps rather than dropping to null.
+      result[index] = cumulativeVolume > 0 ? cumulativeTpv / cumulativeVolume : null;
+      return;
+    }
+    const typicalPrice = (high + low + close) / 3;
     cumulativeVolume += volume;
     cumulativeTpv += typicalPrice * volume;
     result[index] = cumulativeVolume > 0 ? cumulativeTpv / cumulativeVolume : null;
@@ -173,6 +196,7 @@ export const calculateADX = (points, period = 14) => {
     const prevClose = getClose(points[i - 1]);
     const prevHigh = getHigh(points[i - 1]);
     const prevLow = getLow(points[i - 1]);
+    if (high == null || low == null || prevClose == null || prevHigh == null || prevLow == null) continue;
 
     const upMove = high - prevHigh;
     const downMove = prevLow - low;

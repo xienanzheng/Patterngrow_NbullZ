@@ -20,9 +20,23 @@ describe('normalizeEnsembleWeights', () => {
     expect(w.macd).toBe(0);
   });
 
-  it('falls back to defaults on garbage', () => {
+  it('falls back to defaults on null input', () => {
     expect(normalizeEnsembleWeights(null)).toEqual(DEFAULT_ENSEMBLE_WEIGHTS);
-    expect(normalizeEnsembleWeights({ sma: 'x' })).toEqual(DEFAULT_ENSEMBLE_WEIGHTS);
+  });
+
+  it('partial overrides keep the other indicators at default weight', () => {
+    const w = normalizeEnsembleWeights({ sma: 0.5 });
+    // sma boosted, but the other five must stay in the mix (not zeroed).
+    expect(w.rsi).toBeGreaterThan(0);
+    expect(w.adx).toBeGreaterThan(0);
+    expect(Object.values(w).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    expect(w.sma).toBeGreaterThan(w.rsi);
+  });
+
+  it('non-numeric values zero that key only', () => {
+    const w = normalizeEnsembleWeights({ sma: 'x' });
+    expect(w.sma).toBe(0);
+    expect(w.rsi).toBeCloseTo(0.25, 6); // 0.2 / 0.8
   });
 });
 
@@ -41,6 +55,15 @@ describe('ensemble strategy', () => {
     });
     const { signals } = backtestStrategy(points, 'ensemble');
     expect(signals.some((s) => s.numericSignal === 1)).toBe(true);
+  });
+
+  it('does not fire during indicator warm-up', () => {
+    // Steep monotone trend: previously the warm-up bars alone crossed ±0.3.
+    const points = mk(Array.from({ length: 40 }, (_, i) => 100 + i * 2));
+    const score = computeEnsembleScoreSeries(points);
+    for (let i = 0; i < 30; i += 1) expect(score[i]).toBe(0);
+    const { signals } = backtestStrategy(points, 'ensemble');
+    signals.slice(0, 30).forEach((s) => expect(s.numericSignal).toBe(0));
   });
 
   it('custom weights change the conviction score', () => {

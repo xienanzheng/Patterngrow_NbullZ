@@ -12,12 +12,9 @@ const QUOTE_CAP = 30;
 function pickSpyRange(earliestOpenedAt) {
   if (!earliestOpenedAt) return '1y';
   const ageDays = (Date.now() - new Date(earliestOpenedAt).getTime()) / 86_400_000;
-  if (ageDays <= 35) return '1mo';
-  if (ageDays <= 100) return '3mo';
-  if (ageDays <= 200) return '6mo';
-  if (ageDays <= 400) return '1y';
-  if (ageDays <= 800) return '2y';
-  return '5y';
+  // Always over-fetch so the window is guaranteed to contain the open date;
+  // the start bar is then found by date, not by window edge.
+  return ageDays <= 1700 ? '5y' : 'max';
 }
 
 router.get('/', async (req, res) => {
@@ -42,7 +39,11 @@ router.get('/', async (req, res) => {
     }));
 
     let totalCost = 0;
-    let totalValue = 0;
+    // P&L aggregates only over positions with a live price — otherwise one
+    // failed quote reads as a phantom loss of that position's entire cost.
+    let pricedCost = 0;
+    let pricedValue = 0;
+    let unpricedCount = 0;
     const rows = positions.map((p) => {
       const shares = Number(p.shares);
       const costBasis = Number(p.cost_basis);
@@ -50,7 +51,12 @@ router.get('/', async (req, res) => {
       const cost = shares * costBasis;
       const value = price != null ? shares * price : null;
       totalCost += cost;
-      if (value != null) totalValue += value;
+      if (value != null) {
+        pricedCost += cost;
+        pricedValue += value;
+      } else {
+        unpricedCount += 1;
+      }
       return {
         id: p.id,
         symbol: p.symbol,
@@ -84,13 +90,15 @@ router.get('/', async (req, res) => {
       }
     }
 
+    const hasPriced = unpricedCount < rows.length && rows.length > 0;
     res.json({
       rows,
       summary: {
         totalCost,
-        totalValue: rows.some((r) => r.value != null) ? totalValue : null,
-        totalPnl: rows.some((r) => r.value != null) ? totalValue - totalCost : null,
-        totalPnlPct: totalCost > 0 && rows.some((r) => r.value != null) ? ((totalValue - totalCost) / totalCost) * 100 : null,
+        totalValue: hasPriced ? pricedValue : null,
+        totalPnl: hasPriced ? pricedValue - pricedCost : null,
+        totalPnlPct: hasPriced && pricedCost > 0 ? ((pricedValue - pricedCost) / pricedCost) * 100 : null,
+        unpricedCount,
         spyReturnPct,
       },
     });
