@@ -312,6 +312,7 @@ export default function Dashboard({ user, session, onSignOut }) {
           forecast: point.value,
           forecastLower: point.lower ?? null,
           forecastUpper: point.upper ?? null,
+          forecastBand: point.lower != null && point.upper != null ? [point.lower, point.upper] : null,
           isForecast: true,
         });
       });
@@ -1256,11 +1257,20 @@ export default function Dashboard({ user, session, onSignOut }) {
                         return (
                           <tr
                             key={row.symbol}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => {
                               setSymbol(row.symbol);
                               setMetadataSymbolFilter(row.symbol);
                             }}
-                            className={`${isActive ? 'bg-blue-500/10' : ''} cursor-pointer transition hover:bg-blue-500/5`}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setSymbol(row.symbol);
+                                setMetadataSymbolFilter(row.symbol);
+                              }
+                            }}
+                            className={`${isActive ? 'bg-blue-500/10' : ''} cursor-pointer transition hover:bg-blue-500/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60`}
                           >
                           <td className="px-4 py-2 font-semibold text-white">{row.symbol}</td>
                           <td className="px-4 py-2 text-slate-300">{row.industryGroup || row.industry_group || row.sector}</td>
