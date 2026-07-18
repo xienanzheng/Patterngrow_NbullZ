@@ -95,6 +95,15 @@ export function uploadMetadataCsv(csv, token) {
   });
 }
 
+export function getEvaluation(symbol, options = {}) {
+  const params = new URLSearchParams({ symbol });
+  Object.entries(options).forEach(([key, value]) => {
+    if (value == null || value === '') return;
+    params.set(key, value);
+  });
+  return request(`/api/analytics/evaluate?${params.toString()}`);
+}
+
 export function getWatchlist(token) {
   return request('/api/watchlist', { token });
 }

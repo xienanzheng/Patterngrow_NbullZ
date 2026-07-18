@@ -38,9 +38,9 @@ const INDICATORS = [
 ];
 
 const FORECAST_MODELS = [
-  { label: 'Simple Trend', value: 'simple' },
-  { label: 'ARIMA Inspired', value: 'arima' },
-  { label: 'Prophet Inspired', value: 'prophet' },
+  { label: 'Drift (mean return)', value: 'drift' },
+  { label: 'Autoregressive (AR)', value: 'ar' },
+  { label: 'Holt Exp. Smoothing', value: 'holt' },
 ];
 
 const TABS = [
@@ -54,7 +54,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [symbol, setSymbol] = useState('AAPL');
   const [range, setRange] = useState('1y');
   const [selectedIndicators, setSelectedIndicators] = useState(['sma', 'bollinger']);
-  const [forecastModel, setForecastModel] = useState('simple');
+  const [forecastModel, setForecastModel] = useState('drift');
   const [initialCapital, setInitialCapital] = useState(10000);
 
   const [stockData, setStockData] = useState([]);
@@ -111,6 +111,8 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [indicatorSnapshots, setIndicatorSnapshots] = useState(null);
   const [momentum, setMomentum] = useState(null);
   const [priceTargets, setPriceTargets] = useState(null);
+  const [conviction, setConviction] = useState(null);
+  const [directional, setDirectional] = useState(null);
   const [technicalSummary, setTechnicalSummary] = useState(null);
   const [dataSource, setDataSource] = useState('yahoo');
   const [activeTab, setActiveTab] = useState('overview');
@@ -128,6 +130,8 @@ export default function Dashboard({ user, session, onSignOut }) {
       setIndicatorSnapshots(null);
       setMomentum(null);
       setPriceTargets(null);
+      setConviction(null);
+      setDirectional(null);
       setTechnicalSummary(null);
       setDataSource('unavailable');
       setMetadataEntry(null);
@@ -160,6 +164,8 @@ export default function Dashboard({ user, session, onSignOut }) {
     setIndicatorSnapshots(payload.indicatorSnapshots ?? null);
     setMomentum(payload.momentum ?? null);
     setPriceTargets(payload.priceTargets ?? null);
+    setConviction(payload.conviction ?? null);
+    setDirectional(payload.directional ?? null);
     setDataSource(payload.dataSource ?? 'yahoo');
     setTechnicalSummary(payload.technicalSummary ?? null);
   }, []);
@@ -274,6 +280,8 @@ export default function Dashboard({ user, session, onSignOut }) {
           open: null,
           volume: null,
           forecast: point.value,
+          forecastLower: point.lower ?? null,
+          forecastUpper: point.upper ?? null,
           isForecast: true,
         });
       });
@@ -602,6 +610,31 @@ export default function Dashboard({ user, session, onSignOut }) {
             </div>
           ) : null}
 
+          {conviction ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+                <p className="text-xs uppercase tracking-wide text-slate-400">Ensemble Conviction</p>
+                <p className={`mt-1 text-2xl font-semibold ${conviction.score >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                  {conviction.label}
+                </p>
+                <p className="text-xs text-slate-400">
+                  Score {conviction.score >= 0 ? '+' : ''}{conviction.score} · weighted vote across 6 indicators
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+                <p className="text-xs uppercase tracking-wide text-slate-400">5-Day Direction (model)</p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {directional?.probUp != null ? `${(directional.probUp * 100).toFixed(0)}% up` : '--'}
+                </p>
+                <p className="text-xs text-slate-400">
+                  {directional
+                    ? `Holdout accuracy ${(directional.accuracy * 100).toFixed(0)}% on ${directional.testSamples} samples`
+                    : 'Insufficient history for the classifier.'}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
@@ -722,7 +755,7 @@ export default function Dashboard({ user, session, onSignOut }) {
             <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
               <h3 className="text-lg font-semibold text-white">Forecast Highlights</h3>
               <p className="mt-2 text-sm text-slate-400">
-                Forecasts extend 60 trading days ahead using server-backed heuristics translated from the Streamlit workflow.
+                Forecasts extend 60 days ahead. Bands are an 80% confidence interval derived from historical volatility — wider bands mean less certainty, not a promise of range.
               </p>
               <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-300 md:grid-cols-4">
                 <div>
@@ -736,13 +769,13 @@ export default function Dashboard({ user, session, onSignOut }) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Optimistic</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Upper band (80%)</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.optimistic ? `$${priceTargets.optimistic.toFixed(2)}` : 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Conservative</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Lower band (80%)</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.conservative ? `$${priceTargets.conservative.toFixed(2)}` : 'N/A'}
                   </p>

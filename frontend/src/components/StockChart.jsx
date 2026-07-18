@@ -156,16 +156,38 @@ export default function StockChart({ data, selectedIndicators }) {
               />
             ) : null}
             {forecastStartIndex > -1 ? (
-              <Line
-                type="monotone"
-                dataKey="forecast"
-                yAxisId="price"
-                stroke="#f472b6"
-                strokeWidth={1.6}
-                strokeDasharray="6 3"
-                dot={false}
-                name="Forecast"
-              />
+              <>
+                <Line
+                  type="monotone"
+                  dataKey="forecast"
+                  yAxisId="price"
+                  stroke="#f472b6"
+                  strokeWidth={1.6}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  name="Forecast"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="forecastUpper"
+                  yAxisId="price"
+                  stroke="#94a3b8"
+                  strokeWidth={1}
+                  strokeDasharray="2 4"
+                  dot={false}
+                  name="Forecast Upper (80%)"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="forecastLower"
+                  yAxisId="price"
+                  stroke="#94a3b8"
+                  strokeWidth={1}
+                  strokeDasharray="2 4"
+                  dot={false}
+                  name="Forecast Lower (80%)"
+                />
+              </>
             ) : null}
           </ComposedChart>
         </ResponsiveContainer>
