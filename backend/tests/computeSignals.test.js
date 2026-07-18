@@ -10,7 +10,9 @@ describe('confirmedState', () => {
   it('needs n consecutive confirmations', () => {
     expect(confirmedState([60, 65, 72], (v) => v >= 70, 2)).toBe(false); // one bar only
     expect(confirmedState([60, 71, 72], (v) => v >= 70, 2)).toBe(true);
-    expect(confirmedState([72, null, 71], (v) => v >= 70, 2)).toBe(true); // nulls skipped
+    // a null (data gap) inside the tail breaks consecutiveness
+    expect(confirmedState([72, null, 71], (v) => v >= 70, 2)).toBe(false);
+    expect(confirmedState([75, null, null, 72], (v) => v >= 70, 2)).toBe(false);
   });
 });
 
@@ -28,5 +30,12 @@ describe('computeConvictionScore', () => {
     expect(score).toBeGreaterThanOrEqual(-1);
     expect(score).toBeLessThanOrEqual(1);
     expect(Object.keys(votes).sort()).toEqual(['adx', 'bollinger', 'macd', 'rsi', 'sma', 'stochastic']);
+  });
+
+  it('returns neutral with insufficientData on a near-empty history', () => {
+    const out = computeConvictionScore(mk([100, 101, 102]));
+    expect(out.score).toBe(0);
+    expect(out.label).toBe('Neutral');
+    expect(out.insufficientData).toBe(true);
   });
 });

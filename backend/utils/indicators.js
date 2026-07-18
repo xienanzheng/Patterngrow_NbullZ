@@ -44,7 +44,13 @@ const rolling = (values, window, reducer) => {
 
 export const calculateSMA = (points, window = 20) => {
   const closes = points.map(getClose);
-  return rolling(closes, window, (slice) => slice.reduce((acc, value) => acc + value, 0) / slice.length);
+  // Null closes are excluded from the mean rather than coerced to 0,
+  // which would otherwise distort the average and emit spurious signals.
+  return rolling(closes, window, (slice) => {
+    const valid = slice.filter((value) => value != null);
+    if (!valid.length) return null;
+    return valid.reduce((acc, value) => acc + value, 0) / valid.length;
+  });
 };
 
 export const calculateRSI = (points, window = 14) => {
@@ -99,7 +105,8 @@ export const calculateBollingerBands = (points, window = 20, numStdDev = 2) => {
 
   for (let i = 0; i < closes.length; i += 1) {
     if (i + 1 < window || sma[i] == null) continue;
-    const slice = closes.slice(i + 1 - window, i + 1);
+    const slice = closes.slice(i + 1 - window, i + 1).filter((close) => close != null);
+    if (!slice.length) continue;
     const mean = sma[i];
     const variance = slice.reduce((acc, close) => acc + (close - mean) ** 2, 0) / slice.length;
     const stdDev = Math.sqrt(variance);

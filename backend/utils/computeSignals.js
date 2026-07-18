@@ -13,14 +13,26 @@ import { directionalForecast } from './classifier.js';
 import { predictFuturePrices } from './predictions.js';
 import { fetchNews, fetchQuote, fetchYahooHistory, generateMockHistory } from './marketData.js';
 
-// A qualitative state only flips after the (smoothed) indicator confirms it
-// for `n` consecutive sessions — one noisy bar can't rewrite the narrative.
+// A qualitative state only flips after the indicator confirms it for the
+// `n` most recent consecutive sessions — one noisy bar (or a data gap)
+// can't rewrite the narrative.
 export function confirmedState(series, predicate, n = 2) {
-  const tail = series.filter((v) => v != null).slice(-n);
-  return tail.length === n && tail.every(predicate);
+  const tail = series.slice(-n);
+  return tail.length === n && tail.every((v) => v != null && predicate(v));
 }
 
+const NEUTRAL_CONVICTION = {
+  score: 0,
+  label: 'Neutral',
+  votes: { sma: 0, rsi: 0, macd: 0, bollinger: 0, stochastic: 0, adx: 0 },
+  insufficientData: true,
+};
+
 export function computeConvictionScore(history) {
+  // Indicator warm-up needs real history; EMA-based votes on a handful of
+  // bars would produce confident garbage.
+  const validCloses = history.filter((r) => Number.isFinite(Number(r.close)) && Number(r.close) > 0).length;
+  if (validCloses < 30) return NEUTRAL_CONVICTION;
   const close = Number(history.at(-1)?.close);
   const sma = calculateSMA(history).at(-1);
   const rsiSmoothed = ema(calculateRSI(history), 3).at(-1);

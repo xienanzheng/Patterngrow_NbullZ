@@ -44,10 +44,13 @@ export function buildDataset(history, horizon = 5) {
   const X = [];
   const y = [];
   for (let t = 30; t + horizon < history.length; t += 1) {
+    const labelClose = ctx.closes[t + horizon];
+    // A NaN label close would silently coerce to y=0; drop the row instead.
+    if (!Number.isFinite(labelClose)) continue;
     const row = featureRowAt(t, ctx);
     if (!row) continue;
     X.push(row);
-    y.push(ctx.closes[t + horizon] > ctx.closes[t] ? 1 : 0);
+    y.push(labelClose > ctx.closes[t] ? 1 : 0);
   }
   return { X, y };
 }

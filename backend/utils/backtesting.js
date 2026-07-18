@@ -148,11 +148,25 @@ export function runTradingSimulationDetailed(points, signals, initialCapital, op
   let position = 0;
   let entryPrice = null;
   let costsPaid = 0;
+  let lastValidPrice = null;
+
+  // Round-trip P&L net of commissions: cost basis includes the buy fee,
+  // proceeds are net of the sell fee — so winRate can't count fee-losing trades as wins.
+  const netPnlPct = (sellExecPrice) => {
+    if (entryPrice == null) return null;
+    const costBasis = entryPrice / (1 - transactionCostPct);
+    const sellNet = sellExecPrice * (1 - transactionCostPct);
+    return ((sellNet - costBasis) / costBasis) * 100;
+  };
 
   points.forEach((row, index) => {
     const price = getClose(row);
-    if (index === 0 || !Number.isFinite(price) || price <= 0) {
-      portfolio.push({ date: row.date, value: cash + shares * (Number.isFinite(price) ? price : 0) });
+    const validPrice = Number.isFinite(price) && price > 0;
+    if (validPrice) lastValidPrice = price;
+    if (index === 0 || !validPrice) {
+      // Mark open positions at the last valid price so one bad data bar
+      // doesn't fabricate a crash in the equity curve.
+      portfolio.push({ date: row.date, value: cash + shares * (lastValidPrice ?? 0) });
       return;
     }
 
@@ -164,7 +178,7 @@ export function runTradingSimulationDetailed(points, signals, initialCapital, op
       const fee = proceeds * transactionCostPct;
       cash += proceeds - fee;
       costsPaid += fee;
-      trades.push({ type: 'stop', date: row.date, price: execPrice, pnlPct: ((execPrice - entryPrice) / entryPrice) * 100 });
+      trades.push({ type: 'stop', date: row.date, price: execPrice, pnlPct: netPnlPct(execPrice) });
       shares = 0;
       position = 0;
       entryPrice = null;
@@ -195,7 +209,7 @@ export function runTradingSimulationDetailed(points, signals, initialCapital, op
         type: 'sell',
         date: row.date,
         price: execPrice,
-        pnlPct: entryPrice ? ((execPrice - entryPrice) / entryPrice) * 100 : null,
+        pnlPct: netPnlPct(execPrice),
       });
       shares -= toSell;
       if (shares <= 1e-6) {
