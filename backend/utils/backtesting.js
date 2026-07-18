@@ -1,18 +1,81 @@
 // Backtesting utilities ported from the Streamlit version.
 
 import {
+  calculateADX,
   calculateBollingerBands,
   calculateMACD,
   calculateRSI,
   calculateSMA,
   calculateStochasticOscillator,
+  ema,
 } from './indicators.js';
 
 const getClose = (row) => Number(row.close);
 
-export function backtestStrategy(points, indicator) {
+export const DEFAULT_ENSEMBLE_WEIGHTS = { sma: 0.2, rsi: 0.2, macd: 0.2, bollinger: 0.15, stochastic: 0.15, adx: 0.1 };
+
+export function normalizeEnsembleWeights(weights) {
+  if (!weights || typeof weights !== 'object') return { ...DEFAULT_ENSEMBLE_WEIGHTS };
+  const merged = {};
+  let sum = 0;
+  for (const key of Object.keys(DEFAULT_ENSEMBLE_WEIGHTS)) {
+    const value = Number(weights[key]);
+    merged[key] = Number.isFinite(value) && value >= 0 ? value : 0;
+    sum += merged[key];
+  }
+  if (sum <= 0) return { ...DEFAULT_ENSEMBLE_WEIGHTS };
+  Object.keys(merged).forEach((key) => {
+    merged[key] /= sum;
+  });
+  return merged;
+}
+
+// Per-bar weighted vote in [-1, 1] across the six indicators — the same votes
+// computeConvictionScore uses for the latest bar, computed over the whole series.
+export function computeEnsembleScoreSeries(points, weights) {
+  const w = normalizeEnsembleWeights(weights);
+  const closes = points.map(getClose);
+  const sma = calculateSMA(points);
+  const rsiSmoothed = ema(calculateRSI(points), 3);
+  const { macd, signal } = calculateMACD(points);
+  const bands = calculateBollingerBands(points);
+  const { percentK } = calculateStochasticOscillator(points);
+  const { adx, plusDI, minusDI } = calculateADX(points);
+
+  return points.map((_, i) => {
+    const close = closes[i];
+    const votes = {
+      sma: sma[i] != null && Number.isFinite(close) ? (close > sma[i] ? 1 : -1) : 0,
+      rsi: rsiSmoothed[i] == null ? 0 : rsiSmoothed[i] < 30 ? 1 : rsiSmoothed[i] > 70 ? -1 : 0,
+      macd: macd[i] == null || signal[i] == null ? 0 : macd[i] - signal[i] > 0 ? 1 : -1,
+      bollinger: bands.upper[i] == null || !Number.isFinite(close) ? 0
+        : close < bands.lower[i] ? 1 : close > bands.upper[i] ? -1 : 0,
+      stochastic: percentK[i] == null ? 0 : percentK[i] < 20 ? 1 : percentK[i] > 80 ? -1 : 0,
+      adx: adx[i] == null || adx[i] < 25 ? 0 : (plusDI[i] ?? 0) > (minusDI[i] ?? 0) ? 1 : -1,
+    };
+    return Object.entries(votes).reduce((acc, [key, vote]) => acc + w[key] * vote, 0);
+  });
+}
+
+export function backtestStrategy(points, indicator, options = {}) {
   const signals = points.map(() => ({ signal: 'hold', numericSignal: 0 }));
   const closes = points.map(getClose);
+
+  if (indicator === 'ensemble') {
+    const score = computeEnsembleScoreSeries(points, options.weights);
+    for (let i = 1; i < points.length; i += 1) {
+      const prev = score[i - 1];
+      const curr = score[i];
+      if (prev < 0.3 && curr >= 0.3) {
+        const label = curr >= 0.6 ? 'buy_strong' : curr >= 0.45 ? 'buy_medium' : 'buy_weak';
+        signals[i] = { signal: label, numericSignal: 1 };
+      } else if (prev > -0.3 && curr <= -0.3) {
+        const label = curr <= -0.6 ? 'sell_strong' : curr <= -0.45 ? 'sell_medium' : 'sell_weak';
+        signals[i] = { signal: label, numericSignal: -1 };
+      }
+    }
+    return { signals, context: { score } };
+  }
 
   if (indicator === 'sma') {
     const sma = calculateSMA(points);

@@ -14,6 +14,17 @@ const router = express.Router();
 
 router.use(publicLimiter);
 
+// Optional ?weights={"sma":0.3,...} — invalid JSON or shapes fall back to defaults downstream.
+function parseWeightsParam(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'analytics' });
 });
@@ -167,6 +178,7 @@ router.get('/insights', async (req, res) => {
       forecastModel,
       forecastHorizon: forecastHorizon ? Number(forecastHorizon) : undefined,
       initialCapital: initialCapital ? Number(initialCapital) : undefined,
+      weights: parseWeightsParam(req.query.weights),
     });
 
     const metadata = await getTickerMetadata(symbol);
@@ -239,7 +251,7 @@ router.get('/evaluate', evaluateLimiter, async (req, res) => {
     const forecasts = FORECAST_MODEL_IDS.map((model) =>
       evaluateForecastModel(history, model, { folds, horizon }));
     const baseline = evaluateNaiveBaseline(history, { folds, horizon });
-    const strategy = evaluateStrategy(history, indicator, {});
+    const strategy = evaluateStrategy(history, indicator, { weights: parseWeightsParam(req.query.weights) });
     let directional = null;
     try {
       directional = directionalForecast(history, { horizon: 5 });

@@ -116,13 +116,14 @@ export function evaluateStrategy(history, indicator, {
   transactionCostPct = 0.001,
   slippagePct = 0.0005,
   stopLossPct = null,
+  weights = null,
 } = {}) {
   if (history.length < 40) throw new Error('Need at least 40 bars to evaluate a strategy.');
   const splitIdx = Math.floor(history.length * trainFraction);
   // Indicators in this codebase are strictly backward-looking, so computing
   // signals over the full series uses no future data at any bar; only the
   // held-out window is simulated.
-  const { signals } = backtestStrategy(history, indicator);
+  const { signals } = backtestStrategy(history, indicator, { weights });
   const testHistory = history.slice(splitIdx);
   const testSignals = signals.slice(splitIdx);
   const { portfolio, trades, costsPaid } = runTradingSimulationDetailed(
