@@ -1,11 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { addWatchlistSymbol, getWatchlist, removeWatchlistSymbol } from '../services/api';
+import { addWatchlistSymbol, getWatchlist, removeWatchlistSymbol, scanWatchlist } from '../services/api';
 
 export default function WatchlistTable({ user, accessToken, activeSymbol, onSelectSymbol }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formSymbol, setFormSymbol] = useState('');
   const [feedback, setFeedback] = useState(null);
+  const [scanRows, setScanRows] = useState(null);
+  const [scanning, setScanning] = useState(false);
+
+  const handleScan = async () => {
+    if (!canManageWatchlist) return;
+    setScanning(true);
+    setFeedback(null);
+    try {
+      const payload = await scanWatchlist(accessToken);
+      setScanRows(payload?.rows ?? []);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Scan failed.');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const sortedRows = useMemo(
     () =>
@@ -111,13 +127,21 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-inner">
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-4 flex items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold text-white">Watchlist</h2>
           <p className="text-xs text-slate-400">
             Track tickers you care about. Data is stored securely through the backend using a Supabase service role.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={handleScan}
+          disabled={!canManageWatchlist || scanning || sortedRows.length === 0}
+          className="shrink-0 rounded-lg border border-blue-500/60 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {scanning ? 'Scanning…' : 'Scan'}
+        </button>
       </header>
 
       <form onSubmit={handleAdd} className="mb-4 flex gap-2">
@@ -178,6 +202,39 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
           ))
         )}
       </div>
+
+      {scanRows ? (
+        <div className="mt-4">
+          <p className="text-xs uppercase tracking-wide text-slate-400">Conviction scan (ranked)</p>
+          {scanRows.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">No scan results — add symbols first.</p>
+          ) : (
+            <ul className="mt-2 space-y-1">
+              {scanRows.map((row) => (
+                <li key={row.symbol}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectSymbol?.(row.symbol)}
+                    className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-1.5 text-left text-xs transition hover:border-blue-500/30"
+                  >
+                    <span className="font-semibold text-slate-100">{row.symbol}</span>
+                    <span
+                      className={`font-semibold ${
+                        row.conviction.score > 0 ? 'text-emerald-300' : row.conviction.score < 0 ? 'text-red-300' : 'text-slate-400'
+                      }`}
+                    >
+                      {row.conviction.label} ({row.conviction.score >= 0 ? '+' : ''}{row.conviction.score})
+                    </span>
+                    <span className="text-slate-400">
+                      {row.probUp != null ? `${(row.probUp * 100).toFixed(0)}%↑` : '--'}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }
