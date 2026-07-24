@@ -35,7 +35,7 @@ const tooltipFormatter = (value, name) => {
   return [value, label];
 };
 
-export default function StockChart({ data, selectedIndicators }) {
+export default function StockChart({ data, selectedIndicators, forecastModel, hasForecastCloud }) {
   const actualData = useMemo(() => data.filter((row) => !row.isForecast), [data]);
 
   // Calculate only the indicators that are currently toggled on.
@@ -156,16 +156,127 @@ export default function StockChart({ data, selectedIndicators }) {
               />
             ) : null}
             {forecastStartIndex > -1 ? (
-              <Line
-                type="monotone"
-                dataKey="forecast"
-                yAxisId="price"
-                stroke="#f472b6"
-                strokeWidth={1.6}
-                strokeDasharray="6 3"
-                dot={false}
-                name="Forecast"
-              />
+              <>
+                {/* 95% confidence band (outer) — stacked area trick */}
+                <Area
+                  type="monotone"
+                  dataKey="forecastLower95"
+                  yAxisId="price"
+                  fill="transparent"
+                  stroke="none"
+                  dot={false}
+                  legendType="none"
+                  activeDot={false}
+                  stackId="cone95"
+                  name=""
+                />
+                <Area
+                  type="monotone"
+                  dataKey="forecastBand95Height"
+                  yAxisId="price"
+                  fill="#fbbf24"
+                  fillOpacity={0.08}
+                  stroke="none"
+                  dot={false}
+                  legendType="none"
+                  activeDot={false}
+                  stackId="cone95"
+                  name=""
+                />
+                {/* 68% confidence band (inner) */}
+                <Area
+                  type="monotone"
+                  dataKey="forecastLower68"
+                  yAxisId="price"
+                  fill="transparent"
+                  stroke="none"
+                  dot={false}
+                  legendType="none"
+                  activeDot={false}
+                  stackId="cone68"
+                  name=""
+                />
+                <Area
+                  type="monotone"
+                  dataKey="forecastBand68Height"
+                  yAxisId="price"
+                  fill="#fbbf24"
+                  fillOpacity={0.16}
+                  stroke="none"
+                  dot={false}
+                  legendType="none"
+                  activeDot={false}
+                  stackId="cone68"
+                  name=""
+                />
+                {/* MC cloud outer band (p5-p95) — only when montecarlo model active */}
+                {hasForecastCloud ? (
+                  <>
+                    <Area
+                      type="monotone"
+                      dataKey="mcP5"
+                      yAxisId="price"
+                      fill="transparent"
+                      stroke="none"
+                      dot={false}
+                      legendType="none"
+                      activeDot={false}
+                      stackId="cloud95"
+                      name=""
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="mcBandOuterHeight"
+                      yAxisId="price"
+                      fill="#fbbf24"
+                      fillOpacity={0.06}
+                      stroke="none"
+                      dot={false}
+                      legendType="none"
+                      activeDot={false}
+                      stackId="cloud95"
+                      name=""
+                    />
+                    {/* MC inner band (p25-p75) */}
+                    <Area
+                      type="monotone"
+                      dataKey="mcP25"
+                      yAxisId="price"
+                      fill="transparent"
+                      stroke="none"
+                      dot={false}
+                      legendType="none"
+                      activeDot={false}
+                      stackId="cloud68"
+                      name=""
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="mcBandInnerHeight"
+                      yAxisId="price"
+                      fill="#fbbf24"
+                      fillOpacity={0.14}
+                      stroke="none"
+                      dot={false}
+                      legendType="none"
+                      activeDot={false}
+                      stackId="cloud68"
+                      name=""
+                    />
+                  </>
+                ) : null}
+                {/* Median / base forecast line */}
+                <Line
+                  type="monotone"
+                  dataKey="forecast"
+                  yAxisId="price"
+                  stroke="#fbbf24"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  name="Forecast"
+                />
+              </>
             ) : null}
           </ComposedChart>
         </ResponsiveContainer>
