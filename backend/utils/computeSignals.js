@@ -199,7 +199,9 @@ export async function computeSignals(symbol, options = {}) {
 
   const { signals } = backtestStrategy(history, indicator);
   const simulation = runTradingSimulation(history, signals, initialCapital);
-  const prediction = predictFuturePrices(history, indicator, forecastModel, forecastHorizon);
+  const { forecast: prediction, forecastCloud, forecastVol } = predictFuturePrices(
+    history, indicator, forecastModel, forecastHorizon
+  );
 
   const summary = summariseSignals(signals);
   const finalValue = simulation.at(-1)?.value ?? null;
@@ -254,6 +256,8 @@ export async function computeSignals(symbol, options = {}) {
     },
     forecastModel,
     forecast: prediction,
+    forecastCloud: forecastCloud ?? null,
+    forecastVol: forecastVol ?? null,
     priceTargets,
     technicalSummary,
     dataSource,
