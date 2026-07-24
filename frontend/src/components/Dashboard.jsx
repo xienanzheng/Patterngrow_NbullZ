@@ -412,13 +412,13 @@ export default function Dashboard({ user, session, onSignOut }) {
   }, [indicatorSnapshots, primaryIndicator]);
 
   return (
-    <div className="min-h-screen bg-slate-950 pb-16">
-      <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+    <div className="min-h-screen bg-zinc-950 pb-16">
+      <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div>
-            <h1 className="text-2xl font-semibold text-white">AI Stock Intelligence Console</h1>
-            <p className="text-sm text-slate-400">
-              Build data-informed conviction with technical studies, simulations, watchlists, and AI helpers.
+            <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Patterngrow</h1>
+            <p className="text-xs text-zinc-500">
+              Technical intelligence for AAPL, TSLA, and beyond.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -426,11 +426,11 @@ export default function Dashboard({ user, session, onSignOut }) {
               <img
                 src={user.user_metadata.avatar_url}
                 alt={user.user_metadata.full_name ?? user.email}
-                className="h-10 w-10 rounded-full border border-slate-700 object-cover"
+                className="h-10 w-10 rounded-full border border-zinc-700 object-cover"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-sm font-semibold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-sm font-semibold text-white">
                 {user?.email?.slice(0, 2)?.toUpperCase() ?? 'U'}
               </div>
             )}
@@ -438,18 +438,18 @@ export default function Dashboard({ user, session, onSignOut }) {
               <p className="text-sm font-medium text-white">
                 {user?.user_metadata?.full_name ?? user?.email ?? 'Signed In'}
               </p>
-              <p className="text-xs text-slate-400">Google OAuth via Supabase</p>
+              <p className="text-xs text-zinc-400">Google OAuth via Supabase</p>
             </div>
             <button
               type="button"
               onClick={onSignOut}
-              className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-300 transition hover:border-red-400 hover:text-red-300"
+              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 transition hover:border-red-400 hover:text-red-300"
             >
               Sign out
             </button>
           </div>
         </div>
-        <div className="border-t border-slate-800 bg-slate-900/60">
+        <div className="border-t border-zinc-800 bg-zinc-900/60">
           <div className="mx-auto flex max-w-7xl items-center gap-3 overflow-x-auto px-6 py-2">
             {TABS.map((tab) => {
               const active = activeTab === tab.id;
@@ -459,7 +459,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                    active ? 'bg-blue-500/20 text-blue-200' : 'text-slate-400 hover:text-blue-200'
+                    active ? 'bg-amber-400/15 text-amber-200' : 'text-zinc-400 hover:text-amber-200'
                   }`}
                 >
                   {tab.label}
@@ -474,23 +474,23 @@ export default function Dashboard({ user, session, onSignOut }) {
         {activeTab === 'overview' ? (
           <div className="flex flex-col gap-6 lg:flex-row">
             <aside className="flex w-full flex-col gap-6 lg:w-80">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-inner">
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-inner">
             <h2 className="text-lg font-semibold text-white">Symbol</h2>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="text-xs uppercase tracking-wide text-slate-400">Ticker</label>
+                <label className="text-xs uppercase tracking-wide text-zinc-400">Ticker</label>
                 <input
                   value={symbol}
                   onChange={(event) => setSymbol(event.target.value.toUpperCase())}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                 />
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide text-slate-400">Range</label>
+                <label className="text-xs uppercase tracking-wide text-zinc-400">Range</label>
                 <select
                   value={range}
                   onChange={(event) => setRange(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                 >
                   {PRICE_RANGES.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -502,9 +502,9 @@ export default function Dashboard({ user, session, onSignOut }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-inner">
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-inner">
             <h2 className="text-lg font-semibold text-white">Technical Indicators</h2>
-            <p className="mb-4 text-xs text-slate-400">Select up to 4 indicators to overlay and evaluate.</p>
+            <p className="mb-4 text-xs text-zinc-400">Select up to 4 indicators to overlay and evaluate.</p>
             <div className="space-y-2">
               {INDICATORS.map((indicator) => {
                 const active = selectedIndicators.includes(indicator.value);
@@ -512,7 +512,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                   <label
                     key={indicator.value}
                     className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-sm ${
-                      active ? 'border-blue-500/60 bg-blue-500/10 text-slate-100' : 'border-slate-700 bg-slate-950 text-slate-300'
+                      active ? 'border-amber-400/50 bg-amber-400/10 text-zinc-100' : 'border-zinc-700 bg-zinc-950 text-zinc-300'
                     }`}
                   >
                     <span>{indicator.label}</span>
@@ -526,7 +526,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                           setSelectedIndicators((prev) => prev.filter((item) => item !== indicator.value));
                         }
                       }}
-                      className="h-4 w-4 accent-blue-500"
+                      className="h-4 w-4 accent-amber-400"
                     />
                   </label>
                 );
@@ -534,15 +534,15 @@ export default function Dashboard({ user, session, onSignOut }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-inner">
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-inner">
             <h2 className="text-lg font-semibold text-white">Forecast & Simulation</h2>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="text-xs uppercase tracking-wide text-slate-400">Forecast Model</label>
+                <label className="text-xs uppercase tracking-wide text-zinc-400">Forecast Model</label>
                 <select
                   value={forecastModel}
                   onChange={(event) => setForecastModel(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                 >
                   {FORECAST_MODELS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -552,14 +552,14 @@ export default function Dashboard({ user, session, onSignOut }) {
                 </select>
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide text-slate-400">Initial Capital ($)</label>
+                <label className="text-xs uppercase tracking-wide text-zinc-400">Initial Capital ($)</label>
                 <input
                   type="number"
                   min="1000"
                   step="100"
                   value={initialCapital}
                   onChange={(event) => setInitialCapital(Number(event.target.value))}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                 />
               </div>
               <div className="flex flex-col gap-2 md:flex-row">
@@ -581,7 +581,7 @@ export default function Dashboard({ user, session, onSignOut }) {
               <button
                 type="button"
                 onClick={handleGeneratePrediction}
-                className="w-full rounded-lg border border-blue-500/60 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-200 transition hover:border-blue-400/80 hover:bg-blue-500/20"
+                className="w-full rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:border-amber-400/80 hover:bg-amber-400/20"
               >
                 Generate 60-day Forecast
               </button>
@@ -604,8 +604,8 @@ export default function Dashboard({ user, session, onSignOut }) {
           ) : null}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Last Price</p>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+              <p className="text-xs uppercase tracking-wide text-zinc-400">Last Price</p>
               <p className="mt-1 text-2xl font-semibold text-white">
                 {quote?.regularMarketPrice != null ? `$${quote.regularMarketPrice.toFixed(2)}` : '--'}
               </p>
@@ -619,15 +619,15 @@ export default function Dashboard({ user, session, onSignOut }) {
                   : 'N/A'}
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Market Cap</p>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+              <p className="text-xs uppercase tracking-wide text-zinc-400">Market Cap</p>
               <p className="mt-1 text-2xl font-semibold text-white">
                 {quote?.marketCap ? formatCurrency(quote.marketCap) : '--'}
               </p>
-              <p className="text-xs text-slate-400">Avg Volume: {quote?.averageDailyVolume10Day?.toLocaleString() ?? 'N/A'}</p>
+              <p className="text-xs text-zinc-400">Avg Volume: {quote?.averageDailyVolume10Day?.toLocaleString() ?? 'N/A'}</p>
             </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Momentum</p>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+              <p className="text-xs uppercase tracking-wide text-zinc-400">Momentum</p>
               <p className="mt-1 text-2xl font-semibold text-white">
                 {momentum?.change != null ? formatCurrency(momentum.change) : '--'}
               </p>
@@ -646,25 +646,25 @@ export default function Dashboard({ user, session, onSignOut }) {
           ) : null}
 
           {technicalSummary ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
               <h3 className="text-lg font-semibold text-white">Technical Snapshot</h3>
-              <p className="mt-2 text-sm text-slate-300">{technicalSummary}</p>
+              <p className="mt-2 text-sm text-zinc-300">{technicalSummary}</p>
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-white">Price Action</h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-zinc-400">
                   Indicators are calculated client-side for responsive overlays. Server-side analytics keep Supabase-friendly parity with the legacy Streamlit build.
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-zinc-500">
                   Data source: {dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'google' ? 'Google Finance fallback' : 'Synthetic sample (offline)'}.
                 </p>
               </div>
               {insightsLoading ? (
-                <span className="text-xs uppercase tracking-wide text-blue-300">Loading…</span>
+                <span className="text-xs text-amber-300">Loading…</span>
               ) : null}
             </div>
             {chartData.length > 0 ? (
@@ -675,7 +675,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                 hasForecastCloud={Boolean(forecastCloud)}
               />
             ) : (
-              <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-6 text-sm text-slate-500">
+              <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-950/40 p-6 text-sm text-zinc-500">
                 No price history available for the current configuration.
               </div>
             )}
@@ -745,28 +745,28 @@ export default function Dashboard({ user, session, onSignOut }) {
           ) : null}
 
           {simulationSeries.length > 0 ? (
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-white">Portfolio Simulation</h3>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-zinc-400">
                     Simulated using {primaryIndicator.toUpperCase()} signals on ${initialCapital.toLocaleString()} starting capital.
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Initial Capital</p>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Initial Capital</p>
                   <p className="mt-1 text-lg font-semibold text-white">{formatCurrency(initialCapital)}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Final Value</p>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Final Value</p>
                   <p className="mt-1 text-lg font-semibold text-white">
                     {finalPortfolioValue != null ? formatCurrency(finalPortfolioValue) : '--'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Return</p>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Return</p>
                   <p
                     className={`mt-1 text-lg font-semibold ${
                       totalReturn != null && totalReturn >= 0 ? 'text-emerald-400' : 'text-red-400'
@@ -779,12 +779,12 @@ export default function Dashboard({ user, session, onSignOut }) {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={simulationChart}>
-                    <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+                    <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
                     <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString()} />
                     <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`} />
                     <Tooltip
                       formatter={(value) => formatCurrency(value)}
-                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
                       labelFormatter={(value) => `Date: ${new Date(value).toLocaleDateString()}`}
                     />
                     <Line type="monotone" dataKey="value" stroke="#22d3ee" strokeWidth={2} dot={false} />
@@ -795,30 +795,30 @@ export default function Dashboard({ user, session, onSignOut }) {
           ) : null}
 
           {predictionSeries.length > 0 ? (
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
               <h3 className="text-lg font-semibold text-white">Forecast Highlights</h3>
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="mt-2 text-sm text-zinc-400">
                 Forecasts extend 60 trading days ahead using server-backed heuristics translated from the Streamlit workflow.
               </p>
-              <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-300 md:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-zinc-300 md:grid-cols-4">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Model</p>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Model</p>
                   <p className="mt-1 font-semibold text-white">{forecastModel.toUpperCase()}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Base</p>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Base</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.base ? `$${priceTargets.base.toFixed(2)}` : 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Optimistic</p>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Optimistic</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.optimistic ? `$${priceTargets.optimistic.toFixed(2)}` : 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Conservative</p>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Conservative</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.conservative ? `$${priceTargets.conservative.toFixed(2)}` : 'N/A'}
                   </p>
@@ -827,20 +827,20 @@ export default function Dashboard({ user, session, onSignOut }) {
             </section>
           ) : null}
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
             <h3 className="text-lg font-semibold text-white">Market Narrative</h3>
             {newsItems.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="mt-2 text-sm text-zinc-400">
                 News sentiment requires an Alpha Vantage key (optional). Configure `ALPHA_VANTAGE_KEY` for the backend or `VITE_ALPHA_VANTAGE_KEY` for the client proxy to activate feed ingestion.
               </p>
             ) : (
-              <ul className="mt-4 space-y-3 text-sm text-slate-300">
+              <ul className="mt-4 space-y-3 text-sm text-zinc-300">
                 {newsItems.map((item) => (
-                  <li key={item.url} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                    <a href={item.url} target="_blank" rel="noreferrer" className="font-semibold text-blue-300">
+                  <li key={item.url} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                    <a href={item.url} target="_blank" rel="noreferrer" className="font-semibold text-amber-300">
                       {item.title}
                     </a>
-                    <p className="mt-1 text-xs text-slate-400">{item.summary}</p>
+                    <p className="mt-1 text-xs text-zinc-400">{item.summary}</p>
                   </li>
                 ))}
               </ul>
@@ -852,16 +852,16 @@ export default function Dashboard({ user, session, onSignOut }) {
 
         {activeTab === 'metadata' ? (
           <div className="flex flex-col gap-6">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-white">Metadata Explorer</h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-zinc-400">
                     Rule-based regions, faceted tags, IPO-year filtering, and search across symbols/names.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="text-xs uppercase tracking-wide text-slate-400">
+                  <label className="text-xs uppercase tracking-wide text-zinc-400">
                     IPO year min ({ipoYearMin})
                     <input
                       type="range"
@@ -870,15 +870,15 @@ export default function Dashboard({ user, session, onSignOut }) {
                       step="1"
                       value={ipoYearMin}
                       onChange={(event) => setIpoYearMin(Number(event.target.value))}
-                      className="mt-1 w-48 accent-blue-500"
+                      className="mt-1 w-48 accent-amber-400"
                     />
                   </label>
-                  <label className="text-xs uppercase tracking-wide text-slate-400">
+                  <label className="text-xs uppercase tracking-wide text-zinc-400">
                     Sector
                     <select
                       value={facetFilters.sector}
                       onChange={(event) => setFacetFilters((prev) => ({ ...prev, sector: event.target.value }))}
-                      className="mt-1 w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="mt-1 w-40 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     >
                       <option value="">All</option>
                       {(metadataFacets?.sector ?? []).map((item) => (
@@ -888,12 +888,12 @@ export default function Dashboard({ user, session, onSignOut }) {
                       ))}
                     </select>
                   </label>
-                  <label className="text-xs uppercase tracking-wide text-slate-400">
+                  <label className="text-xs uppercase tracking-wide text-zinc-400">
                     Region
                     <select
                       value={facetFilters.region}
                       onChange={(event) => setFacetFilters((prev) => ({ ...prev, region: event.target.value }))}
-                      className="mt-1 w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="mt-1 w-32 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     >
                       <option value="">All</option>
                       {(metadataFacets?.region ?? []).map((item) => (
@@ -903,12 +903,12 @@ export default function Dashboard({ user, session, onSignOut }) {
                       ))}
                     </select>
                   </label>
-                  <label className="text-xs uppercase tracking-wide text-slate-400">
+                  <label className="text-xs uppercase tracking-wide text-zinc-400">
                     Risk Bucket
                     <select
                       value={facetFilters.riskBucket}
                       onChange={(event) => setFacetFilters((prev) => ({ ...prev, riskBucket: event.target.value }))}
-                      className="mt-1 w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="mt-1 w-40 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     >
                       <option value="">All</option>
                       {(metadataFacets?.risk_bucket ?? metadataFacets?.riskBucket ?? []).map((item) => (
@@ -918,12 +918,12 @@ export default function Dashboard({ user, session, onSignOut }) {
                       ))}
                     </select>
                   </label>
-                  <label className="text-xs uppercase tracking-wide text-slate-400">
+                  <label className="text-xs uppercase tracking-wide text-zinc-400">
                     Style Factor
                     <select
                       value={facetFilters.styleFactor}
                       onChange={(event) => setFacetFilters((prev) => ({ ...prev, styleFactor: event.target.value }))}
-                      className="mt-1 w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="mt-1 w-40 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     >
                       <option value="">All</option>
                       {(metadataFacets?.style_factors ?? metadataFacets?.styleFactors ?? []).map((item) => (
@@ -943,46 +943,46 @@ export default function Dashboard({ user, session, onSignOut }) {
               ) : null}
 
               <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Current Symbol</p>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Current Symbol</p>
                   {currentMetadata ? (
-                    <div className="mt-2 space-y-1 text-sm text-slate-200">
+                    <div className="mt-2 space-y-1 text-sm text-zinc-200">
                       <p className="text-lg font-semibold text-white">{currentMetadata.symbol}</p>
-                      <p className="text-slate-400">{currentIndustryLabel} · {currentMetadata.region}</p>
-                      <p className="text-slate-300">
-                        IPO Year: <span className="font-semibold text-blue-300">{currentIpoYear ?? '--'}</span>
+                      <p className="text-zinc-400">{currentIndustryLabel} · {currentMetadata.region}</p>
+                      <p className="text-zinc-300">
+                        IPO Year: <span className="font-semibold text-amber-300">{currentIpoYear ?? '--'}</span>
                       </p>
                       {currentPrototypeScore != null ? (
-                        <p className="text-slate-300">
-                          Prototype score: <span className="font-semibold text-blue-300">{Number(currentPrototypeScore).toFixed(2)}</span>
+                        <p className="text-zinc-300">
+                          Prototype score: <span className="font-semibold text-amber-300">{Number(currentPrototypeScore).toFixed(2)}</span>
                         </p>
                       ) : null}
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-zinc-400">
                         {currentMetadata.evidence}
                       </p>
                       {currentStyleFactors.length ? (
-                        <p className="text-xs text-slate-500">Style: {currentStyleFactors.join(', ')}</p>
+                        <p className="text-xs text-zinc-500">Style: {currentStyleFactors.join(', ')}</p>
                       ) : null}
                     </div>
                   ) : metadataLoading ? (
-                    <p className="mt-2 text-sm text-slate-400">Loading metadata…</p>
+                    <p className="mt-2 text-sm text-zinc-400">Loading metadata…</p>
                   ) : (
-                    <p className="mt-2 text-sm text-slate-400">
+                    <p className="mt-2 text-sm text-zinc-400">
                       No metadata available for {symbol}. Use the Add Single Ticker form below to seed it.
                     </p>
                   )}
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Facet Summary</p>
-                  <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Facet Summary</p>
+                  <ul className="mt-2 space-y-1 text-sm text-zinc-300">
                     <li className="flex items-center gap-2">
                       <span>Symbol → {metadataSymbolFilter || 'Any'}</span>
                       {metadataSymbolFilter ? (
                         <button
                           type="button"
                           onClick={() => setMetadataSymbolFilter('')}
-                          className="text-xs font-semibold text-blue-300 underline-offset-2 hover:underline"
+                          className="text-xs font-semibold text-amber-300 underline-offset-2 hover:underline"
                         >
                           Clear
                         </button>
@@ -997,54 +997,54 @@ export default function Dashboard({ user, session, onSignOut }) {
                   </ul>
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Faceted Retrieval Examples</p>
-                  <ul className="mt-2 space-y-2 text-sm text-slate-300">
-                    <li className="rounded-lg border border-slate-800 bg-slate-900/80 p-2">US · High Vol · Momentum → AI-adjacent semis</li>
-                    <li className="rounded-lg border border-slate-800 bg-slate-900/80 p-2">EU · Growth → Lithography prototype</li>
-                    <li className="rounded-lg border border-slate-800 bg-slate-900/80 p-2">Mega Cap · Low Vol → Core software</li>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Faceted Retrieval Examples</p>
+                  <ul className="mt-2 space-y-2 text-sm text-zinc-300">
+                    <li className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2">US · High Vol · Momentum → AI-adjacent semis</li>
+                    <li className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2">EU · Growth → Lithography prototype</li>
+                    <li className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2">Mega Cap · Low Vol → Core software</li>
                   </ul>
                 </div>
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Add Single Ticker</p>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Add Single Ticker</p>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     <input
                       type="text"
                       placeholder="Symbol (required)"
                       value={newTicker.symbol}
                       onChange={(e) => setNewTicker((prev) => ({ ...prev, symbol: e.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     />
                     <input
                       type="text"
                       placeholder="Name"
                       value={newTicker.name}
                       onChange={(e) => setNewTicker((prev) => ({ ...prev, name: e.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     />
                     <input
                       type="text"
                       placeholder="Sector"
                       value={newTicker.sector}
                       onChange={(e) => setNewTicker((prev) => ({ ...prev, sector: e.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     />
                     <input
                       type="text"
                       placeholder="Region"
                       value={newTicker.region}
                       onChange={(e) => setNewTicker((prev) => ({ ...prev, region: e.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     />
                     <input
                       type="number"
                       placeholder="IPO Year"
                       value={newTicker.ipoYear}
                       onChange={(e) => setNewTicker((prev) => ({ ...prev, ipoYear: e.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                     />
                   </div>
                   <button
@@ -1072,14 +1072,14 @@ export default function Dashboard({ user, session, onSignOut }) {
                         setMetadataActionStatus(err instanceof Error ? err.message : 'Unable to add ticker.');
                       }
                     }}
-                    className="mt-3 rounded-lg bg-blue-500 px-3 py-2 text-sm font-semibold text-blue-900 transition hover:bg-blue-400"
+                    className="mt-3 rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-300"
                   >
                     Add Ticker
                   </button>
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Upload CSV (header: symbol,name,sector,region,ipo_year)</p>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Upload CSV (header: symbol,name,sector,region,ipo_year)</p>
                   <input
                     ref={csvFileInputRef}
                     type="file"
@@ -1103,18 +1103,18 @@ export default function Dashboard({ user, session, onSignOut }) {
                     <button
                       type="button"
                       onClick={() => csvFileInputRef.current?.click()}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-blue-500 hover:text-blue-200"
+                      className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs font-semibold text-zinc-100 transition hover:border-amber-400 hover:text-amber-200"
                     >
                       Choose CSV File
                     </button>
-                    <span className="text-xs text-slate-400">or paste CSV text below.</span>
+                    <span className="text-xs text-zinc-400">or paste CSV text below.</span>
                   </div>
                   <textarea
                     value={csvText}
                     onChange={(e) => setCsvText(e.target.value)}
                     rows={6}
                     placeholder="symbol,name,sector,region,ipo_year&#10;AAPL,Apple Inc.,Technology,US,1980"
-                    className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                   />
                   <button
                     type="button"
@@ -1140,7 +1140,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       }
                     }}
                     disabled={metadataUploading}
-                    className="mt-3 rounded-lg border border-blue-500/60 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-200 transition hover:border-blue-400 hover:bg-blue-500/20"
+                    className="mt-3 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:border-amber-400 hover:bg-amber-400/20"
                   >
                     {metadataUploading ? 'Uploading…' : 'Upload CSV'}
                   </button>
@@ -1148,12 +1148,12 @@ export default function Dashboard({ user, session, onSignOut }) {
               </div>
 
               {metadataActionStatus ? (
-                <p className="mt-3 text-sm text-blue-200">{metadataActionStatus}</p>
+                <p className="mt-3 text-sm text-amber-200">{metadataActionStatus}</p>
               ) : null}
 
-              <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
-                <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-200">
-                  <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
+              <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
+                <table className="min-w-full divide-y divide-zinc-800 text-sm text-zinc-200">
+                  <thead className="bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-400">
                     <tr>
                       <th className="px-4 py-2 text-left">Symbol</th>
                       <th className="px-4 py-2 text-left">Sector</th>
@@ -1164,14 +1164,14 @@ export default function Dashboard({ user, session, onSignOut }) {
                       <th className="px-4 py-2 text-left">Style</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody className="divide-y divide-zinc-800">
                     {metadataLoading ? (
                       <tr>
-                        <td colSpan="7" className="px-4 py-3 text-slate-400">Loading metadata…</td>
+                        <td colSpan="7" className="px-4 py-3 text-zinc-400">Loading metadata…</td>
                       </tr>
                     ) : filteredMetadata.length === 0 ? (
                       <tr>
-                        <td colSpan="7" className="px-4 py-3 text-slate-500">No tickers match the current facet selection.</td>
+                        <td colSpan="7" className="px-4 py-3 text-zinc-500">No tickers match the current facet selection.</td>
                       </tr>
                     ) : (
                       visibleMetadata.map((row) => {
@@ -1183,13 +1183,13 @@ export default function Dashboard({ user, session, onSignOut }) {
                               setSymbol(row.symbol);
                               setMetadataSymbolFilter(row.symbol);
                             }}
-                            className={`${isActive ? 'bg-blue-500/10' : ''} cursor-pointer transition hover:bg-blue-500/5`}
+                            className={`${isActive ? 'bg-amber-400/10' : ''} cursor-pointer transition hover:bg-amber-400/5`}
                           >
                           <td className="px-4 py-2 font-semibold text-white">{row.symbol}</td>
-                          <td className="px-4 py-2 text-slate-300">{row.industryGroup || row.industry_group || row.sector}</td>
-                          <td className="px-4 py-2 text-slate-300">{row.region}</td>
-                          <td className="px-4 py-2 text-slate-300">{row.ipo_year ?? row.ipoYear ?? '--'}</td>
-                          <td className="px-4 py-2 text-blue-300">
+                          <td className="px-4 py-2 text-zinc-300">{row.industryGroup || row.industry_group || row.sector}</td>
+                          <td className="px-4 py-2 text-zinc-300">{row.region}</td>
+                          <td className="px-4 py-2 text-zinc-300">{row.ipo_year ?? row.ipoYear ?? '--'}</td>
+                          <td className="px-4 py-2 text-amber-300">
                             {row.prototypeScore != null
                               ? row.prototypeScore.toFixed(2)
                               : row.prototype_score != null
@@ -1197,7 +1197,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                                 : '--'}
                           </td>
                           <td className="px-4 py-2">{row.riskBucket || row.risk_bucket}</td>
-                          <td className="px-4 py-2 text-slate-300">{(row.styleFactors || row.style_factors || []).join(', ')}</td>
+                          <td className="px-4 py-2 text-zinc-300">{(row.styleFactors || row.style_factors || []).join(', ')}</td>
                           </tr>
                         );
                       })
@@ -1205,7 +1205,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                   </tbody>
                 </table>
               </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-400">
                 <span>
                   Showing {Math.min(visibleMetadata.length, filteredMetadata.length)} of {filteredMetadata.length} tickers
                   {totalPages > 1 ? ` · Page ${safePage}/${totalPages}` : ''}
@@ -1215,7 +1215,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                     type="button"
                     onClick={() => setMetadataPage((prev) => Math.max(1, prev - 1))}
                     disabled={safePage <= 1}
-                    className="rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-zinc-700 px-3 py-1 text-xs font-semibold text-zinc-200 transition hover:border-amber-400 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Prev
                   </button>
@@ -1223,7 +1223,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                     type="button"
                     onClick={() => setMetadataPage((prev) => Math.min(totalPages, prev + 1))}
                     disabled={safePage >= totalPages}
-                    className="rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-zinc-700 px-3 py-1 text-xs font-semibold text-zinc-200 transition hover:border-amber-400 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Next
                   </button>
@@ -1231,7 +1231,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                     type="button"
                     onClick={() => setMetadataPage((prev) => Math.min(totalPages, prev + 1))}
                     disabled={safePage >= totalPages}
-                    className="rounded-lg border border-blue-500/60 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-200 transition hover:border-blue-400 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-400 hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Load more
                   </button>
@@ -1246,7 +1246,7 @@ export default function Dashboard({ user, session, onSignOut }) {
         {activeTab === 'assistant' ? <MiniAssistant /> : null}
       </main>
 
-      <footer className="mx-auto mt-10 max-w-7xl px-6 text-xs text-slate-500">
+      <footer className="mx-auto mt-10 max-w-7xl px-6 text-xs text-zinc-500">
         <p>
           Node.js analytics keep the architecture aligned with Vercel deployments while Supabase powers auth, storage, and realtime watchlists.
         </p>

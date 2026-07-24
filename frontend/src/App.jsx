@@ -5,10 +5,10 @@ import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 
 function LoadingScreen() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+    <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-400">
       <div className="flex flex-col items-center gap-2">
-        <span className="h-3 w-3 animate-pulse rounded-full bg-blue-400" />
-        <p className="text-sm uppercase tracking-wide">Loading session…</p>
+        <span className="h-3 w-3 animate-pulse rounded-full bg-amber-400" />
+        <p className="text-sm text-zinc-400">Loading session…</p>
       </div>
     </div>
   );
