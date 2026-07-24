@@ -124,3 +124,15 @@ export function postChatMessage({ prompt, provider, model, apiKey, temperature }
     },
   });
 }
+
+export function getPreferences(token) {
+  return request('/api/user/preferences', { token });
+}
+
+export function updatePreferences(prefs, token) {
+  return request('/api/user/preferences', {
+    method: 'PUT',
+    body: prefs,
+    token,
+  });
+}
