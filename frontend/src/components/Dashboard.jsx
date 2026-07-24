@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useUserPreferences } from '../hooks/useUserPreferences';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
@@ -124,6 +125,36 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [metadataUploading, setMetadataUploading] = useState(false);
   const [metadataActionStatus, setMetadataActionStatus] = useState('');
   const csvFileInputRef = useRef(null);
+
+  const { preferences, loading: prefsLoading, save: savePreferences } = useUserPreferences(
+    session?.access_token,
+  );
+
+  const prefsApplied = useRef(false);
+
+  useEffect(() => {
+    if (prefsLoading || prefsApplied.current) return;
+    prefsApplied.current = true;
+    if (!preferences) return;
+    if (preferences.last_symbol) setSymbol(preferences.last_symbol);
+    if (preferences.last_range) setRange(preferences.last_range);
+    if (Array.isArray(preferences.selected_indicators) && preferences.selected_indicators.length > 0) {
+      setSelectedIndicators(preferences.selected_indicators);
+    }
+    if (preferences.forecast_model) setForecastModel(preferences.forecast_model);
+    if (preferences.initial_capital) setInitialCapital(Number(preferences.initial_capital));
+  }, [preferences, prefsLoading]);
+
+  useEffect(() => {
+    if (!prefsApplied.current) return;
+    savePreferences({
+      lastSymbol: symbol,
+      lastRange: range,
+      selectedIndicators,
+      forecastModel,
+      initialCapital,
+    });
+  }, [symbol, range, selectedIndicators, forecastModel, initialCapital, savePreferences]);
 
   const [backtestSummary, setBacktestSummary] = useState(null);
   const [simulationSeries, setSimulationSeries] = useState([]);
