@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
 import AdvancedBacktest from './AdvancedBacktest';
@@ -51,6 +51,25 @@ const TABS = [
   { id: 'advanced', label: 'Advanced Lab' },
   { id: 'assistant', label: 'Mini NZ Assistant' },
 ];
+
+const SIGNAL_STRENGTH = {
+  buy_strong: 3,
+  buy_medium: 2,
+  buy_weak: 1,
+  hold: 0,
+  sell_weak: -1,
+  sell_medium: -2,
+  sell_strong: -3,
+};
+
+function signalColor(value) {
+  if (value >= 3) return '#10b981'; // emerald-500 — strong buy
+  if (value >= 2) return '#34d399'; // emerald-400 — medium buy
+  if (value >= 1) return '#6ee7b7'; // emerald-300 — weak buy
+  if (value <= -3) return '#ef4444'; // red-500 — strong sell
+  if (value <= -2) return '#f87171'; // red-400 — medium sell
+  return '#fca5a5'; // red-300 — weak sell
+}
 
 export default function Dashboard({ user, session, onSignOut }) {
   const [symbol, setSymbol] = useState('AAPL');
@@ -663,44 +682,65 @@ export default function Dashboard({ user, session, onSignOut }) {
           </div>
 
           {backtestSummary ? (
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-              <h3 className="text-lg font-semibold text-white">Signal Rundown</h3>
-              <p className="mt-1 text-xs text-slate-400">
-                Based on the {backtestSummary.indicator?.toUpperCase()} indicator.
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+              <h3 className="text-sm font-semibold text-zinc-200">Signal Conviction</h3>
+              <p className="mt-1 text-xs text-zinc-500">
+                {backtestSummary.indicator?.toUpperCase()} signals — strength from −3 (strong sell) to +3 (strong buy)
               </p>
-              <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="mt-4 grid grid-cols-4 gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Total Signals</p>
-                  <p className="mt-1 text-lg font-semibold text-white">{backtestSummary.totalSignals ?? 0}</p>
+                  <p className="text-xs font-medium text-zinc-500">Total</p>
+                  <p className="mt-1 text-lg font-semibold text-zinc-100">{backtestSummary.totalSignals ?? 0}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Buy Bias</p>
-                  <p className="mt-1 text-lg font-semibold text-emerald-300">{backtestSummary.buySignals ?? 0}</p>
+                  <p className="text-xs font-medium text-zinc-500">Buy</p>
+                  <p className="mt-1 text-lg font-semibold text-emerald-400">{backtestSummary.buySignals ?? 0}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Sell Bias</p>
-                  <p className="mt-1 text-lg font-semibold text-red-300">{backtestSummary.sellSignals ?? 0}</p>
+                  <p className="text-xs font-medium text-zinc-500">Sell</p>
+                  <p className="mt-1 text-lg font-semibold text-red-400">{backtestSummary.sellSignals ?? 0}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Latest Snapshot</p>
-                  <p className="mt-1 text-sm text-slate-300">{indicatorSnapshotDisplay}</p>
+                  <p className="text-xs font-medium text-zinc-500">Snapshot</p>
+                  <p className="mt-1 text-sm text-zinc-200">{indicatorSnapshotDisplay}</p>
                 </div>
               </div>
-              {backtestSummary.sampleSignals?.length ? (
-                <div className="mt-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Recent Signals</p>
-                  <ul className="mt-2 space-y-2 text-sm text-slate-300">
-                    {backtestSummary.sampleSignals.map((item, idx) => (
-                      <li key={`${item.signal}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
-                        <span className="font-semibold text-blue-300">{item.signal}</span>
-                        {item.date ? (
-                          <span className="ml-2 text-slate-400">{new Date(item.date).toLocaleDateString()}</span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
+              {signalSeries.length > 0 ? (
+                <div className="mt-4 h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={signalSeries.map((s) => ({
+                        date: s.date ? new Date(s.date).toLocaleDateString() : '',
+                        strength: SIGNAL_STRENGTH[s.signal] ?? 0,
+                      }))}
+                      margin={{ top: 4, right: 0, left: -24, bottom: 0 }}
+                    >
+                      <CartesianGrid stroke="#27272a" strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 9, fill: '#71717a' }}
+                        minTickGap={30}
+                      />
+                      <YAxis
+                        domain={[-3, 3]}
+                        ticks={[-3, -2, -1, 0, 1, 2, 3]}
+                        tick={{ fontSize: 9, fill: '#71717a' }}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#3f3f46', borderRadius: '0.5rem', fontSize: 11 }}
+                        formatter={(value) => [value > 0 ? `Buy +${value}` : `Sell ${value}`, 'Conviction']}
+                      />
+                      <Bar dataKey="strength" radius={[2, 2, 0, 0]}>
+                        {signalSeries.map((s, index) => (
+                          <Cell key={index} fill={signalColor(SIGNAL_STRENGTH[s.signal] ?? 0)} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              ) : null}
+              ) : (
+                <p className="mt-3 text-xs text-zinc-500">No non-hold signals in this period.</p>
+              )}
             </section>
           ) : null}
 
