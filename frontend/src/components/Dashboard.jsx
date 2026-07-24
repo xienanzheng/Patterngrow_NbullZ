@@ -41,6 +41,7 @@ const FORECAST_MODELS = [
   { label: 'Simple Trend', value: 'simple' },
   { label: 'ARIMA Inspired', value: 'arima' },
   { label: 'Prophet Inspired', value: 'prophet' },
+  { label: 'Monte Carlo (GBM)', value: 'montecarlo' },
 ];
 
 const TABS = [
@@ -108,6 +109,8 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [simulationSeries, setSimulationSeries] = useState([]);
   const [simulationSummary, setSimulationSummary] = useState(null);
   const [predictionSeries, setPredictionSeries] = useState([]);
+  const [forecastCloud, setForecastCloud] = useState(null);
+  const [signalSeries, setSignalSeries] = useState([]);
   const [indicatorSnapshots, setIndicatorSnapshots] = useState(null);
   const [momentum, setMomentum] = useState(null);
   const [priceTargets, setPriceTargets] = useState(null);
@@ -131,6 +134,8 @@ export default function Dashboard({ user, session, onSignOut }) {
       setTechnicalSummary(null);
       setDataSource('unavailable');
       setMetadataEntry(null);
+      setForecastCloud(null);
+      setSignalSeries([]);
       return;
     }
 
@@ -145,6 +150,7 @@ export default function Dashboard({ user, session, onSignOut }) {
         date: payload.history?.[index]?.date ?? null,
       }))
       .filter((entry) => entry.signal !== 'hold');
+    setSignalSeries(enrichedSignals);
 
     setBacktestSummary({
       indicator: payload.indicator,
@@ -157,6 +163,7 @@ export default function Dashboard({ user, session, onSignOut }) {
     setSimulationSeries(payload.simulation ?? []);
     setSimulationSummary(payload.simulationSummary ?? null);
     setPredictionSeries(payload.forecast ?? []);
+    setForecastCloud(payload.forecastCloud ?? null);
     setIndicatorSnapshots(payload.indicatorSnapshots ?? null);
     setMomentum(payload.momentum ?? null);
     setPriceTargets(payload.priceTargets ?? null);
@@ -266,21 +273,35 @@ export default function Dashboard({ user, session, onSignOut }) {
     if (predictionSeries.length > 0) {
       const lastClose = stockData.at(-1)?.close ?? null;
       predictionSeries.forEach((point, index) => {
+        const cloud = forecastCloud;
         base.push({
           date: point.date,
           close: index === 0 && lastClose != null ? lastClose : null,
-          high: null,
-          low: null,
-          open: null,
-          volume: null,
+          high: null, low: null, open: null, volume: null,
           forecast: point.value,
+          forecastLower68: point.lower68 ?? null,
+          forecastUpper68: point.upper68 ?? null,
+          forecastLower95: point.lower95 ?? null,
+          forecastUpper95: point.upper95 ?? null,
+          // Recharts stacked-area trick: bandHeight = upper - lower
+          forecastBand68Height: point.upper68 != null && point.lower68 != null
+            ? point.upper68 - point.lower68 : null,
+          forecastBand95Height: point.upper95 != null && point.lower95 != null
+            ? point.upper95 - point.lower95 : null,
+          // MC cloud fields (null when not using montecarlo model)
+          mcP5: cloud?.p5[index] ?? null,
+          mcP25: cloud?.p25[index] ?? null,
+          mcP75: cloud?.p75[index] ?? null,
+          mcP95: cloud?.p95[index] ?? null,
+          mcBandOuterHeight: cloud ? (cloud.p95[index] ?? 0) - (cloud.p5[index] ?? 0) : null,
+          mcBandInnerHeight: cloud ? (cloud.p75[index] ?? 0) - (cloud.p25[index] ?? 0) : null,
           isForecast: true,
         });
       });
     }
 
     return base;
-  }, [stockData, predictionSeries]);
+  }, [stockData, predictionSeries, forecastCloud]);
 
   const simulationChart = useMemo(
     () =>
@@ -623,7 +644,12 @@ export default function Dashboard({ user, session, onSignOut }) {
               ) : null}
             </div>
             {chartData.length > 0 ? (
-              <StockChart data={chartData} selectedIndicators={selectedIndicators} />
+              <StockChart
+                data={chartData}
+                selectedIndicators={selectedIndicators}
+                forecastModel={forecastModel}
+                hasForecastCloud={Boolean(forecastCloud)}
+              />
             ) : (
               <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-6 text-sm text-slate-500">
                 No price history available for the current configuration.
