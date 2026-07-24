@@ -10,7 +10,7 @@ router.use(async (req, res, next) => {
   next();
 });
 
-router.get('/preferences', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('user_preferences')
@@ -25,7 +25,7 @@ router.get('/preferences', async (req, res) => {
   }
 });
 
-router.put('/preferences', async (req, res) => {
+router.put('/', async (req, res) => {
   try {
     const { lastSymbol, lastRange, selectedIndicators, forecastModel, initialCapital } = req.body ?? {};
 
