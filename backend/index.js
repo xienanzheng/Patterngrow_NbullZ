@@ -3,6 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import analyticsRouter from './routes/analytics.js';
 import watchlistRouter from './routes/watchlist.js';
+import preferencesRouter from './routes/preferences.js';
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/watchlist', watchlistRouter);
+app.use('/api/user', preferencesRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('Unhandled API error', err);
