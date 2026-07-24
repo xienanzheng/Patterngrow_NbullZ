@@ -11,7 +11,7 @@ function computeHistoricalVol(closes) {
 }
 
 function addBands(value, dailyVol, t) {
-  const spread = dailyVol * Math.sqrt(t) * value;
+  const spread = dailyVol * Math.sqrt(t) * Math.abs(value);
   return {
     lower68: Math.max(0, value - spread),
     upper68: value + spread,

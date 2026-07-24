@@ -12,10 +12,12 @@ function annualizedVol(closes, window = 20) {
 function trendRegime(adx, plusDI, minusDI) {
   if (adx == null) return { label: 'Unknown', color: 'text-zinc-400', bg: 'bg-zinc-800/60', direction: null };
   if (adx >= 25) {
-    const dir = plusDI != null && minusDI != null && plusDI > minusDI ? 'Uptrend' : 'Downtrend';
-    return adx >= 25 && plusDI > minusDI
+    const directionKnown = plusDI != null && minusDI != null;
+    const isUp = directionKnown && plusDI > minusDI;
+    const dir = directionKnown ? (isUp ? 'Uptrend' : 'Downtrend') : null;
+    return isUp
       ? { label: 'Trending', color: 'text-emerald-300', bg: 'bg-emerald-500/10', direction: dir }
-      : { label: 'Trending', color: 'text-red-300', bg: 'bg-red-500/10', direction: dir };
+      : { label: 'Trending', color: directionKnown ? 'text-red-300' : 'text-zinc-300', bg: directionKnown ? 'bg-red-500/10' : 'bg-zinc-700/40', direction: dir };
   }
   if (adx >= 20) return { label: 'Transition', color: 'text-amber-300', bg: 'bg-amber-400/10', direction: null };
   return { label: 'Ranging', color: 'text-zinc-300', bg: 'bg-zinc-700/40', direction: null };
