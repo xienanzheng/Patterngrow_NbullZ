@@ -84,7 +84,7 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
 
   return (
     <div className="space-y-6">
-      <div className="h-[360px] rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <div className="h-[360px] rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData}>
             <defs>
@@ -93,11 +93,11 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
                 <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+            <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
             <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
-            <YAxis yAxisId="price" stroke="#475569" domain={['auto', 'auto']} />
+            <YAxis yAxisId="price" stroke="#52525b" domain={['auto', 'auto']} />
             <Tooltip
-              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+              contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
               labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
               formatter={tooltipFormatter}
             />
@@ -282,14 +282,14 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
         </ResponsiveContainer>
       </div>
 
-      <div className="h-40 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <div className="h-40 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
-            <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+            <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
             <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
-            <YAxis tickFormatter={(value) => `${(value / 1_000_000).toFixed(1)}M`} stroke="#475569" />
+            <YAxis tickFormatter={(value) => `${(value / 1_000_000).toFixed(1)}M`} stroke="#52525b" />
             <Tooltip
-              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+              contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
               labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
               formatter={(value) => [`${(value / 1_000_000).toFixed(2)}M`, 'Volume']}
             />
@@ -297,8 +297,8 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
             <Area
               type="monotone"
               dataKey="volume"
-              stroke="#60a5fa"
-              fill="#1d4ed8"
+              stroke="#71717a"
+              fill="#3f3f46"
               fillOpacity={0.35}
               name="Volume"
             />
@@ -307,14 +307,14 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
       </div>
 
       {selectedIndicators.includes('rsi') ? (
-        <div className="h-48 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <div className="h-48 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
-              <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+              <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
               <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
-              <YAxis domain={[0, 100]} stroke="#475569" />
+              <YAxis domain={[0, 100]} stroke="#52525b" />
               <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+                contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
                 labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
                 formatter={tooltipFormatter}
               />
@@ -328,14 +328,14 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
       ) : null}
 
       {selectedIndicators.includes('macd') ? (
-        <div className="h-48 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <div className="h-48 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
-              <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+              <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
               <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
-              <YAxis stroke="#475569" />
+              <YAxis stroke="#52525b" />
               <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+                contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
                 labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
                 formatter={tooltipFormatter}
               />
@@ -348,14 +348,14 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
       ) : null}
 
       {selectedIndicators.includes('stochastic') ? (
-        <div className="h-48 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <div className="h-48 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
-              <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+              <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
               <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
-              <YAxis stroke="#475569" domain={[0, 100]} />
+              <YAxis stroke="#52525b" domain={[0, 100]} />
               <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+                contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
                 labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
                 formatter={tooltipFormatter}
               />
