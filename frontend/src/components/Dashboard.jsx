@@ -4,6 +4,7 @@ import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
 import AdvancedBacktest from './AdvancedBacktest';
 import MiniAssistant from './MiniAssistant';
+import RegimePanel from './RegimePanel';
 import { getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
 
 const formatCurrency = (value) => {
@@ -620,6 +621,10 @@ export default function Dashboard({ user, session, onSignOut }) {
               </p>
             </div>
           </div>
+
+          {indicatorSnapshots ? (
+            <RegimePanel indicatorSnapshots={indicatorSnapshots} stockData={stockData} />
+          ) : null}
 
           {technicalSummary ? (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
