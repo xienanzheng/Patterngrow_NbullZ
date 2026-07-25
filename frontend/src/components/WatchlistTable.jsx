@@ -8,6 +8,7 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
   const [feedback, setFeedback] = useState(null);
   const [scanRows, setScanRows] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
 
   const handleScan = async () => {
     if (!canManageWatchlist) return;
@@ -116,6 +117,12 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
 
   const handleDelete = async (id) => {
     if (!canManageWatchlist) return;
+    if (confirmId !== id) {
+      setConfirmId(id);
+      setTimeout(() => setConfirmId((prev) => (prev === id ? null : prev)), 3000);
+      return;
+    }
+    setConfirmId(null);
     try {
       await removeWatchlistSymbol(id, accessToken);
       await refresh();
@@ -131,17 +138,22 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
         <div>
           <h2 className="text-lg font-semibold text-white">Watchlist</h2>
           <p className="text-xs text-zinc-400">
-            Track tickers you care about. Data is stored securely through the backend using a Supabase service role.
+            Track tickers you care about. Click a ticker to load its chart.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleScan}
-          disabled={!canManageWatchlist || scanning || sortedRows.length === 0}
-          className="shrink-0 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {scanning ? 'Scanning…' : 'Scan'}
-        </button>
+        <span className="group relative shrink-0">
+          <button
+            type="button"
+            onClick={handleScan}
+            disabled={!canManageWatchlist || scanning || sortedRows.length === 0}
+            className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {scanning ? 'Scanning…' : 'Scan conviction'}
+          </button>
+          <span className="pointer-events-none absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+            Ranks all watchlist symbols by technical conviction score and 5-day up probability.
+          </span>
+        </span>
       </header>
 
       <form onSubmit={handleAdd} className="mb-4 flex gap-2">
@@ -193,10 +205,10 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
               <button
                 type="button"
                 onClick={() => handleDelete(row.id)}
-                className="text-xs font-medium text-zinc-400 transition hover:text-red-400"
+                className={`text-xs font-medium transition ${confirmId === row.id ? 'text-red-400 font-semibold' : 'text-zinc-400 hover:text-red-400'}`}
                 disabled={!canManageWatchlist}
               >
-                Remove
+                {confirmId === row.id ? 'Confirm?' : 'Remove'}
               </button>
             </div>
           ))
