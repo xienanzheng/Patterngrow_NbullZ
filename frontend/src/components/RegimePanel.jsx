@@ -36,7 +36,7 @@ export default function RegimePanel({ indicatorSnapshots, stockData }) {
   const regime = trendRegime(adx, plusDI, minusDI);
 
   const realized = useMemo(() => {
-    const closes = (stockData ?? []).map((r) => Number(r.close)).filter(Number.isFinite);
+    const closes = (stockData ?? []).map((r) => Number(r.close)).filter((v) => Number.isFinite(v) && v > 0);
     return annualizedVol(closes, 20);
   }, [stockData]);
 

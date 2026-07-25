@@ -1,0 +1,41 @@
+name: Supabase keepalive
+
+on:
+  schedule:
+    # Every Monday at 09:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Toggle ServiceNow (NOW) in preferences to keep Supabase active
+        run: |
+          # Alternate symbol each week: even weeks → NOW, odd weeks → AAPL
+          WEEK=$(date +%V)
+          if [ $(( 10#$WEEK % 2 )) -eq 0 ]; then
+            SYMBOL="NOW"
+          else
+            SYMBOL="AAPL"
+          fi
+
+          echo "Week $WEEK — setting last_symbol to $SYMBOL"
+
+          STATUS=$(curl -sS -o /tmp/response.json -w "%{http_code}" -X PATCH \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/user_preferences?user_id=eq.${{ secrets.SUPABASE_USER_ID }}" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{\"last_symbol\": \"$SYMBOL\", \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}")
+
+          cat /tmp/response.json
+          echo ""
+
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "Success (HTTP $STATUS) — Supabase is active."
+          else
+            echo "Unexpected status: HTTP $STATUS"
+            exit 1
+          fi

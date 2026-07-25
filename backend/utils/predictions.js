@@ -216,7 +216,9 @@ export function predictFuturePrices(points, _indicator = 'sma', model = 'drift',
 
   const values = [];
   if (resolved === 'holt') {
-    const { level, trend } = fitHolt(closes);
+    const holt = fitHolt(closes);
+    if (!holt) return withMeta([], null, null);
+    const { level, trend } = holt;
     for (let h = 1; h <= horizon; h += 1) values.push(Math.max(0.01, level + h * trend));
   } else {
     let forecastReturns = null;
