@@ -50,7 +50,7 @@ const TABS = [
   { id: 'overview', label: 'Market Overview' },
   { id: 'metadata', label: 'Metadata Explorer' },
   { id: 'advanced', label: 'Advanced Lab' },
-  { id: 'assistant', label: 'Mini NZ Assistant' },
+  { id: 'assistant', label: 'AI Assistant' },
 ];
 
 const SIGNAL_STRENGTH = {
@@ -74,6 +74,7 @@ function signalColor(value) {
 
 export default function Dashboard({ user, session, onSignOut }) {
   const [symbol, setSymbol] = useState('AAPL');
+  const [symbolInput, setSymbolInput] = useState('AAPL');
   const [range, setRange] = useState('1y');
   const [selectedIndicators, setSelectedIndicators] = useState(['sma', 'bollinger']);
   const [forecastModel, setForecastModel] = useState('simple');
@@ -123,7 +124,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [newTicker, setNewTicker] = useState({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
   const [csvText, setCsvText] = useState('');
   const [metadataUploading, setMetadataUploading] = useState(false);
-  const [metadataActionStatus, setMetadataActionStatus] = useState('');
+  const [metadataActionStatus, setMetadataActionStatus] = useState(null);
   const csvFileInputRef = useRef(null);
 
   const { preferences, loading: prefsLoading, save: savePreferences } = useUserPreferences(
@@ -131,6 +132,11 @@ export default function Dashboard({ user, session, onSignOut }) {
   );
 
   const prefsApplied = useRef(false);
+
+  // Keep symbolInput in sync when symbol changes from external sources (watchlist clicks, prefs)
+  useEffect(() => {
+    setSymbolInput(symbol);
+  }, [symbol]);
 
   useEffect(() => {
     if (prefsLoading || prefsApplied.current) return;
@@ -302,17 +308,6 @@ export default function Dashboard({ user, session, onSignOut }) {
     };
   }, [metadataFilters]);
 
-  const handleRunBacktest = () => {
-    loadInsights();
-  };
-
-  const handleRunSimulation = () => {
-    loadInsights();
-  };
-
-  const handleGeneratePrediction = () => {
-    loadInsights();
-  };
 
   const chartData = useMemo(() => {
     const base = stockData.map((row) => ({
@@ -449,7 +444,7 @@ export default function Dashboard({ user, session, onSignOut }) {
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Patterngrow</h1>
             <p className="text-xs text-zinc-500">
-              Technical intelligence for AAPL, TSLA, and beyond.
+              Stock intelligence &amp; portfolio analytics
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -461,7 +456,10 @@ export default function Dashboard({ user, session, onSignOut }) {
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-sm font-semibold text-white">
+              <div
+                aria-label={user?.email ?? 'User avatar'}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-sm font-semibold text-white"
+              >
                 {user?.email?.slice(0, 2)?.toUpperCase() ?? 'U'}
               </div>
             )}
@@ -469,7 +467,7 @@ export default function Dashboard({ user, session, onSignOut }) {
               <p className="text-sm font-medium text-white">
                 {user?.user_metadata?.full_name ?? user?.email ?? 'Signed In'}
               </p>
-              <p className="text-xs text-zinc-400">Google OAuth via Supabase</p>
+              <p className="text-xs text-zinc-500">Signed in</p>
             </div>
             <button
               type="button"
@@ -490,7 +488,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                    active ? 'bg-amber-400/15 text-amber-200' : 'text-zinc-400 hover:text-amber-200'
+                    active ? 'bg-amber-400/25 text-amber-100 ring-1 ring-amber-400/40' : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
                   {tab.label}
@@ -509,15 +507,20 @@ export default function Dashboard({ user, session, onSignOut }) {
             <h2 className="text-lg font-semibold text-white">Symbol</h2>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="text-xs uppercase tracking-wide text-zinc-400">Ticker</label>
+                <label className="text-xs font-medium text-zinc-400">Ticker</label>
                 <input
-                  value={symbol}
-                  onChange={(event) => setSymbol(event.target.value.toUpperCase())}
+                  value={symbolInput}
+                  onChange={(event) => setSymbolInput(event.target.value.toUpperCase())}
+                  onBlur={() => { if (symbolInput.trim()) setSymbol(symbolInput.trim()); }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') { event.preventDefault(); if (symbolInput.trim()) setSymbol(symbolInput.trim()); }
+                  }}
+                  placeholder="e.g. AAPL"
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                 />
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide text-zinc-400">Range</label>
+                <label className="text-xs font-medium text-zinc-400">Range</label>
                 <select
                   value={range}
                   onChange={(event) => setRange(event.target.value)}
@@ -569,7 +572,7 @@ export default function Dashboard({ user, session, onSignOut }) {
             <h2 className="text-lg font-semibold text-white">Forecast & Simulation</h2>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="text-xs uppercase tracking-wide text-zinc-400">Forecast Model</label>
+                <label className="text-xs font-medium text-zinc-400">Forecast Model</label>
                 <select
                   value={forecastModel}
                   onChange={(event) => setForecastModel(event.target.value)}
@@ -583,38 +586,23 @@ export default function Dashboard({ user, session, onSignOut }) {
                 </select>
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide text-zinc-400">Initial Capital ($)</label>
+                <label className="text-xs font-medium text-zinc-400">Initial Capital ($)</label>
                 <input
                   type="number"
-                  min="1000"
+                  min="1"
                   step="100"
                   value={initialCapital}
-                  onChange={(event) => setInitialCapital(Number(event.target.value))}
+                  onChange={(event) => setInitialCapital(Math.max(1, Number(event.target.value)))}
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                 />
               </div>
-              <div className="flex flex-col gap-2 md:flex-row">
-                <button
-                  type="button"
-                  onClick={handleRunBacktest}
-                  className="flex-1 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400"
-                >
-                  Backtest Signals
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRunSimulation}
-                  className="flex-1 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-400"
-                >
-                  Run Simulation
-                </button>
-              </div>
               <button
                 type="button"
-                onClick={handleGeneratePrediction}
-                className="w-full rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:border-amber-400/80 hover:bg-amber-400/20"
+                onClick={() => loadInsights()}
+                disabled={insightsLoading}
+                className="w-full rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Generate 60-day Forecast
+                {insightsLoading ? 'Analyzing…' : 'Analyze'}
               </button>
             </div>
           </section>
@@ -636,7 +624,7 @@ export default function Dashboard({ user, session, onSignOut }) {
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-              <p className="text-xs uppercase tracking-wide text-zinc-400">Last Price</p>
+              <p className="text-xs font-medium text-zinc-500">Last Price</p>
               <p className="mt-1 text-2xl font-semibold text-white">
                 {quote?.regularMarketPrice != null ? `$${quote.regularMarketPrice.toFixed(2)}` : '--'}
               </p>
@@ -651,14 +639,14 @@ export default function Dashboard({ user, session, onSignOut }) {
               </p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-              <p className="text-xs uppercase tracking-wide text-zinc-400">Market Cap</p>
+              <p className="text-xs font-medium text-zinc-500">Market Cap</p>
               <p className="mt-1 text-2xl font-semibold text-white">
                 {quote?.marketCap ? formatCurrency(quote.marketCap) : '--'}
               </p>
               <p className="text-xs text-zinc-400">Avg Volume: {quote?.averageDailyVolume10Day?.toLocaleString() ?? 'N/A'}</p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-              <p className="text-xs uppercase tracking-wide text-zinc-400">Momentum</p>
+              <p className="text-xs font-medium text-zinc-500">Momentum</p>
               <p className="mt-1 text-2xl font-semibold text-white">
                 {momentum?.change != null ? formatCurrency(momentum.change) : '--'}
               </p>
@@ -688,7 +676,7 @@ export default function Dashboard({ user, session, onSignOut }) {
               <div>
                 <h3 className="text-lg font-semibold text-white">Price Action</h3>
                 <p className="text-xs text-zinc-400">
-                  Indicators are calculated client-side for responsive overlays. Server-side analytics keep Supabase-friendly parity with the legacy Streamlit build.
+                  Technical indicators overlaid on historical price data.
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
                   Data source: {dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'google' ? 'Google Finance fallback' : 'Synthetic sample (offline)'}.
@@ -787,17 +775,17 @@ export default function Dashboard({ user, session, onSignOut }) {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">Initial Capital</p>
+                  <p className="text-xs font-medium text-zinc-500">Initial Capital</p>
                   <p className="mt-1 text-lg font-semibold text-white">{formatCurrency(initialCapital)}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">Final Value</p>
+                  <p className="text-xs font-medium text-zinc-500">Final Value</p>
                   <p className="mt-1 text-lg font-semibold text-white">
                     {finalPortfolioValue != null ? formatCurrency(finalPortfolioValue) : '--'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">Return</p>
+                  <p className="text-xs font-medium text-zinc-500">Return</p>
                   <p
                     className={`mt-1 text-lg font-semibold ${
                       totalReturn != null && totalReturn >= 0 ? 'text-emerald-400' : 'text-red-400'
@@ -833,23 +821,23 @@ export default function Dashboard({ user, session, onSignOut }) {
               </p>
               <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-zinc-300 md:grid-cols-4">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">Model</p>
+                  <p className="text-xs font-medium text-zinc-500">Model</p>
                   <p className="mt-1 font-semibold text-white">{forecastModel.toUpperCase()}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">Base</p>
+                  <p className="text-xs font-medium text-zinc-500">Base</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.base ? `$${priceTargets.base.toFixed(2)}` : 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">Optimistic</p>
+                  <p className="text-xs font-medium text-zinc-500">Optimistic</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.optimistic ? `$${priceTargets.optimistic.toFixed(2)}` : 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">Conservative</p>
+                  <p className="text-xs font-medium text-zinc-500">Conservative</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.conservative ? `$${priceTargets.conservative.toFixed(2)}` : 'N/A'}
                   </p>
@@ -861,8 +849,8 @@ export default function Dashboard({ user, session, onSignOut }) {
           <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
             <h3 className="text-lg font-semibold text-white">Market Narrative</h3>
             {newsItems.length === 0 ? (
-              <p className="mt-2 text-sm text-zinc-400">
-                News sentiment requires an Alpha Vantage key (optional). Configure `ALPHA_VANTAGE_KEY` for the backend or `VITE_ALPHA_VANTAGE_KEY` for the client proxy to activate feed ingestion.
+              <p className="mt-2 text-sm text-zinc-500">
+                No recent news available for {symbol}.
               </p>
             ) : (
               <ul className="mt-4 space-y-3 text-sm text-zinc-300">
@@ -1081,9 +1069,9 @@ export default function Dashboard({ user, session, onSignOut }) {
                   <button
                     type="button"
                     onClick={async () => {
-                      setMetadataActionStatus('');
+                      setMetadataActionStatus(null);
                       if (!newTicker.symbol.trim()) {
-                        setMetadataActionStatus('Symbol is required to add a ticker.');
+                        setMetadataActionStatus({ type: 'error', text: 'Symbol is required to add a ticker.' });
                         return;
                       }
                       try {
@@ -1094,13 +1082,13 @@ export default function Dashboard({ user, session, onSignOut }) {
                           region: newTicker.region || undefined,
                           ipo_year: newTicker.ipoYear ? Number(newTicker.ipoYear) : undefined,
                         });
-                        setMetadataActionStatus(`Saved ${newTicker.symbol.toUpperCase()}.`);
+                        setMetadataActionStatus({ type: 'success', text: `Saved ${newTicker.symbol.toUpperCase()}.` });
                         setNewTicker({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
                         const payload = await getMetadata();
                         setMetadataRows(payload?.rows ?? []);
                         setMetadataFacets(payload?.facets ?? null);
                       } catch (err) {
-                        setMetadataActionStatus(err instanceof Error ? err.message : 'Unable to add ticker.');
+                        setMetadataActionStatus({ type: 'error', text: err instanceof Error ? err.message : 'Unable to add ticker.' });
                       }
                     }}
                     className="mt-3 rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-300"
@@ -1110,7 +1098,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                 </div>
 
                 <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">Upload CSV (header: symbol,name,sector,region,ipo_year)</p>
+                  <p className="text-xs font-medium text-zinc-400">Upload CSV <span className="font-normal text-zinc-500">(columns: symbol, name, sector, region, ipo_year)</span></p>
                   <input
                     ref={csvFileInputRef}
                     type="file"
@@ -1122,9 +1110,9 @@ export default function Dashboard({ user, session, onSignOut }) {
                       try {
                         const text = await file.text();
                         setCsvText(text);
-                        setMetadataActionStatus(`Loaded ${file.name}. Review and click Upload CSV to save.`);
+                        setMetadataActionStatus({ type: 'success', text: `Loaded ${file.name}. Review and click Upload CSV to save.` });
                       } catch (err) {
-                        setMetadataActionStatus('Unable to read CSV file. Try again or paste the contents.');
+                        setMetadataActionStatus({ type: 'error', text: 'Unable to read CSV file. Try again or paste the contents.' });
                       } finally {
                         event.target.value = '';
                       }
@@ -1150,22 +1138,22 @@ export default function Dashboard({ user, session, onSignOut }) {
                   <button
                     type="button"
                     onClick={async () => {
-                      setMetadataActionStatus('');
+                      setMetadataActionStatus(null);
                       if (!csvText.trim()) {
-                        setMetadataActionStatus('Choose a CSV file or paste CSV text before uploading.');
+                        setMetadataActionStatus({ type: 'error', text: 'Choose a CSV file or paste CSV text before uploading.' });
                         return;
                       }
                       setMetadataUploading(true);
-                      setMetadataActionStatus('Uploading CSV…');
+                      setMetadataActionStatus({ type: 'info', text: 'Uploading…' });
                       try {
                         await uploadMetadataCsv(csvText);
-                        setMetadataActionStatus('CSV uploaded and saved.');
+                        setMetadataActionStatus({ type: 'success', text: 'CSV uploaded and saved.' });
                         setCsvText('');
                         const payload = await getMetadata();
                         setMetadataRows(payload?.rows ?? []);
                         setMetadataFacets(payload?.facets ?? null);
                       } catch (err) {
-                        setMetadataActionStatus(err instanceof Error ? err.message : 'Unable to upload CSV.');
+                        setMetadataActionStatus({ type: 'error', text: err instanceof Error ? err.message : 'Unable to upload CSV.' });
                       } finally {
                         setMetadataUploading(false);
                       }
@@ -1179,7 +1167,9 @@ export default function Dashboard({ user, session, onSignOut }) {
               </div>
 
               {metadataActionStatus ? (
-                <p className="mt-3 text-sm text-amber-200">{metadataActionStatus}</p>
+                <p className={`mt-3 text-sm ${metadataActionStatus.type === 'success' ? 'text-emerald-300' : metadataActionStatus.type === 'error' ? 'text-red-300' : 'text-zinc-400'}`}>
+                  {metadataActionStatus.text}
+                </p>
               ) : null}
 
               <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
@@ -1258,14 +1248,6 @@ export default function Dashboard({ user, session, onSignOut }) {
                   >
                     Next
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setMetadataPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={safePage >= totalPages}
-                    className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-400 hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Load more
-                  </button>
                 </div>
               </div>
             </section>
@@ -1278,9 +1260,7 @@ export default function Dashboard({ user, session, onSignOut }) {
       </main>
 
       <footer className="mx-auto mt-10 max-w-7xl px-6 text-xs text-zinc-500">
-        <p>
-          Node.js analytics keep the architecture aligned with Vercel deployments while Supabase powers auth, storage, and realtime watchlists.
-        </p>
+        <p>Prices delayed 15 min. Not financial advice.</p>
       </footer>
     </div>
   );
