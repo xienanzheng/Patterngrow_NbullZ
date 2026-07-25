@@ -9,6 +9,21 @@ const router = express.Router();
 
 const RUN_SYMBOL_CAP = 40;
 
+async function sendTelegram(text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+    });
+  } catch (err) {
+    console.warn('Telegram notification failed:', err.message);
+  }
+}
+
 // Cron entrypoint — authenticated by CRON_SECRET, not a user token.
 // Vercel cron sends `Authorization: Bearer ${CRON_SECRET}` automatically
 // and invokes with GET; POST kept for manual triggering.
@@ -70,6 +85,7 @@ const runAlerts = async (req, res) => {
             message: outcome.message,
           });
           if (eventError) console.warn('alert_events insert failed:', eventError.message);
+          await sendTelegram(`<b>${alert.symbol} Alert</b>\n${outcome.message}`);
         }
 
         if (Object.keys(updates).length) {
