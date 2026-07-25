@@ -6,7 +6,7 @@ import { directionalForecast } from '../utils/classifier.js';
 import { computeSignals } from '../utils/computeSignals.js';
 import { evaluateForecastModel, evaluateNaiveBaseline, evaluateStrategy } from '../utils/evaluation.js';
 import { FORECAST_MODEL_IDS } from '../utils/predictions.js';
-import { fetchFundamentals, fetchNews, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
+import { fetchFundamentals, fetchNews, fetchPolygonDetails, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
 import { getTickerMetadata, listFacetOptions, listMetadata, upsertMetadataRows } from '../utils/metadata.js';
 import { chatLimiter, evaluateLimiter, publicLimiter } from '../utils/rateLimits.js';
 
@@ -135,6 +135,17 @@ router.get('/fundamentals', async (req, res) => {
     if (!symbol) return res.status(400).json({ error: 'symbol is required.' });
     const fundamentals = await fetchFundamentals(symbol.trim().toUpperCase());
     res.json({ symbol: symbol.trim().toUpperCase(), fundamentals });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/company', async (req, res) => {
+  try {
+    const { symbol } = req.query;
+    if (!symbol) return res.status(400).json({ error: 'symbol is required.' });
+    const details = await fetchPolygonDetails(symbol.trim().toUpperCase());
+    res.json({ symbol: symbol.trim().toUpperCase(), details });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

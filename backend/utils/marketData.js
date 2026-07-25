@@ -119,6 +119,31 @@ export async function fetchNews(symbol) {
   }));
 }
 
+export async function fetchPolygonDetails(symbol) {
+  const key = process.env.POLYGON_API_KEY;
+  if (!key) return null;
+  try {
+    const data = await fetchJson(
+      `https://api.polygon.io/v3/reference/tickers/${encodeURIComponent(symbol.toUpperCase())}`,
+      { apiKey: key },
+    );
+    const r = data?.results;
+    if (!r) return null;
+    return {
+      name:        r.name             ?? null,
+      description: r.description      ?? null,
+      exchange:    r.primary_exchange  ?? null,
+      type:        r.type              ?? null,
+      sic:         r.sic_description   ?? null,
+      employees:   r.total_employees   ?? null,
+      homepage:    r.homepage_url      ?? null,
+      listDate:    r.list_date         ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchFundamentals(symbol) {
   const data = await fetchJson(`${yahooBase}/v10/finance/quoteSummary/${encodeURIComponent(symbol)}`, {
     modules: [

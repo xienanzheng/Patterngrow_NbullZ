@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getFundamentals } from '../services/api';
+import { getCompanyDetails, getFundamentals } from '../services/api';
 
 const fmt = {
   currency: (v, cur = 'USD') => {
@@ -26,6 +26,16 @@ export default function FundamentalsCard({ symbol }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [company, setCompany] = useState(null);
+
+  useEffect(() => {
+    if (!symbol) return;
+    let cancelled = false;
+    getCompanyDetails(symbol)
+      .then((res) => { if (!cancelled) setCompany(res.details); })
+      .catch(() => { if (!cancelled) setCompany(null); });
+    return () => { cancelled = true; };
+  }, [symbol]);
 
   useEffect(() => {
     if (!symbol) return;
@@ -118,6 +128,24 @@ export default function FundamentalsCard({ symbol }) {
               </div>
             ))}
           </div>
+
+          {company?.description ? (
+            <div className="mt-4 border-t border-zinc-800 pt-4">
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">About</p>
+              <p className="text-xs leading-relaxed text-zinc-300 line-clamp-4">{company.description}</p>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-zinc-500">
+                {company.exchange ? <span>Exchange: <span className="text-zinc-300">{company.exchange}</span></span> : null}
+                {company.sic ? <span>Sector: <span className="text-zinc-300">{company.sic}</span></span> : null}
+                {company.employees ? <span>Employees: <span className="text-zinc-300">{Number(company.employees).toLocaleString()}</span></span> : null}
+                {company.listDate ? <span>Listed: <span className="text-zinc-300">{company.listDate}</span></span> : null}
+                {company.homepage ? (
+                  <a href={company.homepage} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">
+                    {new URL(company.homepage).hostname}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           {data.quarterlyResults?.length > 0 ? (
             <div className="mt-4 border-t border-zinc-800 pt-4">
