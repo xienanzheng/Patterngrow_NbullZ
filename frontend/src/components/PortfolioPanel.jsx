@@ -67,7 +67,7 @@ export default function PortfolioPanel({ accessToken }) {
     <div className="space-y-6">
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
         <h2 className="text-lg font-semibold text-white">Add Position</h2>
-        <p className="mt-1 text-xs text-zinc-400">Track real holdings: shares and per-share cost basis. Requires the Supabase positions table.</p>
+        <p className="mt-1 text-xs text-zinc-400">Manually track your holdings — enter shares and cost per share. Live prices are fetched for P&amp;L calculations. This is a personal tracker, not connected to any brokerage.</p>
         <form onSubmit={handleAdd} className="mt-4 grid gap-3 md:grid-cols-5">
           <input
             type="text"
@@ -131,8 +131,9 @@ export default function PortfolioPanel({ accessToken }) {
             ) : null}
           </div>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-            <p className="text-xs font-medium text-zinc-500">SPY (same period)</p>
+            <p className="text-xs font-medium text-zinc-500">SPY benchmark</p>
             <p className={`mt-1 text-xl font-semibold ${pnlColor(summary.spyReturnPct)}`}>{pct(summary.spyReturnPct)}</p>
+            <p className="mt-1 text-xs text-zinc-500">S&P 500 ETF return since your earliest position date</p>
           </div>
         </section>
       ) : null}

@@ -6,7 +6,7 @@ const RULES = [
   { value: 'price_below', label: 'Price below…', needsThreshold: true },
   { value: 'rsi_overbought', label: 'RSI overbought (confirmed 2 sessions)', needsThreshold: false },
   { value: 'rsi_oversold', label: 'RSI oversold (confirmed 2 sessions)', needsThreshold: false },
-  { value: 'conviction_flip', label: 'Ensemble conviction flips', needsThreshold: false },
+  { value: 'conviction_flip', label: 'Ensemble conviction flips (buy ↔ sell)', needsThreshold: false },
 ];
 
 const ruleLabel = (value) => RULES.find((r) => r.value === value)?.label ?? value;
@@ -91,7 +91,7 @@ export default function AlertsPanel({ accessToken, defaultSymbol }) {
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
         <h2 className="text-lg font-semibold text-white">Create Alert</h2>
         <p className="mt-1 text-xs text-zinc-400">
-          Rules run once each weekday after US market close (requires the CRON_SECRET env var and the Supabase alerts tables).
+          Rules are evaluated once each weekday after US market close. You'll see triggered events in the section below.
         </p>
         <form onSubmit={handleCreate} className="mt-4 grid gap-3 md:grid-cols-4">
           <input
@@ -130,6 +130,11 @@ export default function AlertsPanel({ accessToken, defaultSymbol }) {
           </button>
         </form>
         {status ? <p className="mt-3 text-sm text-amber-300">{status}</p> : null}
+        {form.ruleType === 'conviction_flip' ? (
+          <p className="mt-2 text-xs text-zinc-500">
+            Fires when the ensemble conviction score changes sign — from bullish (positive) to bearish (negative) or vice versa. Uses a weighted vote across SMA, RSI, MACD, Bollinger, Stochastic, and ADX.
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">

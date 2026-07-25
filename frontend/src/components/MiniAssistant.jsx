@@ -24,8 +24,15 @@ export default function MiniAssistant({ accessToken, symbol }) {
   const [provider, setProvider] = useState('openai');
   const [model, setModel] = useState(PROVIDERS[0].defaultModel);
   const [groundWithData, setGroundWithData] = useState(true);
-  const [prompt, setPrompt] = useState('Summarise bullish and bearish drivers for TSLA this week.');
-  const [history, setHistory] = useState([]);
+  const [prompt, setPrompt] = useState('');
+  const [history, setHistory] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('nz-ai-history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [openAiKey, setOpenAiKey] = useState('');
@@ -63,16 +70,20 @@ export default function MiniAssistant({ accessToken, symbol }) {
         temperature,
         symbol: groundWithData && symbol ? symbol : undefined,
       }, accessToken);
-      setHistory((prev) => [
-        {
-          id: Date.now(),
-          provider: response.provider,
-          model: response.model,
-          prompt,
-          message: response.message,
-        },
-        ...prev,
-      ]);
+      setHistory((prev) => {
+        const next = [
+          {
+            id: Date.now(),
+            provider: response.provider,
+            model: response.model,
+            prompt,
+            message: response.message,
+          },
+          ...prev,
+        ];
+        try { sessionStorage.setItem('nz-ai-history', JSON.stringify(next.slice(0, 20))); } catch {}
+        return next;
+      });
       setPrompt('');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to complete request.');
@@ -86,8 +97,12 @@ export default function MiniAssistant({ accessToken, symbol }) {
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
         <h2 className="text-lg font-semibold text-white">AI Assistant</h2>
         <p className="mt-2 text-sm text-zinc-400">
-          Chat with OpenAI or Gemini to brainstorm trade ideas, risk setups, or macro narratives. Keys entered here stay in your browser&apos;s local storage.
+          Chat with OpenAI or Gemini to brainstorm trade ideas, risk setups, or macro narratives.
         </p>
+        <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-950/60 px-4 py-3 text-xs text-zinc-400 space-y-1">
+          <p><span className="font-semibold text-zinc-300">Bring your own API key</span> — free accounts work. Your key is stored only in this browser and never sent to our servers.</p>
+          <p>OpenAI: <span className="text-zinc-300">platform.openai.com → API Keys</span> · Google: <span className="text-zinc-300">aistudio.google.com → Get API Key</span></p>
+        </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="text-xs font-medium text-zinc-500">
             Provider
@@ -149,7 +164,7 @@ export default function MiniAssistant({ accessToken, symbol }) {
             </label>
           ) : null}
           <label className="text-xs font-medium text-zinc-500">
-            Temperature ({temperature.toFixed(2)})
+            Creativity ({temperature.toFixed(2)}) — <span className="font-normal">lower = precise, higher = creative</span>
             <input
               type="range"
               min="0"
@@ -171,7 +186,7 @@ export default function MiniAssistant({ accessToken, symbol }) {
             onChange={(event) => setPrompt(event.target.value)}
             rows={5}
             className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
-            placeholder="Ask for position sizing guidance, risk management tweaks, or macro narratives."
+            placeholder={`Ask about ${symbol ?? 'any stock'} — bullish/bearish drivers, risk setups, macro context, or trade ideas.`}
           />
         </label>
         <div className="mt-3 flex items-center justify-between">
@@ -188,7 +203,18 @@ export default function MiniAssistant({ accessToken, symbol }) {
       </section>
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
-        <h3 className="text-sm font-semibold text-zinc-400">Conversation</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-zinc-400">Conversation</h3>
+          {history.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => { setHistory([]); try { sessionStorage.removeItem('nz-ai-history'); } catch {} }}
+              className="text-xs text-zinc-500 transition hover:text-zinc-300"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
         <div className="mt-3 max-h-72 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950/60">
           <ul className="divide-y divide-zinc-800/80">
             {history.length === 0 ? (

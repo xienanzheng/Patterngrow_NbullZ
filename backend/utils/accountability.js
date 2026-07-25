@@ -8,6 +8,7 @@ export async function logForecastSnapshot({
 }) {
   try {
     const snapshotDate = new Date().toISOString().slice(0, 10);
+    // One row per (symbol × date × model) — allows comparing multiple models on the same day.
     const { error } = await supabaseAdmin.from('forecast_log').upsert({
       symbol,
       snapshot_date: snapshotDate,
@@ -20,7 +21,7 @@ export async function logForecastSnapshot({
       conviction_score: convictionScore,
       conviction_label: convictionLabel,
       prob_up: probUp,
-    }, { onConflict: 'symbol,snapshot_date' });
+    }, { onConflict: 'symbol,snapshot_date,forecast_model' });
     if (error) throw error;
     return true;
   } catch (err) {
@@ -100,3 +101,8 @@ export async function fetchSnapshots(symbol, limit = 120) {
   if (error) throw error;
   return data ?? [];
 }
+
+// NOTE: The forecast_log table in Supabase must have its unique constraint updated to
+// cover (symbol, snapshot_date, forecast_model). Run this in the SQL Editor:
+// ALTER TABLE forecast_log DROP CONSTRAINT IF EXISTS forecast_log_symbol_snapshot_date_key;
+// ALTER TABLE forecast_log ADD CONSTRAINT forecast_log_symbol_date_model_key UNIQUE (symbol, snapshot_date, forecast_model);

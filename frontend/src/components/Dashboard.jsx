@@ -46,14 +46,15 @@ const DEFAULT_WEIGHTS = { sma: 20, rsi: 20, macd: 20, bollinger: 15, stochastic:
 const WEIGHT_LABELS = { sma: 'SMA', rsi: 'RSI', macd: 'MACD', bollinger: 'Bollinger', stochastic: 'Stochastic', adx: 'ADX' };
 
 const FORECAST_MODELS = [
-  { label: 'Drift (mean return)', value: 'drift' },
-  { label: 'Autoregressive (AR)', value: 'ar' },
-  { label: 'Holt Exp. Smoothing', value: 'holt' },
-  { label: 'Monte Carlo (GBM)', value: 'montecarlo' },
+  { label: 'Drift (mean return)', value: 'drift', description: 'Assumes returns continue at their historical average. Fast, interpretable.' },
+  { label: 'Autoregressive (AR)', value: 'ar', description: 'Uses recent return patterns to project forward. Good for momentum-driven stocks.' },
+  { label: 'Holt Exp. Smoothing', value: 'holt', description: 'Tracks level and trend, weighted toward recent data. Good for trending markets.' },
+  { label: 'Monte Carlo (GBM)', value: 'montecarlo', description: 'Simulates 300 random price paths. Shows a range of possible outcomes, not a single line.' },
 ];
 
 const TABS = [
   { id: 'overview', label: 'Market Overview' },
+  { id: 'watchlist', label: 'Watchlist' },
   { id: 'metadata', label: 'Metadata Explorer' },
   { id: 'advanced', label: 'Advanced Lab' },
   { id: 'alerts', label: 'Alerts' },
@@ -187,6 +188,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [technicalSummary, setTechnicalSummary] = useState(null);
   const [dataSource, setDataSource] = useState('yahoo');
   const [activeTab, setActiveTab] = useState('overview');
+  const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
 
   const primaryIndicator = selectedIndicators[0] ?? 'sma';
 
@@ -472,6 +474,15 @@ export default function Dashboard({ user, session, onSignOut }) {
     return String(snapshot);
   }, [indicatorSnapshots, primaryIndicator]);
 
+  const Tip = ({ text }) => (
+    <span className="group relative ml-1 inline-flex cursor-help items-center">
+      <span className="rounded-full border border-zinc-600 px-1 text-[10px] text-zinc-500 group-hover:border-zinc-400 group-hover:text-zinc-300">?</span>
+      <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+        {text}
+      </span>
+    </span>
+  );
+
   return (
     <div className="min-h-screen bg-zinc-950 pb-16">
       <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
@@ -619,6 +630,12 @@ export default function Dashboard({ user, session, onSignOut }) {
                     </option>
                   ))}
                 </select>
+                {(() => {
+                  const selected = FORECAST_MODELS.find((m) => m.value === forecastModel);
+                  return selected?.description ? (
+                    <p className="mt-1 text-xs text-zinc-500">{selected.description}</p>
+                  ) : null;
+                })()}
               </div>
               <div>
                 <label className="text-xs font-medium text-zinc-400">Initial Capital ($)</label>
@@ -725,7 +742,7 @@ export default function Dashboard({ user, session, onSignOut }) {
               <p className="text-xs text-zinc-400">Avg Volume: {quote?.averageDailyVolume10Day?.toLocaleString() ?? 'N/A'}</p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-              <p className="text-xs font-medium text-zinc-500">Momentum</p>
+              <p className="text-xs font-medium text-zinc-500">30-Day Change</p>
               <p className="mt-1 text-2xl font-semibold text-white">
                 {momentum?.change != null ? formatCurrency(momentum.change) : '--'}
               </p>
@@ -753,7 +770,7 @@ export default function Dashboard({ user, session, onSignOut }) {
           {conviction ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-                <p className="text-xs text-zinc-500">Ensemble Conviction</p>
+                <p className="text-xs text-zinc-500">Ensemble Conviction<Tip text="A weighted vote across 6 indicators (SMA, RSI, MACD, Bollinger, Stochastic, ADX). Score ranges from −6 (strong sell) to +6 (strong buy)." /></p>
                 <p className={`mt-1 text-2xl font-semibold ${conviction.score >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
                   {conviction.label}
                 </p>
@@ -762,13 +779,13 @@ export default function Dashboard({ user, session, onSignOut }) {
                 </p>
               </div>
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-                <p className="text-xs text-zinc-500">5-Day Direction (model)</p>
+                <p className="text-xs text-zinc-500">5-Day Direction<Tip text="A logistic regression classifier trained on recent indicator snapshots. Predicts whether price is more likely up or down in the next 5 trading days." /></p>
                 <p className="mt-1 text-2xl font-semibold text-white">
                   {directional?.probUp != null ? `${(directional.probUp * 100).toFixed(0)}% up` : '--'}
                 </p>
                 <p className="text-xs text-zinc-400">
                   {directional
-                    ? `Holdout accuracy ${(directional.accuracy * 100).toFixed(0)}% on ${directional.testSamples} samples`
+                    ? `Holdout accuracy ${(directional.accuracy * 100).toFixed(0)}% on ${directional.testSamples} samples — random baseline is 50%`
                     : 'Insufficient history for the classifier.'}
                 </p>
               </div>
@@ -791,15 +808,21 @@ export default function Dashboard({ user, session, onSignOut }) {
               ) : null}
             </div>
             {chartData.length > 0 ? (
-              <StockChart
-                data={chartData}
-                selectedIndicators={selectedIndicators}
-                forecastModel={forecastModel}
-                hasForecastCloud={Boolean(forecastCloud)}
-              />
+              <div className={insightsLoading ? 'opacity-50 transition-opacity' : 'transition-opacity'}>
+                <StockChart
+                  data={chartData}
+                  selectedIndicators={selectedIndicators}
+                  forecastModel={forecastModel}
+                  hasForecastCloud={Boolean(forecastCloud)}
+                />
+              </div>
+            ) : insightsLoading ? (
+              <div className="flex h-48 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950/40">
+                <p className="text-sm text-zinc-500">Loading price data…</p>
+              </div>
             ) : (
               <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-950/40 p-6 text-sm text-zinc-500">
-                No price history available for the current configuration.
+                {insightsError ? 'Could not load price data — check the ticker symbol or try again.' : 'No price history available for the current configuration.'}
               </div>
             )}
           </div>
@@ -950,13 +973,25 @@ export default function Dashboard({ user, session, onSignOut }) {
             </section>
           ) : null}
 
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowDetailedAnalysis((prev) => !prev)}
+              className="flex items-center gap-2 text-xs font-medium text-zinc-400 transition hover:text-zinc-200"
+            >
+              <span className="inline-block w-3">{showDetailedAnalysis ? '▲' : '▼'}</span>
+              {showDetailedAnalysis ? 'Hide' : 'Show'} forecast accountability &amp; news
+            </button>
+          </div>
+          {showDetailedAnalysis ? (
+          <>
           {accountability?.rows?.length ? (
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
               <h3 className="text-lg font-semibold text-white">Forecast Accountability</h3>
               <p className="mt-1 text-xs text-zinc-400">
                 What the models said on past days vs. what actually happened.
                 {accountability.summary?.bandHitRate != null
-                  ? ` Band hit rate ${(accountability.summary.bandHitRate * 100).toFixed(0)}% · direction ${(accountability.summary.directionHitRate * 100).toFixed(0)}% over ${accountability.summary.graded} graded forecasts.`
+                  ? ` Band hit rate ${(accountability.summary.bandHitRate * 100).toFixed(0)}% · direction ${accountability.summary.directionHitRate != null ? (accountability.summary.directionHitRate * 100).toFixed(0) + '%' : '—'} over ${accountability.summary.graded} graded forecasts. (50% = random baseline)`
                   : ''}
               </p>
               <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
@@ -968,7 +1003,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       <th className="px-4 py-2 text-right">Predicted</th>
                       <th className="px-4 py-2 text-right">Band</th>
                       <th className="px-4 py-2 text-right">Actual</th>
-                      <th className="px-4 py-2 text-center">In band</th>
+                      <th className="px-4 py-2 text-center">In band<Tip text="Whether the actual price fell within the model's 80% confidence interval on the target date." /></th>
                       <th className="px-4 py-2 text-center">Direction</th>
                     </tr>
                   </thead>
@@ -1015,6 +1050,8 @@ export default function Dashboard({ user, session, onSignOut }) {
               </ul>
             )}
           </section>
+          </>
+          ) : null}
           </section>
         </div>
         ) : null}
@@ -1410,6 +1447,17 @@ export default function Dashboard({ user, session, onSignOut }) {
                 </div>
               </div>
             </section>
+          </div>
+        ) : null}
+
+        {activeTab === 'watchlist' ? (
+          <div className="max-w-md">
+            <WatchlistTable
+              user={session?.user ?? user}
+              accessToken={session?.access_token}
+              activeSymbol={symbol}
+              onSelectSymbol={(ticker) => { setSymbol(ticker); setActiveTab('overview'); }}
+            />
           </div>
         ) : null}
 

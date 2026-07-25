@@ -39,10 +39,14 @@ export default function AuthForm({ user, loading }) {
     <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 py-12">
       <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8 shadow-2xl shadow-black/50 backdrop-blur">
         <div className="mb-10 space-y-3 text-center">
-          <h1 className="text-3xl font-semibold text-white">Sign in to continue</h1>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold tracking-widest text-amber-400">PATTERNGROW</p>
+            <h1 className="text-2xl font-semibold text-white">Stock intelligence, built for you.</h1>
+          </div>
           <p className="text-sm text-zinc-400">
-            Use your Google account to access personalized dashboards, watchlists, and analytics powered by Supabase.
+            Forecast prices with AI models, backtest strategies, track your portfolio, and get alerts — all in one place.
           </p>
+          <p className="text-xs text-zinc-500">Sign in with Google to get started.</p>
         </div>
         <button
           type="button"
