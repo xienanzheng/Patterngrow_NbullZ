@@ -119,6 +119,88 @@ export async function fetchNews(symbol) {
   }));
 }
 
+export async function fetchFundamentals(symbol) {
+  const data = await fetchJson(`${yahooBase}/v10/finance/quoteSummary/${encodeURIComponent(symbol)}`, {
+    modules: [
+      'price',
+      'summaryDetail',
+      'defaultKeyStatistics',
+      'financialData',
+      'incomeStatementHistoryQuarterly',
+      'cashflowStatementHistoryQuarterly',
+      'balanceSheetHistoryQuarterly',
+    ].join(','),
+  });
+  const result = data?.quoteSummary?.result?.[0];
+  if (!result) throw new Error('Fundamentals unavailable for this symbol.');
+
+  const price = result.price ?? {};
+  const sd = result.summaryDetail ?? {};
+  const ks = result.defaultKeyStatistics ?? {};
+  const fd = result.financialData ?? {};
+
+  // Merge 3 quarterly statement arrays by endDate (most-recent 4 quarters)
+  const incomeRows = result.incomeStatementHistoryQuarterly?.incomeStatementHistory ?? [];
+  const cashRows   = result.cashflowStatementHistoryQuarterly?.cashflowStatements ?? [];
+  const bsRows     = result.balanceSheetHistoryQuarterly?.balanceSheetStatements ?? [];
+
+  const byDate = {};
+  const addRow = (arr, pick) => {
+    arr.slice(0, 4).forEach((row) => {
+      const d = row.endDate?.fmt;
+      if (!d) return;
+      byDate[d] = { ...byDate[d], date: d, ...pick(row) };
+    });
+  };
+  addRow(incomeRows, (r) => ({
+    revenue:    r.totalRevenue?.raw ?? null,
+    netIncome:  r.netIncome?.raw    ?? null,
+    basicEps:   r.basicEPS?.raw     ?? null,
+    grossProfit: r.grossProfit?.raw ?? null,
+    ebit:       r.ebit?.raw         ?? null,
+  }));
+  addRow(cashRows, (r) => ({
+    operatingCashFlow: r.totalCashFromOperatingActivities?.raw ?? null,
+    capEx:             r.capitalExpenditures?.raw               ?? null,
+    freeCashFlow:      r.freeCashflow?.raw                      ?? null,
+  }));
+  addRow(bsRows, (r) => ({
+    cash:             r.cash?.raw                    ?? null,
+    totalAssets:      r.totalAssets?.raw             ?? null,
+    totalLiabilities: r.totalLiab?.raw               ?? null,
+    longTermDebt:     r.longTermDebt?.raw            ?? null,
+    shareholderEquity: r.totalStockholderEquity?.raw ?? null,
+  }));
+
+  // Sort by date descending (most recent first), take 4
+  const quarterlyResults = Object.values(byDate)
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, 4);
+
+  return {
+    currency:        price.currency                  ?? 'USD',
+    marketCap:       price.marketCap?.raw            ?? null,
+    trailingPE:      sd.trailingPE?.raw              ?? null,
+    forwardPE:       sd.forwardPE?.raw               ?? null,
+    trailingEps:     ks.trailingEps?.raw             ?? null,
+    forwardEps:      ks.forwardEps?.raw              ?? null,
+    volume:          price.regularMarketVolume?.raw  ?? null,
+    averageVolume:   sd.averageVolume?.raw           ?? null,
+    fiftyTwoWeekHigh: sd.fiftyTwoWeekHigh?.raw      ?? null,
+    fiftyTwoWeekLow:  sd.fiftyTwoWeekLow?.raw       ?? null,
+    beta:            sd.beta?.raw                    ?? null,
+    dividendYield:   sd.dividendYield?.raw           ?? null,
+    dividendRate:    sd.dividendRate?.raw            ?? null,
+    profitMargins:   fd.profitMargins?.raw           ?? null,
+    grossMargins:    fd.grossMargins?.raw            ?? null,
+    revenueGrowth:   fd.revenueGrowth?.raw           ?? null,
+    totalRevenue:    fd.totalRevenue?.raw            ?? null,
+    totalDebt:       fd.totalDebt?.raw               ?? null,
+    targetMeanPrice: fd.targetMeanPrice?.raw         ?? null,
+    quarterlyResults,
+  };
+}
+
 async function fetchGoogleHistory(symbol, range = '1y', interval = '1d') {
   const intervalMap = {
     '1d': 86400,
