@@ -162,7 +162,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   }, [preferences, prefsLoading]);
 
   useEffect(() => {
-    if (!prefsApplied.current) return;
+    if (prefsLoading || !prefsApplied.current) return;
     savePreferences({
       lastSymbol: symbol,
       lastRange: range,
@@ -170,7 +170,7 @@ export default function Dashboard({ user, session, onSignOut }) {
       forecastModel,
       initialCapital,
     });
-  }, [symbol, range, selectedIndicators, forecastModel, initialCapital, savePreferences]);
+  }, [symbol, range, selectedIndicators, forecastModel, initialCapital, savePreferences, prefsLoading]);
 
   const [backtestSummary, setBacktestSummary] = useState(null);
   const [simulationSeries, setSimulationSeries] = useState([]);
