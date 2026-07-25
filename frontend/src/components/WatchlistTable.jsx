@@ -126,11 +126,11 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
   };
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-inner">
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-inner">
       <header className="mb-4 flex items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold text-white">Watchlist</h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-zinc-400">
             Track tickers you care about. Data is stored securely through the backend using a Supabase service role.
           </p>
         </div>
@@ -138,7 +138,7 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
           type="button"
           onClick={handleScan}
           disabled={!canManageWatchlist || scanning || sortedRows.length === 0}
-          className="shrink-0 rounded-lg border border-blue-500/60 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="shrink-0 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {scanning ? 'Scanning…' : 'Scan'}
         </button>
@@ -150,13 +150,13 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
           value={formSymbol}
           onChange={(event) => setFormSymbol(event.target.value)}
           placeholder="Add ticker (e.g. AAPL)"
-          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
           disabled={!canManageWatchlist}
         />
         <button
           type="submit"
           disabled={!canManageWatchlist}
-          className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Add
         </button>
@@ -170,30 +170,30 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
 
       <div className="space-y-2">
         {loading ? (
-          <p className="text-sm text-slate-400">Loading watchlist…</p>
+          <p className="text-sm text-zinc-400">Loading watchlist…</p>
         ) : sortedRows.length === 0 ? (
-          <p className="text-sm text-slate-500">No symbols yet. Add your first ticker above.</p>
+          <p className="text-sm text-zinc-500">No symbols yet. Add your first ticker above.</p>
         ) : (
           sortedRows.map((row) => (
             <div
               key={row.id}
-              className={`flex items-center justify-between rounded-lg border border-slate-800 px-3 py-2 transition ${
+              className={`flex items-center justify-between rounded-lg border border-zinc-800 px-3 py-2 transition ${
                 activeSymbol === row.symbol
-                  ? 'bg-blue-500/10 border-blue-500/40'
-                  : 'bg-slate-950/50 hover:border-blue-500/30 hover:bg-blue-500/5'
+                  ? 'bg-amber-400/10 border-amber-400/40'
+                  : 'bg-zinc-950/50 hover:border-amber-400/30 hover:bg-amber-400/5'
               }`}
             >
               <button
                 type="button"
                 onClick={() => onSelectSymbol?.(row.symbol)}
-                className="text-sm font-semibold uppercase tracking-wide text-slate-100"
+                className="text-sm font-semibold text-zinc-100"
               >
                 {row.symbol}
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(row.id)}
-                className="text-xs font-medium text-slate-400 transition hover:text-red-400"
+                className="text-xs font-medium text-zinc-400 transition hover:text-red-400"
                 disabled={!canManageWatchlist}
               >
                 Remove
@@ -205,9 +205,9 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
 
       {scanRows ? (
         <div className="mt-4">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Conviction scan (ranked)</p>
+          <p className="text-xs font-medium text-zinc-500">Conviction scan (ranked)</p>
           {scanRows.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">No scan results — add symbols first.</p>
+            <p className="mt-2 text-sm text-zinc-500">No scan results — add symbols first.</p>
           ) : (
             <ul className="mt-2 space-y-1">
               {scanRows.map((row) => (
@@ -215,17 +215,17 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
                   <button
                     type="button"
                     onClick={() => onSelectSymbol?.(row.symbol)}
-                    className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-1.5 text-left text-xs transition hover:border-blue-500/30"
+                    className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-1.5 text-left text-xs transition hover:border-amber-400/30"
                   >
-                    <span className="font-semibold text-slate-100">{row.symbol}</span>
+                    <span className="font-semibold text-zinc-100">{row.symbol}</span>
                     <span
                       className={`font-semibold ${
-                        row.conviction.score > 0 ? 'text-emerald-300' : row.conviction.score < 0 ? 'text-red-300' : 'text-slate-400'
+                        row.conviction.score > 0 ? 'text-emerald-300' : row.conviction.score < 0 ? 'text-red-300' : 'text-zinc-400'
                       }`}
                     >
                       {row.conviction.label} ({row.conviction.score >= 0 ? '+' : ''}{row.conviction.score})
                     </span>
-                    <span className="text-slate-400">
+                    <span className="text-zinc-400">
                       {row.probUp != null ? `${(row.probUp * 100).toFixed(0)}%↑` : '--'}
                     </span>
                   </button>

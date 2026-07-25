@@ -83,18 +83,18 @@ export default function MiniAssistant({ accessToken, symbol }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-        <h2 className="text-lg font-semibold text-white">Mini NZ Assistant</h2>
-        <p className="mt-2 text-sm text-slate-400">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
+        <h2 className="text-lg font-semibold text-white">AI Assistant</h2>
+        <p className="mt-2 text-sm text-zinc-400">
           Chat with OpenAI or Gemini to brainstorm trade ideas, risk setups, or macro narratives. Keys entered here stay in your browser&apos;s local storage.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="text-xs uppercase tracking-wide text-slate-400">
+          <label className="text-xs font-medium text-zinc-500">
             Provider
             <select
               value={provider}
               onChange={(event) => setProvider(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             >
               {PROVIDERS.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -103,15 +103,15 @@ export default function MiniAssistant({ accessToken, symbol }) {
               ))}
             </select>
           </label>
-          <label className="text-xs uppercase tracking-wide text-slate-400">
+          <label className="text-xs font-medium text-zinc-500">
             Model
             <input
               value={model}
               onChange={(event) => setModel(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             />
           </label>
-          <label className="text-xs uppercase tracking-wide text-slate-400">
+          <label className="text-xs font-medium text-zinc-500">
             OpenAI Key (local)
             <input
               type="password"
@@ -121,10 +121,10 @@ export default function MiniAssistant({ accessToken, symbol }) {
                 saveKey('nz-ai-openai-key', event.target.value);
               }}
               placeholder="sk-..."
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             />
           </label>
-          <label className="text-xs uppercase tracking-wide text-slate-400">
+          <label className="text-xs font-medium text-zinc-500">
             Google Key (local)
             <input
               type="password"
@@ -134,21 +134,21 @@ export default function MiniAssistant({ accessToken, symbol }) {
                 saveKey('nz-ai-google-key', event.target.value);
               }}
               placeholder="AIza..."
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             />
           </label>
           {symbol ? (
-            <label className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
+            <label className="flex items-center gap-2 text-xs font-medium text-zinc-500">
               <input
                 type="checkbox"
                 checked={groundWithData}
                 onChange={(event) => setGroundWithData(event.target.checked)}
-                className="h-4 w-4 accent-blue-500"
+                className="h-4 w-4 accent-amber-400"
               />
               Ground with live {symbol} data (indicators, conviction, forecast, news)
             </label>
           ) : null}
-          <label className="text-xs uppercase tracking-wide text-slate-400">
+          <label className="text-xs font-medium text-zinc-500">
             Temperature ({temperature.toFixed(2)})
             <input
               type="range"
@@ -157,20 +157,20 @@ export default function MiniAssistant({ accessToken, symbol }) {
               step="0.05"
               value={temperature}
               onChange={(event) => setTemperature(Number(event.target.value))}
-              className="mt-1 w-full accent-blue-500"
+              className="mt-1 w-full accent-amber-400"
             />
           </label>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-        <label className="text-xs uppercase tracking-wide text-slate-400">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
+        <label className="text-xs font-medium text-zinc-500">
           Prompt
           <textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             rows={5}
-            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             placeholder="Ask for position sizing guidance, risk management tweaks, or macro narratives."
           />
         </label>
@@ -179,7 +179,7 @@ export default function MiniAssistant({ accessToken, symbol }) {
             type="button"
             onClick={runPrompt}
             disabled={loading}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Generating…' : 'Send Prompt'}
           </button>
@@ -187,21 +187,21 @@ export default function MiniAssistant({ accessToken, symbol }) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Conversation</h3>
-        <div className="mt-3 max-h-72 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60">
-          <ul className="divide-y divide-slate-800/80">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
+        <h3 className="text-sm font-semibold text-zinc-400">Conversation</h3>
+        <div className="mt-3 max-h-72 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950/60">
+          <ul className="divide-y divide-zinc-800/80">
             {history.length === 0 ? (
-              <li className="p-4 text-sm text-slate-500">No AI conversations yet.</li>
+              <li className="p-4 text-sm text-zinc-500">No AI conversations yet.</li>
             ) : (
               history.map((entry) => (
                 <li key={entry.id} className="space-y-2 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-wide text-slate-500">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
                     <span>{entry.provider} · {entry.model}</span>
                     <span>{new Date(entry.id).toLocaleString()}</span>
                   </div>
                   <p className="text-sm font-semibold text-white">You: {entry.prompt}</p>
-                  <p className="text-sm text-slate-300 whitespace-pre-wrap">{entry.message}</p>
+                  <p className="text-sm text-zinc-300 whitespace-pre-wrap">{entry.message}</p>
                 </li>
               ))
             )}
