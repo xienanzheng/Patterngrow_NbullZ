@@ -185,3 +185,19 @@ export function updatePreferences(prefs, token) {
     token,
   });
 }
+
+export function connectBroker({ keyId, secretKey, isPaper }, token) {
+  return request('/api/broker/connect', { method: 'PUT', body: { keyId, secretKey, isPaper }, token });
+}
+
+export function getBrokerPortfolio(token) {
+  return request('/api/broker/portfolio', { token });
+}
+
+export function placeBrokerOrder({ symbol, side, qty }, token) {
+  return request('/api/broker/order', { method: 'POST', body: { symbol, side, qty }, token });
+}
+
+export function disconnectBroker(token) {
+  return request('/api/broker/connect', { method: 'DELETE', token });
+}
