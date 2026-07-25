@@ -1,7 +1,10 @@
 import { useMemo, useCallback } from 'react';
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   ComposedChart,
+  Customized,
   Legend,
   Line,
   ReferenceLine,
@@ -9,8 +12,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  AreaChart,
-  Area,
 } from 'recharts';
 import {
   calculateBollingerBands,
@@ -20,6 +21,55 @@ import {
   calculateStochasticOscillator,
   calculateVWAP,
 } from '../lib/indicators';
+
+function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint, hoverPoint, onLineDelete }) {
+  const xScale = xAxisMap?.[0]?.scale;
+  const yScale = yAxisMap?.['price']?.scale;
+  if (!xScale || !yScale || !offset) return null;
+
+  const toX = (date) => {
+    const v = xScale(date);
+    return v != null ? v + (offset.left ?? 0) : null;
+  };
+  const toY = (price) => {
+    const v = yScale(price);
+    return v != null ? v + (offset.top ?? 0) : null;
+  };
+
+  return (
+    <g>
+      {drawnLines.map((line) => {
+        const x1 = toX(line.x1);
+        const y1 = toY(line.y1);
+        const x2 = toX(line.x2);
+        const y2 = toY(line.y2);
+        if (x1 == null || y1 == null || x2 == null || y2 == null) return null;
+        return (
+          <g key={line.id}>
+            {/* Visible line */}
+            <line x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke="#fbbf24" strokeWidth={2} strokeLinecap="round" />
+            {/* Wide invisible hit target — click to delete */}
+            <line x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke="transparent" strokeWidth={12} style={{ cursor: 'pointer' }}
+              onClick={(e) => { e.stopPropagation(); onLineDelete?.(line.id); }} />
+          </g>
+        );
+      })}
+      {pendingPoint && hoverPoint ? (() => {
+        const px = toX(pendingPoint.x);
+        const py = toY(pendingPoint.y);
+        const hx = toX(hoverPoint.x);
+        const hy = toY(hoverPoint.y);
+        if (px == null || py == null || hx == null || hy == null) return null;
+        return (
+          <line x1={px} y1={py} x2={hx} y2={hy}
+            stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="6 3" strokeLinecap="round" />
+        );
+      })() : null}
+    </g>
+  );
+}
 
 function formatAxisTick(value, chartInterval) {
   if (!value) return '';
@@ -42,7 +92,17 @@ const tooltipFormatter = (value, name) => {
   return [value, label];
 };
 
-export default function StockChart({ data, interval, selectedIndicators, forecastModel, hasForecastCloud, showForecast = true }) {
+export default function StockChart({
+  data, interval, selectedIndicators, forecastModel, hasForecastCloud,
+  showForecast = true,
+  drawingMode = false,
+  drawnLines = [],
+  pendingPoint = null,
+  hoverPoint = null,
+  onChartClick,
+  onChartMouseMove,
+  onLineDelete,
+}) {
   const actualData = useMemo(() => data.filter((row) => !row.isForecast), [data]);
 
   // Calculate only the indicators that are currently toggled on.
@@ -109,7 +169,12 @@ export default function StockChart({ data, interval, selectedIndicators, forecas
     <div className="space-y-6">
       <div className="h-[360px] rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData}>
+          <ComposedChart
+            data={chartData}
+            onClick={onChartClick}
+            onMouseMove={onChartMouseMove}
+            style={drawingMode ? { cursor: 'crosshair' } : undefined}
+          >
             <defs>
               <linearGradient id="smaGradient" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.4} />
@@ -301,6 +366,13 @@ export default function StockChart({ data, interval, selectedIndicators, forecas
                 />
               </>
             ) : null}
+            <Customized
+              component={TrendLineOverlay}
+              drawnLines={drawnLines}
+              pendingPoint={pendingPoint}
+              hoverPoint={hoverPoint}
+              onLineDelete={onLineDelete}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
