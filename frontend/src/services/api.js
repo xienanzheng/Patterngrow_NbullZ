@@ -72,6 +72,10 @@ export function getFundamentals(symbol) {
   return request(`/api/analytics/fundamentals?symbol=${encodeURIComponent(symbol)}`);
 }
 
+export function getCompanyDetails(symbol) {
+  return request(`/api/analytics/company?symbol=${encodeURIComponent(symbol)}`);
+}
+
 export function getMetadata(filters = {}) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
