@@ -77,6 +77,9 @@ const SIGNAL_STRENGTH = {
   sell_strong: -3,
 };
 
+const PLOT_TOP = 5;
+const PLOT_HEIGHT = 320;
+
 function signalColor(value) {
   if (value >= 3) return '#10b981'; // emerald-500 — strong buy
   if (value >= 2) return '#34d399'; // emerald-400 — medium buy
@@ -336,76 +339,6 @@ export default function Dashboard({ user, session, onSignOut }) {
     };
   }, [symbol]);
 
-  useEffect(() => {
-    setDrawnLines([]);
-    setPendingPoint(null);
-    setHoverPoint(null);
-    setDrawingMode(false);
-  }, [symbol]);
-
-  const handleChartClick = useCallback(
-    (data) => {
-      if (!drawingMode || !data?.activeLabel) return;
-      const price = pixelToPrice(data.chartY);
-      if (price == null) return;
-      const point = { x: data.activeLabel, y: price };
-      if (!pendingPoint) {
-        setPendingPoint(point);
-      } else {
-        setDrawnLines((prev) => [
-          ...prev,
-          { id: Date.now().toString(), x1: pendingPoint.x, y1: pendingPoint.y, x2: point.x, y2: point.y },
-        ]);
-        setPendingPoint(null);
-        setHoverPoint(null);
-      }
-    },
-    [drawingMode, pendingPoint, pixelToPrice],
-  );
-
-  const handleChartMouseMove = useCallback(
-    (data) => {
-      if (!drawingMode || !pendingPoint || !data?.activeLabel) {
-        if (hoverPoint) setHoverPoint(null);
-        return;
-      }
-      const price = pixelToPrice(data.chartY);
-      if (price == null) return;
-      setHoverPoint({ x: data.activeLabel, y: price });
-    },
-    [drawingMode, pendingPoint, hoverPoint, pixelToPrice],
-  );
-
-  const handleLineDelete = useCallback((id) => {
-    setDrawnLines((prev) => prev.filter((l) => l.id !== id));
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      setMetadataLoading(true);
-      setMetadataError(null);
-      try {
-        const payload = await getMetadata(metadataFilters);
-        if (cancelled) return;
-        setMetadataRows(payload?.rows ?? []);
-        setMetadataFacets(payload?.facets ?? null);
-      } catch (err) {
-        if (cancelled) return;
-        setMetadataRows([]);
-        setMetadataFacets(null);
-        setMetadataError(err instanceof Error ? err.message : 'Unable to load metadata.');
-      } finally {
-        if (!cancelled) setMetadataLoading(false);
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [metadataFilters]);
-
-
   const chartData = useMemo(() => {
     const base = stockData.map((row) => ({
       ...row,
@@ -450,9 +383,6 @@ export default function Dashboard({ user, session, onSignOut }) {
     return base;
   }, [stockData, predictionSeries, forecastCloud]);
 
-  const PLOT_TOP = 5;
-  const PLOT_HEIGHT = 320;
-
   const chartPriceDomain = useMemo(() => {
     const closes = chartData
       .filter((row) => !row.isForecast && row.close != null)
@@ -473,6 +403,75 @@ export default function Dashboard({ user, session, onSignOut }) {
     },
     [chartPriceDomain],
   );
+
+  const handleChartClick = useCallback(
+    (data) => {
+      if (!drawingMode || !data?.activeLabel) return;
+      const price = pixelToPrice(data.chartY);
+      if (price == null) return;
+      const point = { x: data.activeLabel, y: price };
+      if (!pendingPoint) {
+        setPendingPoint(point);
+      } else {
+        setDrawnLines((prev) => [
+          ...prev,
+          { id: Date.now().toString(), x1: pendingPoint.x, y1: pendingPoint.y, x2: point.x, y2: point.y },
+        ]);
+        setPendingPoint(null);
+        setHoverPoint(null);
+      }
+    },
+    [drawingMode, pendingPoint, pixelToPrice],
+  );
+
+  const handleChartMouseMove = useCallback(
+    (data) => {
+      if (!drawingMode || !pendingPoint || !data?.activeLabel) {
+        if (hoverPoint) setHoverPoint(null);
+        return;
+      }
+      const price = pixelToPrice(data.chartY);
+      if (price == null) return;
+      setHoverPoint({ x: data.activeLabel, y: price });
+    },
+    [drawingMode, pendingPoint, hoverPoint, pixelToPrice],
+  );
+
+  const handleLineDelete = useCallback((id) => {
+    setDrawnLines((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
+  useEffect(() => {
+    setDrawnLines([]);
+    setPendingPoint(null);
+    setHoverPoint(null);
+    setDrawingMode(false);
+  }, [symbol]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setMetadataLoading(true);
+      setMetadataError(null);
+      try {
+        const payload = await getMetadata(metadataFilters);
+        if (cancelled) return;
+        setMetadataRows(payload?.rows ?? []);
+        setMetadataFacets(payload?.facets ?? null);
+      } catch (err) {
+        if (cancelled) return;
+        setMetadataRows([]);
+        setMetadataFacets(null);
+        setMetadataError(err instanceof Error ? err.message : 'Unable to load metadata.');
+      } finally {
+        if (!cancelled) setMetadataLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [metadataFilters]);
 
   const simulationChart = useMemo(
     () =>
