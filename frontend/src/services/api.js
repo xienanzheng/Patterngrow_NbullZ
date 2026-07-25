@@ -79,22 +79,69 @@ export function getMetadata(filters = {}) {
   return request(path);
 }
 
-export function upsertMetadataRow(row) {
+export function upsertMetadataRow(row, token) {
   return request('/api/analytics/metadata/manual', {
     method: 'POST',
     body: row,
+    token,
   });
 }
 
-export function uploadMetadataCsv(csv) {
+export function uploadMetadataCsv(csv, token) {
   return request('/api/analytics/metadata/csv', {
     method: 'POST',
     body: { csv },
+    token,
   });
+}
+
+export function getAccountability(symbol) {
+  return request(`/api/analytics/accountability?symbol=${encodeURIComponent(symbol)}`);
+}
+
+export function getEvaluation(symbol, options = {}) {
+  const params = new URLSearchParams({ symbol });
+  Object.entries(options).forEach(([key, value]) => {
+    if (value == null || value === '') return;
+    params.set(key, value);
+  });
+  return request(`/api/analytics/evaluate?${params.toString()}`);
 }
 
 export function getWatchlist(token) {
   return request('/api/watchlist', { token });
+}
+
+export function scanWatchlist(token) {
+  return request('/api/watchlist/scan', { token });
+}
+
+export function getAlerts(token) {
+  return request('/api/alerts', { token });
+}
+
+export function createAlert({ symbol, ruleType, threshold }, token) {
+  return request('/api/alerts', { method: 'POST', body: { symbol, ruleType, threshold }, token });
+}
+
+export function deleteAlert(id, token) {
+  return request(`/api/alerts/${encodeURIComponent(id)}`, { method: 'DELETE', token });
+}
+
+export function markAlertEventsSeen(token) {
+  return request('/api/alerts/events/seen', { method: 'POST', body: {}, token });
+}
+
+export function getPositions(token) {
+  return request('/api/positions', { token });
+}
+
+export function createPosition({ symbol, shares, costBasis, openedAt }, token) {
+  return request('/api/positions', { method: 'POST', body: { symbol, shares, costBasis, openedAt }, token });
+}
+
+export function deletePosition(id, token) {
+  return request(`/api/positions/${encodeURIComponent(id)}`, { method: 'DELETE', token });
 }
 
 export function addWatchlistSymbol(symbol, token) {
@@ -112,7 +159,7 @@ export function removeWatchlistSymbol(id, token) {
   });
 }
 
-export function postChatMessage({ prompt, provider, model, apiKey, temperature }) {
+export function postChatMessage({ prompt, provider, model, apiKey, temperature, symbol }, token) {
   return request('/api/analytics/chat', {
     method: 'POST',
     body: {
@@ -121,7 +168,9 @@ export function postChatMessage({ prompt, provider, model, apiKey, temperature }
       model,
       apiKey,
       temperature,
+      symbol,
     },
+    token,
   });
 }
 

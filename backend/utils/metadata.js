@@ -1,11 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { fetchYahooProfile } from './marketData.js';
 import { supabaseAdmin } from './supabaseClient.js';
 
 function loadFallbackMetadata() {
   try {
-    const filePath = path.join(process.cwd(), 'backend', 'data', 'metadata-fallback.json');
+    // Module-relative so it resolves regardless of the process cwd (repo root on Vercel, backend/ in local dev).
+    const filePath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'metadata-fallback.json');
     const raw = fs.readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed;

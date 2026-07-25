@@ -1,15 +1,61 @@
 import express from 'express';
-import { getUserFromRequest, supabaseAdmin } from '../utils/supabaseClient.js';
+import { requireAuth } from '../utils/authMiddleware.js';
+import { directionalForecast } from '../utils/classifier.js';
+import { computeConvictionScore } from '../utils/computeSignals.js';
+import { fetchYahooHistory } from '../utils/marketData.js';
+import { supabaseAdmin } from '../utils/supabaseClient.js';
 
 const router = express.Router();
 
-router.use(async (req, res, next) => {
-  const { user, error } = await getUserFromRequest(req);
-  if (!user) {
-    return res.status(401).json({ error: error ?? 'Unauthorized' });
+router.use(requireAuth);
+
+const SCAN_SYMBOL_CAP = 20;
+
+router.get('/scan', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('watchlists')
+      .select('symbol')
+      .eq('user_id', req.user.id);
+    if (error) throw error;
+
+    const symbols = [...new Set((data ?? []).map((row) => row.symbol))].slice(0, SCAN_SYMBOL_CAP);
+    if (!symbols.length) return res.json({ rows: [], scannedAt: new Date().toISOString() });
+
+    const rows = await Promise.all(symbols.map(async (symbol) => {
+      try {
+        const history = await fetchYahooHistory(symbol, '6mo', '1d');
+        if (!history.length) return null;
+        const conviction = computeConvictionScore(history);
+        let directional = null;
+        try {
+          directional = directionalForecast(history, { horizon: 5 });
+        } catch {
+          directional = null;
+        }
+        const latest = history.at(-1);
+        const previous = history.at(-2);
+        return {
+          symbol,
+          close: latest?.close ?? null,
+          changePercent: latest?.close && previous?.close
+            ? ((latest.close - previous.close) / previous.close) * 100
+            : null,
+          conviction: { score: conviction.score, label: conviction.label },
+          probUp: directional?.probUp ?? null,
+          accuracy: directional?.accuracy ?? null,
+        };
+      } catch (err) {
+        console.warn('Scan failed for', symbol, err.message);
+        return null;
+      }
+    }));
+
+    const ranked = rows.filter(Boolean).sort((a, b) => b.conviction.score - a.conviction.score);
+    res.json({ rows: ranked, scannedAt: new Date().toISOString(), skipped: symbols.length - ranked.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-  req.user = user;
-  next();
 });
 
 router.get('/', async (req, res) => {

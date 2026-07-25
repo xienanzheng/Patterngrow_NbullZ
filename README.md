@@ -107,10 +107,51 @@ The React app proxies API requests to `http://localhost:4000/api/*` by default (
 3. Vercel detects `vercel.json` and builds the frontend via `frontend/package.json`. The backend is exposed as serverless functions mounted under `/api/*`.
 4. Add OAuth redirect URLs to Supabase for the deployed domain (e.g., `https://your-vercel-app.vercel.app/*`).
 
+## API security
+
+- `POST /api/analytics/metadata/manual`, `POST /api/analytics/metadata/csv`, and `POST /api/analytics/chat` require a Supabase bearer token (any signed-in Google OAuth user). The frontend forwards the session token automatically.
+- All `/api/analytics/*` routes are rate-limited to 60 requests/min per IP; `/chat` is additionally capped at 20 requests/hour per user (limits are per serverless instance — best-effort cost bounds).
+- Read endpoints (`quote`, `history`, `news`, `insights`, `metadata` GET, `evaluate`) stay public.
+
+## Analytics & forecasting
+
+- **Forecast models** (`backend/utils/predictions.js`): `drift` (mean log-return extrapolation), `ar` (autoregression on log returns, OLS-fit), `holt` (Holt linear exponential smoothing, grid-searched α/β). Legacy names `simple`/`arima`/`prophet` map onto these for backward compatibility. Every forecast point carries an 80% confidence band derived from historical volatility (`value·exp(±1.2816·σ·√h)`), which replaces the old fixed ±8% "targets".
+- **Walk-forward evaluation** (`backend/utils/evaluation.js`, `GET /api/analytics/evaluate?symbol=&range=&indicator=&horizon=&folds=`): rolling-origin out-of-sample folds reporting MAE/RMSE/MAPE/directional accuracy per model plus a naive baseline, and out-of-sample strategy return vs. buy-and-hold (with 0.1% transaction costs + 0.05% slippage) including win rate and max drawdown. Surfaced in the Advanced Lab tab ("Evaluate Models").
+- **Directional classifier** (`backend/utils/classifier.js`): plain-JS logistic regression over lagged returns, RSI, MACD divergence, volatility, and volume ratio → probability the price is higher in 5 days. Its embargoed-holdout accuracy is always reported next to the probability — treat sub-55% accuracy as noise.
+- **Ensemble conviction** (`backend/utils/computeSignals.js`): weighted vote across SMA/RSI/MACD/Bollinger/Stochastic/ADX with a stability rule — qualitative labels (overbought/oversold/trending) only flip after 2+ consecutive confirming sessions, so the recommendation no longer whipsaws on a single noisy bar.
+- **Simulation realism** (`backend/utils/backtesting.js`): transaction costs, slippage, and optional stop-loss are modeled; the insights payload reports trade count and total costs paid.
+- Honest-by-design: none of this predicts the market reliably; the point of the evaluation harness is that every number ships with its out-of-sample track record instead of an in-sample illusion.
+
+## Product suite (setup required)
+
+The alerts, portfolio, and accountability features need two one-time steps:
+
+1. **Supabase tables** — run `backend/sql/features.sql` once in the Supabase SQL editor
+   (creates `forecast_log`, `alerts`, `alert_events`, `positions`). All backend code
+   degrades gracefully (warns + returns empty) until the tables exist.
+2. **`CRON_SECRET`** — set this env var in Vercel so the weekday alerts cron
+   (`vercel.json` → `/api/alerts/run`, 20:30 UTC Mon–Fri) can authenticate. Without it
+   the run endpoint rejects everything.
+
+Feature map:
+- **Grounded assistant** — `/api/analytics/chat` accepts a `symbol`; the server injects live quote/indicators/conviction/forecast/news into the prompt.
+- **Watchlist scan** — `GET /api/watchlist/scan` ranks your watchlist by ensemble conviction (auth required).
+- **Forecast accountability** — every real `/insights` call snapshots the day's forecast to `forecast_log`; `GET /api/analytics/accountability?symbol=` grades past forecasts against what actually happened (band hit rate, direction hit rate).
+- **Alerts** — CRUD under `/api/alerts` (auth), rules: price above/below, confirmed RSI overbought/oversold, conviction flip; events surface in the Alerts tab.
+- **Ensemble weights** — `?weights={"sma":0.3,...}` on `/insights` and `/evaluate`; `indicator=ensemble` backtests the weighted vote as a strategy (±0.3 score crossings).
+- **Portfolio** — `/api/positions` (auth) with live P&L and a same-period SPY benchmark.
+
+## Backend tests
+
+```
+cd backend
+npm test   # vitest: auth, rate-limited routes, simulation, models, evaluation, classifier
+```
+
 ## Notes
 
 - The Streamlit workspace has been removed. All analytics logic was translated to JavaScript (`backend/utils/computeSignals.js` and friends) and reused by the frontend through REST calls.
-- The frontend retains client-side indicator overlays for responsive charting while the backend handles data retrieval, signal generation, forecasting heuristics, Supabase-authenticated watchlist CRUD, and a textual technical summary surfaced on the dashboard.
+- The frontend retains client-side indicator overlays for responsive charting while the backend handles data retrieval, signal generation, forecasting, Supabase-authenticated watchlist CRUD, and a textual technical summary surfaced on the dashboard.
 - The dashboard includes tabs for market overview, an advanced backtesting lab, and the "Mini NZ Assistant" AI chat (OpenAI/Gemini) powered by the `/api/analytics/chat` endpoint.
 - `vercel.json` maps `/api/*` requests to the Express backend and serves the Vite build output from `frontend/dist`.
 - **Metadata Explorer**: `/api/analytics/metadata` returns prototype/periphery scores, region rules, and facet tags (sector, region, market cap bucket, risk bucket, style factors). The Market Overview tab now includes a prototype slider, facet filters, and per-symbol evidence text that mirrors the course’s category focus. No extra env vars are required for this; data is bundled in `backend/utils/metadata.js`.

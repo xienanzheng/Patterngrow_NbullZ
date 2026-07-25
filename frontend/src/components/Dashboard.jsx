@@ -4,9 +4,11 @@ import { ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis
 import WatchlistTable from './WatchlistTable';
 import StockChart from './StockChart';
 import AdvancedBacktest from './AdvancedBacktest';
+import AlertsPanel from './AlertsPanel';
 import MiniAssistant from './MiniAssistant';
 import RegimePanel from './RegimePanel';
-import { getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
+import PortfolioPanel from './PortfolioPanel';
+import { getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
 
 const formatCurrency = (value) => {
   if (value == null) return 'N/A';
@@ -37,12 +39,16 @@ const INDICATORS = [
   { label: 'Bollinger Bands', value: 'bollinger' },
   { label: 'Stochastic Oscillator', value: 'stochastic' },
   { label: 'VWAP', value: 'vwap' },
+  { label: 'Ensemble (weighted vote)', value: 'ensemble' },
 ];
 
+const DEFAULT_WEIGHTS = { sma: 20, rsi: 20, macd: 20, bollinger: 15, stochastic: 15, adx: 10 };
+const WEIGHT_LABELS = { sma: 'SMA', rsi: 'RSI', macd: 'MACD', bollinger: 'Bollinger', stochastic: 'Stochastic', adx: 'ADX' };
+
 const FORECAST_MODELS = [
-  { label: 'Simple Trend', value: 'simple' },
-  { label: 'ARIMA Inspired', value: 'arima' },
-  { label: 'Prophet Inspired', value: 'prophet' },
+  { label: 'Drift (mean return)', value: 'drift' },
+  { label: 'Autoregressive (AR)', value: 'ar' },
+  { label: 'Holt Exp. Smoothing', value: 'holt' },
   { label: 'Monte Carlo (GBM)', value: 'montecarlo' },
 ];
 
@@ -50,6 +56,8 @@ const TABS = [
   { id: 'overview', label: 'Market Overview' },
   { id: 'metadata', label: 'Metadata Explorer' },
   { id: 'advanced', label: 'Advanced Lab' },
+  { id: 'alerts', label: 'Alerts' },
+  { id: 'portfolio', label: 'Portfolio' },
   { id: 'assistant', label: 'AI Assistant' },
 ];
 
@@ -77,8 +85,10 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [symbolInput, setSymbolInput] = useState('AAPL');
   const [range, setRange] = useState('1y');
   const [selectedIndicators, setSelectedIndicators] = useState(['sma', 'bollinger']);
-  const [forecastModel, setForecastModel] = useState('simple');
+  const [forecastModel, setForecastModel] = useState('drift');
   const [initialCapital, setInitialCapital] = useState(10000);
+  const [draftWeights, setDraftWeights] = useState(DEFAULT_WEIGHTS);
+  const [appliedWeights, setAppliedWeights] = useState(DEFAULT_WEIGHTS);
 
   const [stockData, setStockData] = useState([]);
   const [quote, setQuote] = useState(null);
@@ -171,6 +181,9 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [indicatorSnapshots, setIndicatorSnapshots] = useState(null);
   const [momentum, setMomentum] = useState(null);
   const [priceTargets, setPriceTargets] = useState(null);
+  const [conviction, setConviction] = useState(null);
+  const [directional, setDirectional] = useState(null);
+  const [accountability, setAccountability] = useState(null);
   const [technicalSummary, setTechnicalSummary] = useState(null);
   const [dataSource, setDataSource] = useState('yahoo');
   const [activeTab, setActiveTab] = useState('overview');
@@ -188,6 +201,8 @@ export default function Dashboard({ user, session, onSignOut }) {
       setIndicatorSnapshots(null);
       setMomentum(null);
       setPriceTargets(null);
+      setConviction(null);
+      setDirectional(null);
       setTechnicalSummary(null);
       setDataSource('unavailable');
       setMetadataEntry(null);
@@ -224,6 +239,8 @@ export default function Dashboard({ user, session, onSignOut }) {
     setIndicatorSnapshots(payload.indicatorSnapshots ?? null);
     setMomentum(payload.momentum ?? null);
     setPriceTargets(payload.priceTargets ?? null);
+    setConviction(payload.conviction ?? null);
+    setDirectional(payload.directional ?? null);
     setDataSource(payload.dataSource ?? 'yahoo');
     setTechnicalSummary(payload.technicalSummary ?? null);
   }, []);
@@ -240,6 +257,9 @@ export default function Dashboard({ user, session, onSignOut }) {
           indicator: primaryIndicator,
           forecastModel,
           initialCapital,
+          weights: JSON.stringify(
+            Object.fromEntries(Object.entries(appliedWeights).map(([key, value]) => [key, value / 100])),
+          ),
         });
 
         if (cancelRef?.current) return;
@@ -253,7 +273,7 @@ export default function Dashboard({ user, session, onSignOut }) {
         if (!silent && !cancelRef?.current) setInsightsLoading(false);
       }
     },
-    [applyInsights, symbol, range, primaryIndicator, forecastModel, initialCapital],
+    [applyInsights, symbol, range, primaryIndicator, forecastModel, initialCapital, appliedWeights],
   );
 
   useEffect(() => {
@@ -263,6 +283,22 @@ export default function Dashboard({ user, session, onSignOut }) {
       cancelRef.current = true;
     };
   }, [loadInsights]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAccountability = async () => {
+      try {
+        const payload = await getAccountability(symbol);
+        if (!cancelled) setAccountability(payload ?? null);
+      } catch {
+        if (!cancelled) setAccountability(null);
+      }
+    };
+    loadAccountability();
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,6 +377,10 @@ export default function Dashboard({ user, session, onSignOut }) {
           mcP95: cloud?.p95[index] ?? null,
           mcBandOuterHeight: cloud ? (cloud.p95[index] ?? 0) - (cloud.p5[index] ?? 0) : null,
           mcBandInnerHeight: cloud ? (cloud.p75[index] ?? 0) - (cloud.p25[index] ?? 0) : null,
+          // 80% band fields from statistical models (drift/ar/holt)
+          forecastLower: point.lower ?? null,
+          forecastUpper: point.upper ?? null,
+          forecastBand: point.lower != null && point.upper != null ? [point.lower, point.upper] : null,
           isForecast: true,
         });
       });
@@ -395,11 +435,6 @@ export default function Dashboard({ user, session, onSignOut }) {
   const totalPages = Math.max(1, Math.ceil(filteredMetadata.length / itemsPerPage));
   const safePage = Math.min(metadataPage, totalPages);
   const visibleMetadata = filteredMetadata.slice(0, safePage * itemsPerPage);
-
-  const symbolMissingFromResults = useMemo(
-    () => Boolean(symbol && !metadataLoading && !filteredMetadata.some((row) => row.symbol === symbol)),
-    [filteredMetadata, metadataLoading, symbol],
-  );
 
   useEffect(() => {
     setMetadataPage(1);
@@ -607,6 +642,50 @@ export default function Dashboard({ user, session, onSignOut }) {
             </div>
           </section>
 
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-inner">
+              <h2 className="text-lg font-semibold text-white">Ensemble Weights</h2>
+              <p className="mb-3 text-xs text-zinc-400">
+                How much each indicator counts in the conviction score (and the ensemble strategy). Normalized automatically.
+              </p>
+              <div className="space-y-2">
+                {Object.keys(DEFAULT_WEIGHTS).map((key) => (
+                  <label key={key} className="block text-xs text-zinc-400">
+                    {WEIGHT_LABELS[key]} ({draftWeights[key]})
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={draftWeights[key]}
+                      onChange={(event) =>
+                        setDraftWeights((prev) => ({ ...prev, [key]: Number(event.target.value) }))
+                      }
+                      className="mt-1 w-full accent-amber-400"
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAppliedWeights(draftWeights)}
+                  className="flex-1 rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300"
+                >
+                  Apply Weights
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftWeights(DEFAULT_WEIGHTS);
+                    setAppliedWeights(DEFAULT_WEIGHTS);
+                  }}
+                  className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:border-amber-400 hover:text-amber-200"
+                >
+                  Reset
+                </button>
+              </div>
+            </section>
+
             <WatchlistTable
               user={session?.user ?? user}
               accessToken={session?.access_token}
@@ -668,6 +747,31 @@ export default function Dashboard({ user, session, onSignOut }) {
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
               <h3 className="text-lg font-semibold text-white">Technical Snapshot</h3>
               <p className="mt-2 text-sm text-zinc-300">{technicalSummary}</p>
+            </div>
+          ) : null}
+
+          {conviction ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+                <p className="text-xs text-zinc-500">Ensemble Conviction</p>
+                <p className={`mt-1 text-2xl font-semibold ${conviction.score >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                  {conviction.label}
+                </p>
+                <p className="text-xs text-zinc-400">
+                  Score {conviction.score >= 0 ? '+' : ''}{conviction.score} · weighted vote across 6 indicators
+                </p>
+              </div>
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+                <p className="text-xs text-zinc-500">5-Day Direction (model)</p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {directional?.probUp != null ? `${(directional.probUp * 100).toFixed(0)}% up` : '--'}
+                </p>
+                <p className="text-xs text-zinc-400">
+                  {directional
+                    ? `Holdout accuracy ${(directional.accuracy * 100).toFixed(0)}% on ${directional.testSamples} samples`
+                    : 'Insufficient history for the classifier.'}
+                </p>
+              </div>
             </div>
           ) : null}
 
@@ -817,7 +921,7 @@ export default function Dashboard({ user, session, onSignOut }) {
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
               <h3 className="text-lg font-semibold text-white">Forecast Highlights</h3>
               <p className="mt-2 text-sm text-zinc-400">
-                Forecasts extend 60 trading days ahead using server-backed heuristics translated from the Streamlit workflow.
+                Forecasts extend 60 days ahead. Bands are an 80% confidence interval derived from historical volatility — wider bands mean less certainty, not a promise of range.
               </p>
               <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-zinc-300 md:grid-cols-4">
                 <div>
@@ -831,17 +935,63 @@ export default function Dashboard({ user, session, onSignOut }) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-zinc-500">Optimistic</p>
+                  <p className="text-xs font-medium text-zinc-500">Upper band (80%)</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.optimistic ? `$${priceTargets.optimistic.toFixed(2)}` : 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-zinc-500">Conservative</p>
+                  <p className="text-xs font-medium text-zinc-500">Lower band (80%)</p>
                   <p className="mt-1 text-white">
                     {priceTargets?.conservative ? `$${priceTargets.conservative.toFixed(2)}` : 'N/A'}
                   </p>
                 </div>
+              </div>
+            </section>
+          ) : null}
+
+          {accountability?.rows?.length ? (
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
+              <h3 className="text-lg font-semibold text-white">Forecast Accountability</h3>
+              <p className="mt-1 text-xs text-zinc-400">
+                What the models said on past days vs. what actually happened.
+                {accountability.summary?.bandHitRate != null
+                  ? ` Band hit rate ${(accountability.summary.bandHitRate * 100).toFixed(0)}% · direction ${(accountability.summary.directionHitRate * 100).toFixed(0)}% over ${accountability.summary.graded} graded forecasts.`
+                  : ''}
+              </p>
+              <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
+                <table className="min-w-full divide-y divide-zinc-800 text-sm text-zinc-200">
+                  <thead className="bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-400">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Forecast date</th>
+                      <th className="px-4 py-2 text-left">Model</th>
+                      <th className="px-4 py-2 text-right">Predicted</th>
+                      <th className="px-4 py-2 text-right">Band</th>
+                      <th className="px-4 py-2 text-right">Actual</th>
+                      <th className="px-4 py-2 text-center">In band</th>
+                      <th className="px-4 py-2 text-center">Direction</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {accountability.rows.slice(0, 10).map((row) => (
+                      <tr key={`${row.snapshotDate}-${row.model}`}>
+                        <td className="px-4 py-2 text-zinc-300">{row.snapshotDate}</td>
+                        <td className="px-4 py-2 text-zinc-300">{row.model}</td>
+                        <td className="px-4 py-2 text-right">${row.base.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right text-zinc-400">
+                          {row.lower != null ? `${row.lower.toFixed(2)}–${row.upper.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold text-white">${row.actual.toFixed(2)}</td>
+                        <td className={`px-4 py-2 text-center ${row.inBand ? 'text-emerald-300' : 'text-red-300'}`}>
+                          {row.inBand == null ? '—' : row.inBand ? 'Yes' : 'No'}
+                        </td>
+                        <td className={`px-4 py-2 text-center ${row.directionHit ? 'text-emerald-300' : 'text-red-300'}`}>
+                          {row.directionHit == null ? '—' : row.directionHit ? 'Hit' : 'Miss'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           ) : null}
@@ -1081,7 +1231,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                           sector: newTicker.sector || undefined,
                           region: newTicker.region || undefined,
                           ipo_year: newTicker.ipoYear ? Number(newTicker.ipoYear) : undefined,
-                        });
+                        }, session?.access_token);
                         setMetadataActionStatus({ type: 'success', text: `Saved ${newTicker.symbol.toUpperCase()}.` });
                         setNewTicker({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
                         const payload = await getMetadata();
@@ -1111,7 +1261,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                         const text = await file.text();
                         setCsvText(text);
                         setMetadataActionStatus({ type: 'success', text: `Loaded ${file.name}. Review and click Upload CSV to save.` });
-                      } catch (err) {
+                      } catch {
                         setMetadataActionStatus({ type: 'error', text: 'Unable to read CSV file. Try again or paste the contents.' });
                       } finally {
                         event.target.value = '';
@@ -1146,7 +1296,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       setMetadataUploading(true);
                       setMetadataActionStatus({ type: 'info', text: 'Uploading…' });
                       try {
-                        await uploadMetadataCsv(csvText);
+                        await uploadMetadataCsv(csvText, session?.access_token);
                         setMetadataActionStatus({ type: 'success', text: 'CSV uploaded and saved.' });
                         setCsvText('');
                         const payload = await getMetadata();
@@ -1200,11 +1350,20 @@ export default function Dashboard({ user, session, onSignOut }) {
                         return (
                           <tr
                             key={row.symbol}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => {
                               setSymbol(row.symbol);
                               setMetadataSymbolFilter(row.symbol);
                             }}
-                            className={`${isActive ? 'bg-amber-400/10' : ''} cursor-pointer transition hover:bg-amber-400/5`}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setSymbol(row.symbol);
+                                setMetadataSymbolFilter(row.symbol);
+                              }
+                            }}
+                            className={`${isActive ? 'bg-amber-400/10' : ''} cursor-pointer transition hover:bg-amber-400/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60`}
                           >
                           <td className="px-4 py-2 font-semibold text-white">{row.symbol}</td>
                           <td className="px-4 py-2 text-zinc-300">{row.industryGroup || row.industry_group || row.sector}</td>
@@ -1256,7 +1415,11 @@ export default function Dashboard({ user, session, onSignOut }) {
 
         {activeTab === 'advanced' ? <AdvancedBacktest /> : null}
 
-        {activeTab === 'assistant' ? <MiniAssistant /> : null}
+        {activeTab === 'alerts' ? <AlertsPanel accessToken={session?.access_token} defaultSymbol={symbol} /> : null}
+
+        {activeTab === 'portfolio' ? <PortfolioPanel accessToken={session?.access_token} /> : null}
+
+        {activeTab === 'assistant' ? <MiniAssistant accessToken={session?.access_token} symbol={symbol} /> : null}
       </main>
 
       <footer className="mx-auto mt-10 max-w-7xl px-6 text-xs text-zinc-500">
