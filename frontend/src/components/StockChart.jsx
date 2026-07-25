@@ -118,7 +118,7 @@ export default function StockChart({ data, interval, selectedIndicators, forecas
             </defs>
             <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
             <XAxis dataKey="date" tickFormatter={xTickFormatter} minTickGap={24} />
-            <YAxis yAxisId="price" stroke="#52525b" domain={priceDomain} tickFormatter={(v) => v.toFixed(0)} />
+            <YAxis yAxisId="price" stroke="#52525b" domain={priceDomain} tickFormatter={(v) => (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2))} />
             <Tooltip
               contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
               labelFormatter={(value) => `Date: ${formatAxisTick(value, interval)}`}
