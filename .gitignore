@@ -50,3 +50,4 @@ dist/
 out/
 .next/
 .vercel/
+.superpowers/

@@ -1,11 +1,15 @@
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
+import alertsRouter from './routes/alerts.js';
 import analyticsRouter from './routes/analytics.js';
+import positionsRouter from './routes/positions.js';
 import watchlistRouter from './routes/watchlist.js';
 import preferencesRouter from './routes/preferences.js';
 
 const app = express();
+
+app.set('trust proxy', 1); // Vercel terminates TLS in front of the function
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
@@ -32,7 +36,9 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'stock-dashboard-api' });
 });
 
+app.use('/api/alerts', alertsRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/positions', positionsRouter);
 app.use('/api/watchlist', watchlistRouter);
 app.use('/api/user', preferencesRouter);
 

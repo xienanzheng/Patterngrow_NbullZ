@@ -10,7 +10,7 @@ import {
   Legend,
   Brush,
 } from 'recharts';
-import { getHistory } from '../services/api';
+import { getEvaluation, getHistory } from '../services/api';
 import { backtestStrategy } from '../lib/backtesting';
 
 const PERIOD_OPTIONS = [
@@ -34,13 +34,17 @@ const INDICATORS = [
 ];
 
 function toPoints(history = []) {
+  const toNum = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
   return history.map((row) => ({
     date: row.date,
-    open: Number(row.open) ?? null,
-    high: Number(row.high) ?? null,
-    low: Number(row.low) ?? null,
-    close: Number(row.close) ?? null,
-    volume: Number(row.volume) ?? null,
+    open: toNum(row.open),
+    high: toNum(row.high),
+    low: toNum(row.low),
+    close: toNum(row.close),
+    volume: toNum(row.volume),
   }));
 }
 
@@ -137,6 +141,21 @@ export default function AdvancedBacktest() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [evalLoading, setEvalLoading] = useState(false);
+  const [evalError, setEvalError] = useState(null);
+  const [evaluation, setEvaluation] = useState(null);
+
+  const handleEvaluate = async () => {
+    setEvalLoading(true);
+    setEvalError(null);
+    try {
+      setEvaluation(await getEvaluation(ticker, { range: period, indicator }));
+    } catch (err) {
+      setEvalError(err instanceof Error ? err.message : 'Evaluation failed.');
+    } finally {
+      setEvalLoading(false);
+    }
+  };
 
   const handleRun = async () => {
     setLoading(true);
@@ -288,7 +307,7 @@ export default function AdvancedBacktest() {
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
           </label>
-          <div className="flex items-end">
+          <div className="flex flex-col justify-end gap-2">
             <button
               type="button"
               onClick={handleRun}
@@ -297,10 +316,82 @@ export default function AdvancedBacktest() {
             >
               {loading ? 'Running…' : 'Run Advanced Backtest'}
             </button>
+            <button
+              type="button"
+              onClick={handleEvaluate}
+              disabled={evalLoading}
+              className="w-full rounded-lg border border-blue-500/60 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {evalLoading ? 'Evaluating…' : 'Evaluate Models (walk-forward)'}
+            </button>
           </div>
         </div>
         {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
+        {evalError ? <p className="mt-3 text-sm text-red-400">{evalError}</p> : null}
       </section>
+
+      {evaluation ? (
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+          <h3 className="text-lg font-semibold text-white">Walk-Forward Model Evaluation</h3>
+          <p className="mt-1 text-xs text-slate-400">
+            {evaluation.folds} folds · {evaluation.horizon}-day horizon · out-of-sample. Lower MAE/RMSE/MAPE is better; directional accuracy above the naive row means the model adds signal.
+          </p>
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+            <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-200">
+              <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="px-4 py-2 text-left">Model</th>
+                  <th className="px-4 py-2 text-right">MAE</th>
+                  <th className="px-4 py-2 text-right">RMSE</th>
+                  <th className="px-4 py-2 text-right">MAPE</th>
+                  <th className="px-4 py-2 text-right">Direction</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {[...evaluation.forecasts, evaluation.baseline].map((row) => (
+                  <tr key={row.model}>
+                    <td className="px-4 py-2 font-semibold text-white">{row.model}</td>
+                    <td className="px-4 py-2 text-right">{row.mae != null ? row.mae.toFixed(2) : '—'}</td>
+                    <td className="px-4 py-2 text-right">{row.rmse != null ? row.rmse.toFixed(2) : '—'}</td>
+                    <td className="px-4 py-2 text-right">{row.mape != null ? `${row.mape.toFixed(1)}%` : '—'}</td>
+                    <td className="px-4 py-2 text-right">
+                      {row.directionalAccuracy != null ? `${(row.directionalAccuracy * 100).toFixed(0)}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Strategy (OOS)</p>
+              <p className="mt-1 text-lg font-semibold text-white">{evaluation.strategy.strategyReturn.toFixed(2)}%</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Buy &amp; Hold (OOS)</p>
+              <p className="mt-1 text-lg font-semibold text-white">
+                {evaluation.strategy.buyHoldReturn != null ? `${evaluation.strategy.buyHoldReturn.toFixed(2)}%` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Win Rate</p>
+              <p className="mt-1 text-lg font-semibold text-white">
+                {evaluation.strategy.winRate != null ? `${(evaluation.strategy.winRate * 100).toFixed(0)}%` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Max Drawdown</p>
+              <p className="mt-1 text-lg font-semibold text-red-400">{evaluation.strategy.maxDrawdown.toFixed(2)}%</p>
+            </div>
+          </div>
+          {evaluation.directional ? (
+            <p className="mt-4 text-xs text-slate-400">
+              Direction classifier: {(evaluation.directional.probUp * 100).toFixed(0)}% up over next {evaluation.directional.horizon} days ·
+              holdout accuracy {(evaluation.directional.accuracy * 100).toFixed(0)}% vs {(evaluation.directional.baselineUpShare * 100).toFixed(0)}% always-up baseline.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
         {result ? (

@@ -12,6 +12,18 @@
 
 body {
   @apply bg-zinc-950 text-zinc-100 min-h-screen;
+  /* Financial figures shouldn't jitter as values update. */
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Scrollbar */
