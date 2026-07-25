@@ -94,6 +94,10 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [selectedIndicators, setSelectedIndicators] = useState(['sma', 'bollinger']);
   const [forecastModel, setForecastModel] = useState('drift');
   const [showForecast, setShowForecast] = useState(true);
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [drawnLines, setDrawnLines] = useState([]);
+  const [pendingPoint, setPendingPoint] = useState(null);
+  const [hoverPoint, setHoverPoint] = useState(null);
   const [initialCapital, setInitialCapital] = useState(10000);
   const [draftWeights, setDraftWeights] = useState(DEFAULT_WEIGHTS);
   const [appliedWeights, setAppliedWeights] = useState(DEFAULT_WEIGHTS);
@@ -333,6 +337,50 @@ export default function Dashboard({ user, session, onSignOut }) {
   }, [symbol]);
 
   useEffect(() => {
+    setDrawnLines([]);
+    setPendingPoint(null);
+    setHoverPoint(null);
+    setDrawingMode(false);
+  }, [symbol]);
+
+  const handleChartClick = useCallback(
+    (data) => {
+      if (!drawingMode || !data?.activeLabel) return;
+      const price = pixelToPrice(data.chartY);
+      if (price == null) return;
+      const point = { x: data.activeLabel, y: price };
+      if (!pendingPoint) {
+        setPendingPoint(point);
+      } else {
+        setDrawnLines((prev) => [
+          ...prev,
+          { id: Date.now().toString(), x1: pendingPoint.x, y1: pendingPoint.y, x2: point.x, y2: point.y },
+        ]);
+        setPendingPoint(null);
+        setHoverPoint(null);
+      }
+    },
+    [drawingMode, pendingPoint, pixelToPrice],
+  );
+
+  const handleChartMouseMove = useCallback(
+    (data) => {
+      if (!drawingMode || !pendingPoint || !data?.activeLabel) {
+        if (hoverPoint) setHoverPoint(null);
+        return;
+      }
+      const price = pixelToPrice(data.chartY);
+      if (price == null) return;
+      setHoverPoint({ x: data.activeLabel, y: price });
+    },
+    [drawingMode, pendingPoint, hoverPoint, pixelToPrice],
+  );
+
+  const handleLineDelete = useCallback((id) => {
+    setDrawnLines((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     const run = async () => {
       setMetadataLoading(true);
@@ -401,6 +449,30 @@ export default function Dashboard({ user, session, onSignOut }) {
 
     return base;
   }, [stockData, predictionSeries, forecastCloud]);
+
+  const PLOT_TOP = 5;
+  const PLOT_HEIGHT = 320;
+
+  const chartPriceDomain = useMemo(() => {
+    const closes = chartData
+      .filter((row) => !row.isForecast && row.close != null)
+      .map((row) => row.close);
+    if (!closes.length) return null;
+    const mn = Math.min(...closes);
+    const mx = Math.max(...closes);
+    const pad = Math.max((mx - mn) * 0.08, mx * 0.015);
+    return [mn - pad, mx + pad];
+  }, [chartData]);
+
+  const pixelToPrice = useCallback(
+    (chartY) => {
+      if (!chartPriceDomain) return null;
+      const [yMin, yMax] = chartPriceDomain;
+      const price = yMax - ((chartY - PLOT_TOP) / PLOT_HEIGHT) * (yMax - yMin);
+      return Number.isFinite(price) ? price : null;
+    },
+    [chartPriceDomain],
+  );
 
   const simulationChart = useMemo(
     () =>
@@ -791,43 +863,87 @@ export default function Dashboard({ user, session, onSignOut }) {
 
           <FundamentalsCard symbol={symbol} />
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Price Action</h3>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  {dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'google' ? 'Google Finance fallback' : 'Synthetic sample (offline)'}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex flex-wrap gap-1">
-                  {CHART_PERIODS.map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => { setRange(p.range); setChartInterval(p.interval); }}
-                      className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                        range === p.range
-                          ? 'bg-amber-400 text-zinc-900'
-                          : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+            <div className="mb-4 space-y-2">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Price Action</h3>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'google' ? 'Google Finance fallback' : 'Synthetic sample (offline)'}
+                  </p>
                 </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap gap-1">
+                    {CHART_PERIODS.map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => { setRange(p.range); setChartInterval(p.interval); }}
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                          range === p.range
+                            ? 'bg-amber-400 text-zinc-900'
+                            : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowForecast((v) => !v)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                      showForecast
+                        ? 'bg-amber-400 text-zinc-900'
+                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    }`}
+                  >
+                    Forecast
+                  </button>
+                  {insightsLoading ? (
+                    <span className="text-xs text-amber-300">Loading…</span>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Drawing toolbar */}
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowForecast((v) => !v)}
+                  onClick={() => {
+                    setDrawingMode((v) => !v);
+                    setPendingPoint(null);
+                    setHoverPoint(null);
+                  }}
                   className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                    showForecast
+                    drawingMode
                       ? 'bg-amber-400 text-zinc-900'
                       : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                   }`}
                 >
-                  Forecast
+                  ✏ Draw Line
                 </button>
-                {insightsLoading ? (
-                  <span className="text-xs text-amber-300">Loading…</span>
+                {drawnLines.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => { setDrawnLines([]); setPendingPoint(null); setHoverPoint(null); }}
+                    className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:bg-zinc-700"
+                  >
+                    Clear ({drawnLines.length})
+                  </button>
+                ) : null}
+                {(drawingMode || drawnLines.length > 0) && !showForecast ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowForecast(true)}
+                    className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:bg-amber-400 hover:text-zinc-900 transition"
+                  >
+                    Overlay Prediction
+                  </button>
+                ) : null}
+                {pendingPoint ? (
+                  <span className="text-xs text-zinc-500">Click on the chart to set the endpoint</span>
+                ) : drawingMode ? (
+                  <span className="text-xs text-zinc-500">Click on the chart to start a trend line</span>
                 ) : null}
               </div>
             </div>
@@ -840,6 +956,13 @@ export default function Dashboard({ user, session, onSignOut }) {
                   forecastModel={forecastModel}
                   hasForecastCloud={Boolean(forecastCloud)}
                   showForecast={showForecast}
+                  drawingMode={drawingMode}
+                  drawnLines={drawnLines}
+                  pendingPoint={pendingPoint}
+                  hoverPoint={hoverPoint}
+                  onChartClick={handleChartClick}
+                  onChartMouseMove={handleChartMouseMove}
+                  onLineDelete={handleLineDelete}
                 />
               </div>
             ) : insightsLoading ? (
