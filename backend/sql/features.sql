@@ -50,6 +50,20 @@ create table if not exists public.alert_events (
 create index if not exists alert_events_user_idx on public.alert_events (user_id, seen);
 alter table public.alert_events enable row level security;
 
+-- F7: Alpaca broker connections (paper trading credentials per user)
+create table if not exists public.broker_connections (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  broker text not null default 'alpaca',
+  key_id text not null,
+  secret_key text not null,
+  is_paper boolean not null default true,
+  created_at timestamptz default timezone('utc', now()),
+  unique (user_id, broker)
+);
+create index if not exists broker_connections_user_idx on public.broker_connections (user_id);
+alter table public.broker_connections enable row level security;
+
 -- F6: portfolio positions
 create table if not exists public.positions (
   id uuid default gen_random_uuid() primary key,
