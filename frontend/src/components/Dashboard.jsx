@@ -8,6 +8,7 @@ import AlertsPanel from './AlertsPanel';
 import MiniAssistant from './MiniAssistant';
 import RegimePanel from './RegimePanel';
 import PortfolioPanel from './PortfolioPanel';
+import BrokerPanel from './BrokerPanel';
 import { getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
 
 const formatCurrency = (value) => {
@@ -59,6 +60,7 @@ const TABS = [
   { id: 'advanced', label: 'Advanced Lab' },
   { id: 'alerts', label: 'Alerts' },
   { id: 'portfolio', label: 'Portfolio' },
+  { id: 'trading', label: 'Trading' },
   { id: 'assistant', label: 'AI Assistant' },
 ];
 
@@ -1466,6 +1468,7 @@ export default function Dashboard({ user, session, onSignOut }) {
         {activeTab === 'alerts' ? <AlertsPanel accessToken={session?.access_token} defaultSymbol={symbol} /> : null}
 
         {activeTab === 'portfolio' ? <PortfolioPanel accessToken={session?.access_token} /> : null}
+        {activeTab === 'trading' ? <BrokerPanel accessToken={session?.access_token} defaultSymbol={symbol} /> : null}
 
         {activeTab === 'assistant' ? <MiniAssistant accessToken={session?.access_token} symbol={symbol} /> : null}
       </main>
