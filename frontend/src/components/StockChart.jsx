@@ -106,7 +106,7 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
               type="monotone"
               dataKey="close"
               yAxisId="price"
-              stroke="#3b82f6"
+              stroke="#d4d4d8"
               strokeWidth={2.2}
               dot={false}
               name="Close"

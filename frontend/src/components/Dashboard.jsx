@@ -1006,7 +1006,7 @@ export default function Dashboard({ user, session, onSignOut }) {
               <ul className="mt-4 space-y-3 text-sm text-zinc-300">
                 {newsItems.map((item) => (
                   <li key={item.url} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
-                    <a href={item.url} target="_blank" rel="noreferrer" className="font-semibold text-amber-300">
+                    <a href={item.url} target="_blank" rel="noreferrer" className="font-semibold text-zinc-100 transition-colors hover:text-amber-300">
                       {item.title}
                     </a>
                     <p className="mt-1 text-xs text-zinc-400">{item.summary}</p>
@@ -1119,11 +1119,11 @@ export default function Dashboard({ user, session, onSignOut }) {
                       <p className="text-lg font-semibold text-white">{currentMetadata.symbol}</p>
                       <p className="text-zinc-400">{currentIndustryLabel} · {currentMetadata.region}</p>
                       <p className="text-zinc-300">
-                        IPO Year: <span className="font-semibold text-amber-300">{currentIpoYear ?? '--'}</span>
+                        IPO Year: <span className="font-semibold text-zinc-100">{currentIpoYear ?? '--'}</span>
                       </p>
                       {currentPrototypeScore != null ? (
                         <p className="text-zinc-300">
-                          Prototype score: <span className="font-semibold text-amber-300">{Number(currentPrototypeScore).toFixed(2)}</span>
+                          Prototype score: <span className="font-semibold text-zinc-100">{Number(currentPrototypeScore).toFixed(2)}</span>
                         </p>
                       ) : null}
                       <p className="text-xs text-zinc-400">
@@ -1241,7 +1241,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                         setMetadataActionStatus({ type: 'error', text: err instanceof Error ? err.message : 'Unable to add ticker.' });
                       }
                     }}
-                    className="mt-3 rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-300"
+                    className="mt-3 rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300"
                   >
                     Add Ticker
                   </button>
@@ -1369,7 +1369,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                           <td className="px-4 py-2 text-zinc-300">{row.industryGroup || row.industry_group || row.sector}</td>
                           <td className="px-4 py-2 text-zinc-300">{row.region}</td>
                           <td className="px-4 py-2 text-zinc-300">{row.ipo_year ?? row.ipoYear ?? '--'}</td>
-                          <td className="px-4 py-2 text-amber-300">
+                          <td className="px-4 py-2 text-zinc-300">
                             {row.prototypeScore != null
                               ? row.prototypeScore.toFixed(2)
                               : row.prototype_score != null

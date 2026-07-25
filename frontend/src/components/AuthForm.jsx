@@ -36,14 +36,11 @@ export default function AuthForm({ user, loading }) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 py-12">
+      <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8 shadow-2xl shadow-black/50 backdrop-blur">
         <div className="mb-10 space-y-3 text-center">
-          <p className="inline-flex items-center rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
-            AI Stock Intelligence
-          </p>
           <h1 className="text-3xl font-semibold text-white">Sign in to continue</h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-zinc-400">
             Use your Google account to access personalized dashboards, watchlists, and analytics powered by Supabase.
           </p>
         </div>
@@ -66,7 +63,7 @@ export default function AuthForm({ user, loading }) {
             {error}
           </p>
         ) : null}
-        <p className="mt-8 text-center text-xs text-slate-500">
+        <p className="mt-8 text-center text-xs text-zinc-500">
           By signing in you agree to our Terms of Use and acknowledge the market risk disclosures.
         </p>
       </div>

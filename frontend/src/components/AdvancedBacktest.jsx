@@ -219,22 +219,22 @@ export default function AdvancedBacktest() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
         <div className="grid gap-4 md:grid-cols-4">
           <div>
-            <label className="text-xs uppercase tracking-wide text-slate-400">Ticker</label>
+            <label className="text-xs font-medium text-zinc-500">Ticker</label>
             <input
               value={ticker}
               onChange={(event) => setTicker(event.target.value.toUpperCase())}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             />
           </div>
           <div>
-            <label className="text-xs uppercase tracking-wide text-slate-400">Benchmark</label>
+            <label className="text-xs font-medium text-zinc-500">Benchmark</label>
             <select
               value={benchmark}
               onChange={(event) => setBenchmark(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             >
               {BENCHMARKS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -244,11 +244,11 @@ export default function AdvancedBacktest() {
             </select>
           </div>
           <div>
-            <label className="text-xs uppercase tracking-wide text-slate-400">Period</label>
+            <label className="text-xs font-medium text-zinc-500">Period</label>
             <select
               value={period}
               onChange={(event) => setPeriod(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             >
               {PERIOD_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -258,11 +258,11 @@ export default function AdvancedBacktest() {
             </select>
           </div>
           <div>
-            <label className="text-xs uppercase tracking-wide text-slate-400">Signal Engine</label>
+            <label className="text-xs font-medium text-zinc-500">Signal Engine</label>
             <select
               value={indicator}
               onChange={(event) => setIndicator(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             >
               {INDICATORS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -274,7 +274,7 @@ export default function AdvancedBacktest() {
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-4">
-          <label className="text-xs uppercase tracking-wide text-slate-400">
+          <label className="text-xs font-medium text-zinc-500">
             Initial Capital ($)
             <input
               type="number"
@@ -282,10 +282,10 @@ export default function AdvancedBacktest() {
               step="100"
               value={initialCapital}
               onChange={(event) => setInitialCapital(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             />
           </label>
-          <label className="text-xs uppercase tracking-wide text-slate-400">
+          <label className="text-xs font-medium text-zinc-500">
             Stop Loss (%)
             <input
               type="number"
@@ -293,10 +293,10 @@ export default function AdvancedBacktest() {
               step="0.5"
               value={stopLoss}
               onChange={(event) => setStopLoss(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             />
           </label>
-          <label className="text-xs uppercase tracking-wide text-slate-400">
+          <label className="text-xs font-medium text-zinc-500">
             Take Profit (%)
             <input
               type="number"
@@ -304,7 +304,7 @@ export default function AdvancedBacktest() {
               step="0.5"
               value={takeProfit}
               onChange={(event) => setTakeProfit(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             />
           </label>
           <div className="flex flex-col justify-end gap-2">
@@ -320,7 +320,7 @@ export default function AdvancedBacktest() {
               type="button"
               onClick={handleEvaluate}
               disabled={evalLoading}
-              className="w-full rounded-lg border border-blue-500/60 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-lg border border-amber-400/50 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {evalLoading ? 'Evaluating…' : 'Evaluate Models (walk-forward)'}
             </button>
@@ -331,14 +331,14 @@ export default function AdvancedBacktest() {
       </section>
 
       {evaluation ? (
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
           <h3 className="text-lg font-semibold text-white">Walk-Forward Model Evaluation</h3>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-zinc-400">
             {evaluation.folds} folds · {evaluation.horizon}-day horizon · out-of-sample. Lower MAE/RMSE/MAPE is better; directional accuracy above the naive row means the model adds signal.
           </p>
-          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
-            <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-200">
-              <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
+            <table className="min-w-full divide-y divide-zinc-800 text-sm text-zinc-200">
+              <thead className="bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-400">
                 <tr>
                   <th className="px-4 py-2 text-left">Model</th>
                   <th className="px-4 py-2 text-right">MAE</th>
@@ -347,7 +347,7 @@ export default function AdvancedBacktest() {
                   <th className="px-4 py-2 text-right">Direction</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-zinc-800">
                 {[...evaluation.forecasts, evaluation.baseline].map((row) => (
                   <tr key={row.model}>
                     <td className="px-4 py-2 font-semibold text-white">{row.model}</td>
@@ -364,28 +364,28 @@ export default function AdvancedBacktest() {
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-4">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Strategy (OOS)</p>
+              <p className="text-xs uppercase tracking-wide text-zinc-400">Strategy (OOS)</p>
               <p className="mt-1 text-lg font-semibold text-white">{evaluation.strategy.strategyReturn.toFixed(2)}%</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Buy &amp; Hold (OOS)</p>
+              <p className="text-xs uppercase tracking-wide text-zinc-400">Buy &amp; Hold (OOS)</p>
               <p className="mt-1 text-lg font-semibold text-white">
                 {evaluation.strategy.buyHoldReturn != null ? `${evaluation.strategy.buyHoldReturn.toFixed(2)}%` : '—'}
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Win Rate</p>
+              <p className="text-xs uppercase tracking-wide text-zinc-400">Win Rate</p>
               <p className="mt-1 text-lg font-semibold text-white">
                 {evaluation.strategy.winRate != null ? `${(evaluation.strategy.winRate * 100).toFixed(0)}%` : '—'}
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Max Drawdown</p>
+              <p className="text-xs uppercase tracking-wide text-zinc-400">Max Drawdown</p>
               <p className="mt-1 text-lg font-semibold text-red-400">{evaluation.strategy.maxDrawdown.toFixed(2)}%</p>
             </div>
           </div>
           {evaluation.directional ? (
-            <p className="mt-4 text-xs text-slate-400">
+            <p className="mt-4 text-xs text-zinc-400">
               Direction classifier: {(evaluation.directional.probUp * 100).toFixed(0)}% up over next {evaluation.directional.horizon} days ·
               holdout accuracy {(evaluation.directional.accuracy * 100).toFixed(0)}% vs {(evaluation.directional.baselineUpShare * 100).toFixed(0)}% always-up baseline.
             </p>
@@ -393,28 +393,28 @@ export default function AdvancedBacktest() {
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
         {result ? (
           <>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">Final Value</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-400">Final Value</p>
                 <p className="mt-1 text-lg font-semibold text-white">{formatCurrency(result.metrics.finalValue)}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">Strategy Return</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-400">Strategy Return</p>
                 <p className={`mt-1 text-lg font-semibold ${result.metrics.totalReturn >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {formatPercent(result.metrics.totalReturn)}
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">Benchmark Return</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-400">Benchmark Return</p>
                 <p className={`mt-1 text-lg font-semibold ${result.metrics.benchmarkReturn >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {formatPercent(result.metrics.benchmarkReturn)}
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">Max Drawdown</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-400">Max Drawdown</p>
                 <p className="mt-1 text-lg font-semibold text-red-400">{formatPercent(result.metrics.maxDrawdown)}</p>
               </div>
             </div>
@@ -422,30 +422,30 @@ export default function AdvancedBacktest() {
             <div className="mt-6 h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
-                  <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+                  <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
                   <XAxis dataKey="date" minTickGap={24} tickFormatter={(value) => new Date(value).toLocaleDateString()} />
-                  <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`} stroke="#475569" />
+                  <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`} stroke="#52525b" />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+                    contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
                     labelFormatter={(value) => new Date(value).toLocaleString()}
                     formatter={(value, name) => [formatCurrency(value), name === 'strategy' ? 'Strategy' : 'Benchmark']}
                   />
                   <Legend verticalAlign="top" />
-                  <Brush dataKey="date" travellerWidth={12} stroke="#38bdf8" height={24} />
-                  <Line type="monotone" dataKey="strategy" stroke="#38bdf8" strokeWidth={2} dot={false} name="Strategy" />
-                  <Line type="monotone" dataKey="benchmark" stroke="#f97316" strokeWidth={2} dot={false} name="Benchmark" />
+                  <Brush dataKey="date" travellerWidth={12} stroke="#52525b" height={24} />
+                  <Line type="monotone" dataKey="strategy" stroke="#fbbf24" strokeWidth={2} dot={false} name="Strategy" />
+                  <Line type="monotone" dataKey="benchmark" stroke="#a1a1aa" strokeWidth={2} dot={false} name="Benchmark" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
 
             <div className="mt-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Recent Trades</h3>
+              <h3 className="text-sm font-semibold text-zinc-400">Recent Trades</h3>
               {result.trades.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">No trades were generated for the chosen configuration.</p>
+                <p className="mt-2 text-sm text-zinc-500">No trades were generated for the chosen configuration.</p>
               ) : (
-                <div className="mt-3 max-h-56 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60">
-                  <table className="w-full text-left text-sm text-slate-300">
-                    <thead className="sticky top-0 bg-slate-900 text-xs uppercase tracking-wide text-slate-400">
+                <div className="mt-3 max-h-56 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950/60">
+                  <table className="w-full text-left text-sm text-zinc-300">
+                    <thead className="sticky top-0 bg-zinc-900 text-xs uppercase tracking-wide text-zinc-400">
                       <tr>
                         <th className="px-4 py-2">Date</th>
                         <th className="px-4 py-2">Type</th>
@@ -455,8 +455,8 @@ export default function AdvancedBacktest() {
                     </thead>
                     <tbody>
                       {result.trades.slice(-25).reverse().map((trade, index) => (
-                        <tr key={`${trade.date}-${index}`} className="border-t border-slate-800/60">
-                          <td className="px-4 py-2 text-slate-400">{new Date(trade.date).toLocaleString()}</td>
+                        <tr key={`${trade.date}-${index}`} className="border-t border-zinc-800/60">
+                          <td className="px-4 py-2 text-zinc-400">{new Date(trade.date).toLocaleString()}</td>
                           <td className="px-4 py-2 font-semibold text-white">{trade.type}</td>
                           <td className="px-4 py-2">{formatCurrency(trade.price)}</td>
                           <td className="px-4 py-2">
@@ -477,8 +477,8 @@ export default function AdvancedBacktest() {
             </div>
           </>
         ) : (
-          <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/40">
-            <p className="text-sm text-slate-500">Configure parameters and run the advanced backtest to see performance analytics.</p>
+          <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-950/40">
+            <p className="text-sm text-zinc-500">Configure parameters and run the advanced backtest to see performance analytics.</p>
           </div>
         )}
       </section>

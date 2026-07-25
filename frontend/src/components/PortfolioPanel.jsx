@@ -3,7 +3,7 @@ import { createPosition, deletePosition, getPositions } from '../services/api';
 
 const money = (value) => (value == null ? '—' : `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 const pct = (value) => (value == null ? '—' : `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`);
-const pnlColor = (value) => (value == null ? 'text-slate-400' : value >= 0 ? 'text-emerald-300' : 'text-red-300');
+const pnlColor = (value) => (value == null ? 'text-zinc-400' : value >= 0 ? 'text-emerald-300' : 'text-red-300');
 
 export default function PortfolioPanel({ accessToken }) {
   const [rows, setRows] = useState([]);
@@ -65,16 +65,16 @@ export default function PortfolioPanel({ accessToken }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
         <h2 className="text-lg font-semibold text-white">Add Position</h2>
-        <p className="mt-1 text-xs text-slate-400">Track real holdings: shares and per-share cost basis. Requires the Supabase positions table.</p>
+        <p className="mt-1 text-xs text-zinc-400">Track real holdings: shares and per-share cost basis. Requires the Supabase positions table.</p>
         <form onSubmit={handleAdd} className="mt-4 grid gap-3 md:grid-cols-5">
           <input
             type="text"
             value={form.symbol}
             onChange={(e) => setForm((prev) => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
             placeholder="Symbol"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
           />
           <input
             type="number"
@@ -83,7 +83,7 @@ export default function PortfolioPanel({ accessToken }) {
             value={form.shares}
             onChange={(e) => setForm((prev) => ({ ...prev, shares: e.target.value }))}
             placeholder="Shares"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
           />
           <input
             type="number"
@@ -92,18 +92,18 @@ export default function PortfolioPanel({ accessToken }) {
             value={form.costBasis}
             onChange={(e) => setForm((prev) => ({ ...prev, costBasis: e.target.value }))}
             placeholder="Cost / share ($)"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
           />
           <input
             type="date"
             value={form.openedAt}
             onChange={(e) => setForm((prev) => ({ ...prev, openedAt: e.target.value }))}
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
           />
           <button
             type="submit"
             disabled={!accessToken}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Add
           </button>
@@ -113,16 +113,16 @@ export default function PortfolioPanel({ accessToken }) {
 
       {summary ? (
         <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Total Cost</p>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <p className="text-xs font-medium text-zinc-500">Total Cost</p>
             <p className="mt-1 text-xl font-semibold text-white">{money(summary.totalCost)}</p>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Market Value</p>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <p className="text-xs font-medium text-zinc-500">Market Value</p>
             <p className="mt-1 text-xl font-semibold text-white">{money(summary.totalValue)}</p>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Unrealized P&L</p>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <p className="text-xs font-medium text-zinc-500">Unrealized P&L</p>
             <p className={`mt-1 text-xl font-semibold ${pnlColor(summary.totalPnl)}`}>
               {money(summary.totalPnl)} {summary.totalPnlPct != null ? `(${pct(summary.totalPnlPct)})` : ''}
             </p>
@@ -130,23 +130,23 @@ export default function PortfolioPanel({ accessToken }) {
               <p className="text-xs text-amber-300">Excludes {summary.unpricedCount} position{summary.unpricedCount > 1 ? 's' : ''} with no live quote.</p>
             ) : null}
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-            <p className="text-xs uppercase tracking-wide text-slate-400">SPY (same period)</p>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <p className="text-xs font-medium text-zinc-500">SPY (same period)</p>
             <p className={`mt-1 text-xl font-semibold ${pnlColor(summary.spyReturnPct)}`}>{pct(summary.spyReturnPct)}</p>
           </div>
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Positions</h3>
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
+        <h3 className="text-sm font-semibold text-zinc-400">Positions</h3>
         {loading ? (
-          <p className="mt-3 text-sm text-slate-400">Loading…</p>
+          <p className="mt-3 text-sm text-zinc-400">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">No positions yet. Add your first holding above.</p>
+          <p className="mt-3 text-sm text-zinc-500">No positions yet. Add your first holding above.</p>
         ) : (
-          <div className="mt-3 overflow-x-auto rounded-xl border border-slate-800">
-            <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-200">
-              <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
+          <div className="mt-3 overflow-x-auto rounded-xl border border-zinc-800">
+            <table className="min-w-full divide-y divide-zinc-800 text-sm text-zinc-200">
+              <thead className="bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-400">
                 <tr>
                   <th className="px-4 py-2 text-left">Symbol</th>
                   <th className="px-4 py-2 text-right">Shares</th>
@@ -157,7 +157,7 @@ export default function PortfolioPanel({ accessToken }) {
                   <th className="px-4 py-2 text-right" aria-label="actions" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-zinc-800">
                 {rows.map((row) => (
                   <tr key={row.id}>
                     <td className="px-4 py-2 font-semibold text-white">{row.symbol}</td>
@@ -172,7 +172,7 @@ export default function PortfolioPanel({ accessToken }) {
                       <button
                         type="button"
                         onClick={() => handleDelete(row.id)}
-                        className="text-xs font-medium text-slate-400 transition hover:text-red-400"
+                        className="text-xs font-medium text-zinc-400 transition hover:text-red-400"
                       >
                         Remove
                       </button>
