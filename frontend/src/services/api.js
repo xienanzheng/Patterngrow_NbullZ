@@ -68,6 +68,10 @@ export function getInsights(symbol, options = {}) {
   return request(`/api/analytics/insights?${params.toString()}`);
 }
 
+export function getFundamentals(symbol) {
+  return request(`/api/analytics/fundamentals?symbol=${encodeURIComponent(symbol)}`);
+}
+
 export function getMetadata(filters = {}) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
