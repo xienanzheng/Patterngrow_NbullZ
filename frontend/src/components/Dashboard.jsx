@@ -93,6 +93,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [chartInterval, setChartInterval] = useState('1d');
   const [selectedIndicators, setSelectedIndicators] = useState(['sma', 'bollinger']);
   const [forecastModel, setForecastModel] = useState('drift');
+  const [showForecast, setShowForecast] = useState(true);
   const [initialCapital, setInitialCapital] = useState(10000);
   const [draftWeights, setDraftWeights] = useState(DEFAULT_WEIGHTS);
   const [appliedWeights, setAppliedWeights] = useState(DEFAULT_WEIGHTS);
@@ -814,6 +815,17 @@ export default function Dashboard({ user, session, onSignOut }) {
                     </button>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowForecast((v) => !v)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                    showForecast
+                      ? 'bg-amber-400 text-zinc-900'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  }`}
+                >
+                  Forecast
+                </button>
                 {insightsLoading ? (
                   <span className="text-xs text-amber-300">Loading…</span>
                 ) : null}
@@ -827,6 +839,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                   selectedIndicators={selectedIndicators}
                   forecastModel={forecastModel}
                   hasForecastCloud={Boolean(forecastCloud)}
+                  showForecast={showForecast}
                 />
               </div>
             ) : insightsLoading ? (
