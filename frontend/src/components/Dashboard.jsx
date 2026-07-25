@@ -24,13 +24,15 @@ const formatPercent = (value) => {
   return `${value.toFixed(2)}%`;
 };
 
-const PRICE_RANGES = [
-  { label: '1 Month', value: '1mo' },
-  { label: '3 Months', value: '3mo' },
-  { label: '6 Months', value: '6mo' },
-  { label: '1 Year', value: '1y' },
-  { label: '2 Years', value: '2y' },
-  { label: '5 Years', value: '5y' },
+const CHART_PERIODS = [
+  { label: '1D',  range: '1d',   interval: '5m'  },
+  { label: '5D',  range: '5d',   interval: '15m' },
+  { label: '1M',  range: '1mo',  interval: '1d'  },
+  { label: '3M',  range: '3mo',  interval: '1d'  },
+  { label: '6M',  range: '6mo',  interval: '1d'  },
+  { label: '1Y',  range: '1y',   interval: '1d'  },
+  { label: '5Y',  range: '5y',   interval: '1wk' },
+  { label: 'ALL', range: 'max',  interval: '1mo' },
 ];
 
 const INDICATORS = [
@@ -87,6 +89,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [symbol, setSymbol] = useState('AAPL');
   const [symbolInput, setSymbolInput] = useState('AAPL');
   const [range, setRange] = useState('1y');
+  const [chartInterval, setChartInterval] = useState('1d');
   const [selectedIndicators, setSelectedIndicators] = useState(['sma', 'bollinger']);
   const [forecastModel, setForecastModel] = useState('drift');
   const [initialCapital, setInitialCapital] = useState(10000);
@@ -156,7 +159,11 @@ export default function Dashboard({ user, session, onSignOut }) {
     prefsApplied.current = true;
     if (!preferences) return;
     if (preferences.last_symbol) setSymbol(preferences.last_symbol);
-    if (preferences.last_range) setRange(preferences.last_range);
+    if (preferences.last_range) {
+      setRange(preferences.last_range);
+      const matchedPeriod = CHART_PERIODS.find((p) => p.range === preferences.last_range);
+      if (matchedPeriod) setChartInterval(matchedPeriod.interval);
+    }
     if (Array.isArray(preferences.selected_indicators) && preferences.selected_indicators.length > 0) {
       setSelectedIndicators(preferences.selected_indicators);
     }
@@ -257,7 +264,7 @@ export default function Dashboard({ user, session, onSignOut }) {
       try {
         const payload = await getInsights(symbol, {
           range,
-          interval: '1d',
+          interval: chartInterval,
           indicator: primaryIndicator,
           forecastModel,
           initialCapital,
@@ -277,7 +284,7 @@ export default function Dashboard({ user, session, onSignOut }) {
         if (!silent && !cancelRef?.current) setInsightsLoading(false);
       }
     },
-    [applyInsights, symbol, range, primaryIndicator, forecastModel, initialCapital, appliedWeights],
+    [applyInsights, symbol, range, chartInterval, primaryIndicator, forecastModel, initialCapital, appliedWeights],
   );
 
   useEffect(() => {
@@ -567,20 +574,6 @@ export default function Dashboard({ user, session, onSignOut }) {
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium text-zinc-400">Range</label>
-                <select
-                  value={range}
-                  onChange={(event) => setRange(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
-                >
-                  {PRICE_RANGES.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           </section>
 
@@ -795,24 +788,40 @@ export default function Dashboard({ user, session, onSignOut }) {
           ) : null}
 
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-white">Price Action</h3>
-                <p className="text-xs text-zinc-400">
-                  Technical indicators overlaid on historical price data.
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Data source: {dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'google' ? 'Google Finance fallback' : 'Synthetic sample (offline)'}.
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'google' ? 'Google Finance fallback' : 'Synthetic sample (offline)'}
                 </p>
               </div>
-              {insightsLoading ? (
-                <span className="text-xs text-amber-300">Loading…</span>
-              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap gap-1">
+                  {CHART_PERIODS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => { setRange(p.range); setChartInterval(p.interval); }}
+                      className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                        range === p.range
+                          ? 'bg-amber-400 text-zinc-900'
+                          : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                {insightsLoading ? (
+                  <span className="text-xs text-amber-300">Loading…</span>
+                ) : null}
+              </div>
             </div>
             {chartData.length > 0 ? (
               <div className={insightsLoading ? 'opacity-50 transition-opacity' : 'transition-opacity'}>
                 <StockChart
                   data={chartData}
+                  interval={chartInterval}
                   selectedIndicators={selectedIndicators}
                   forecastModel={forecastModel}
                   hasForecastCloud={Boolean(forecastCloud)}

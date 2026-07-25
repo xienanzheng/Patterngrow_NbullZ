@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import {
   CartesianGrid,
   ComposedChart,
@@ -21,10 +21,17 @@ import {
   calculateVWAP,
 } from '../lib/indicators';
 
-const formatAxisDate = (value) => {
+function formatAxisTick(value, chartInterval) {
   if (!value) return '';
-  return new Date(value).toLocaleDateString();
-};
+  const d = new Date(value);
+  if (chartInterval === '5m' || chartInterval === '15m') {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  if (chartInterval === '1wk' || chartInterval === '1mo') {
+    return d.toLocaleDateString([], { month: 'short', year: '2-digit' });
+  }
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
 
 const tooltipFormatter = (value, name) => {
   if (value == null) return null;
@@ -35,7 +42,7 @@ const tooltipFormatter = (value, name) => {
   return [value, label];
 };
 
-export default function StockChart({ data, selectedIndicators, forecastModel, hasForecastCloud }) {
+export default function StockChart({ data, interval, selectedIndicators, forecastModel, hasForecastCloud }) {
   const actualData = useMemo(() => data.filter((row) => !row.isForecast), [data]);
 
   // Calculate only the indicators that are currently toggled on.
@@ -80,6 +87,22 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
     }));
   }, [data, indicatorData]);
 
+  const priceDomain = useMemo(() => {
+    const closes = chartData
+      .filter((row) => !row.isForecast && row.close != null)
+      .map((row) => row.close);
+    if (!closes.length) return ['auto', 'auto'];
+    const mn = Math.min(...closes);
+    const mx = Math.max(...closes);
+    const pad = Math.max((mx - mn) * 0.08, mx * 0.015);
+    return [mn - pad, mx + pad];
+  }, [chartData]);
+
+  const xTickFormatter = useCallback(
+    (value) => formatAxisTick(value, interval),
+    [interval],
+  );
+
   const forecastStartIndex = chartData.findIndex((row) => row.isForecast);
 
   return (
@@ -94,11 +117,11 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
               </linearGradient>
             </defs>
             <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-            <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
-            <YAxis yAxisId="price" stroke="#52525b" domain={['auto', 'auto']} />
+            <XAxis dataKey="date" tickFormatter={xTickFormatter} minTickGap={24} />
+            <YAxis yAxisId="price" stroke="#52525b" domain={priceDomain} tickFormatter={(v) => v.toFixed(0)} />
             <Tooltip
               contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
-              labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
+              labelFormatter={(value) => `Date: ${formatAxisTick(value, interval)}`}
               formatter={tooltipFormatter}
             />
             <Legend verticalAlign="top" height={36} />
@@ -286,11 +309,11 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-            <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
+            <XAxis dataKey="date" tickFormatter={xTickFormatter} minTickGap={24} />
             <YAxis tickFormatter={(value) => `${(value / 1_000_000).toFixed(1)}M`} stroke="#52525b" />
             <Tooltip
               contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
-              labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
+              labelFormatter={(value) => `Date: ${formatAxisTick(value, interval)}`}
               formatter={(value) => [`${(value / 1_000_000).toFixed(2)}M`, 'Volume']}
             />
             <Legend verticalAlign="top" height={28} />
@@ -311,11 +334,11 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
               <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-              <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
+              <XAxis dataKey="date" tickFormatter={xTickFormatter} minTickGap={24} />
               <YAxis domain={[0, 100]} stroke="#52525b" />
               <Tooltip
                 contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
-                labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
+                labelFormatter={(value) => `Date: ${formatAxisTick(value, interval)}`}
                 formatter={tooltipFormatter}
               />
               <Legend verticalAlign="top" height={36} />
@@ -332,11 +355,11 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
               <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-              <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
+              <XAxis dataKey="date" tickFormatter={xTickFormatter} minTickGap={24} />
               <YAxis stroke="#52525b" />
               <Tooltip
                 contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
-                labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
+                labelFormatter={(value) => `Date: ${formatAxisTick(value, interval)}`}
                 formatter={tooltipFormatter}
               />
               <Legend verticalAlign="top" height={36} />
@@ -352,11 +375,11 @@ export default function StockChart({ data, selectedIndicators, forecastModel, ha
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
               <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-              <XAxis dataKey="date" tickFormatter={formatAxisDate} minTickGap={24} />
+              <XAxis dataKey="date" tickFormatter={xTickFormatter} minTickGap={24} />
               <YAxis stroke="#52525b" domain={[0, 100]} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
-                labelFormatter={(value) => `Date: ${formatAxisDate(value)}`}
+                labelFormatter={(value) => `Date: ${formatAxisTick(value, interval)}`}
                 formatter={tooltipFormatter}
               />
               <Legend verticalAlign="top" height={36} />

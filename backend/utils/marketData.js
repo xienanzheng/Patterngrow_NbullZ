@@ -50,11 +50,15 @@ export async function fetchYahooHistory(symbol, range = '1y', interval = '1d') {
       }))
       .filter((row) => row.date != null);
   } catch (error) {
-    const fallback = await fetchGoogleHistory(symbol, range, interval);
-    if (fallback.length === 0) {
-      throw error;
+    // Intraday intervals are not supported by Google Finance — skip straight to Twelve Data
+    const isIntraday = interval === '5m' || interval === '15m' || interval === '1h';
+    if (!isIntraday) {
+      const googleData = await fetchGoogleHistory(symbol, range, interval);
+      if (googleData.length > 0) return googleData;
     }
-    return fallback;
+    const twelveData = await fetchTwelveData(symbol, range, interval);
+    if (twelveData.length > 0) return twelveData;
+    throw error;
   }
 }
 
@@ -191,6 +195,45 @@ async function fetchGoogleHistory(symbol, range = '1y', interval = '1d') {
   }
 
   return rows.filter((row) => row.date != null).map((row) => ({ ...row, source: 'google' }));
+}
+
+async function fetchTwelveData(symbol, range, interval) {
+  const key = process.env.TWELVE_DATA_API_KEY;
+  if (!key) return [];
+
+  // Map our (range, interval) to Twelve Data params
+  const intervalMap = {
+    '5m': '5min', '15m': '15min', '1h': '1h',
+    '1d': '1day', '1wk': '1week', '1mo': '1month',
+  };
+  const outputsizeMap = {
+    '1d': 78, '5d': 195, '1mo': 22, '3mo': 66, '6mo': 130,
+    '1y': 252, '2y': 504, '5y': 1260, 'max': 5000,
+  };
+  const tdInterval = intervalMap[interval] ?? '1day';
+  const outputsize = outputsizeMap[range] ?? 252;
+
+  try {
+    const data = await fetchJson('https://api.twelvedata.com/time_series', {
+      symbol,
+      interval: tdInterval,
+      outputsize,
+      apikey: key,
+      order: 'ASC',
+    });
+    if (data.status === 'error' || !Array.isArray(data.values)) return [];
+    return data.values.map((bar) => ({
+      date: new Date(bar.datetime).toISOString(),
+      open: Number(bar.open) || null,
+      high: Number(bar.high) || null,
+      low: Number(bar.low) || null,
+      close: Number(bar.close) || null,
+      volume: Number(bar.volume) || null,
+      source: 'twelvedata',
+    })).filter((row) => row.date != null);
+  } catch {
+    return [];
+  }
 }
 
 export function generateMockHistory(symbol, periods = 200) {
