@@ -6,6 +6,7 @@ import analyticsRouter from './routes/analytics.js';
 import positionsRouter from './routes/positions.js';
 import watchlistRouter from './routes/watchlist.js';
 import preferencesRouter from './routes/preferences.js';
+import brokerRouter from './routes/broker.js';
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/positions', positionsRouter);
 app.use('/api/watchlist', watchlistRouter);
 app.use('/api/user', preferencesRouter);
+app.use('/api/broker', brokerRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('Unhandled API error', err);
