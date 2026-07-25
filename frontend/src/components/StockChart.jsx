@@ -42,7 +42,7 @@ const tooltipFormatter = (value, name) => {
   return [value, label];
 };
 
-export default function StockChart({ data, interval, selectedIndicators, forecastModel, hasForecastCloud }) {
+export default function StockChart({ data, interval, selectedIndicators, forecastModel, hasForecastCloud, showForecast = true }) {
   const actualData = useMemo(() => data.filter((row) => !row.isForecast), [data]);
 
   // Calculate only the indicators that are currently toggled on.
@@ -178,7 +178,7 @@ export default function StockChart({ data, interval, selectedIndicators, forecas
                 name="VWAP"
               />
             ) : null}
-            {forecastStartIndex > -1 ? (
+            {showForecast && forecastStartIndex > -1 ? (
               <>
                 {/* 95% confidence band (outer) — stacked area trick */}
                 <Area
@@ -233,7 +233,7 @@ export default function StockChart({ data, interval, selectedIndicators, forecas
                   name=""
                 />
                 {/* MC cloud outer band (p5-p95) — only when montecarlo model active */}
-                {hasForecastCloud ? (
+                {showForecast && hasForecastCloud ? (
                   <>
                     <Area
                       type="monotone"
