@@ -788,7 +788,7 @@ export default function Dashboard({ user, session, onSignOut }) {
             </div>
           ) : null}
 
-            <FundamentalsCard symbol={symbol} />
+          <FundamentalsCard symbol={symbol} />
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
