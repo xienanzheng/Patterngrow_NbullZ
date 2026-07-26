@@ -477,6 +477,12 @@ export default function Dashboard({ user, session, onSignOut }) {
     if (draggingHandle) setDraggingHandle(null);
   }, [draggingHandle]);
 
+  useEffect(() => {
+    if (!draggingHandle) return;
+    window.addEventListener('mouseup', handleChartMouseUp);
+    return () => { window.removeEventListener('mouseup', handleChartMouseUp); };
+  }, [draggingHandle, handleChartMouseUp]);
+
   const handleDragStart = useCallback((lineId, endpoint) => {
     setDraggingHandle({ lineId, endpoint });
     setPendingPoint(null); // cancel any in-progress drawing
