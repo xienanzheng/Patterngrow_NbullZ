@@ -114,9 +114,9 @@ const SUMMARY_SYMBOL_CAP = 20;
 
 function formatSignalLabel(signal) {
   const map = {
-    buy_strong: 'Strong Buy', buy_medium: 'Medium Buy', buy_weak: 'Weak Buy',
-    sell_strong: 'Strong Sell', sell_medium: 'Medium Sell', sell_weak: 'Weak Sell',
-    hold: 'Hold',
+    buy_strong: 'Strong Buy', buy_medium: 'Medium Buy', buy_weak: 'Buy',
+    sell_strong: 'Strong Sell', sell_medium: 'Medium Sell', sell_weak: 'Sell',
+    hold: 'Neutral',
   };
   return map[signal] ?? signal;
 }
@@ -125,8 +125,11 @@ function convictionEmoji(label) {
   if (!label) return '⚪';
   const l = label.toLowerCase();
   if (l === 'strong buy') return '🟢🟢';
-  if (l === 'buy') return '🟢';
+  if (l === 'medium buy') return '🟢';
+  if (l === 'buy') return '🔵';
+  if (l === 'neutral') return '⚪';
   if (l === 'sell') return '🔴';
+  if (l === 'medium sell') return '🔴';
   if (l === 'strong sell') return '🔴🔴';
   return '⚪';
 }
