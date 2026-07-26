@@ -196,12 +196,15 @@ function formatLastSignal(row) {
   return `${action} (${strength}) @ $${Number(row.price).toFixed(2)} on ${date}`;
 }
 
-// Pure function: maps the 7-tier conviction label to a 3-state recommended action.
-export function recommendedAction(convictionLabel) {
-  const label = convictionLabel ?? 'Neutral';
-  if (label === 'Strong Buy' || label === 'Medium Buy' || label === 'Buy') return 'BUY';
-  if (label === 'Sell' || label === 'Medium Sell' || label === 'Strong Sell') return 'SELL';
-  return 'HOLD';
+// Pure function: maps the 7-tier conviction label to a 4-state recommended action.
+// Depends on current position (lastDir) to make direction-aware recommendations.
+export function recommendedAction(convictionLabel, lastDir) {
+  const inLong = lastDir === 'buy';
+  const label = convictionLabel?.toLowerCase() ?? 'neutral';
+  if (inLong && (label === 'sell' || label === 'medium sell' || label === 'strong sell')) return 'consider_sell';
+  if (inLong) return 'hold_long';
+  if (!inLong && (label === 'buy' || label === 'medium buy' || label === 'strong buy')) return 'consider_buy';
+  return 'hold_flat';
 }
 
 // Best-effort write: upserts one row to decision_log for today.
@@ -210,6 +213,8 @@ export function recommendedAction(convictionLabel) {
 async function writeDecisionLog(symbol, conviction, lastCommitted) {
   try {
     const today = new Date().toISOString().slice(0, 10);
+    const lastDir = lastCommitted?.signal?.startsWith('buy') ? 'buy'
+      : lastCommitted?.signal?.startsWith('sell') ? 'sell' : null;
     const row = {
       symbol,
       decision_date: today,
@@ -219,7 +224,7 @@ async function writeDecisionLog(symbol, conviction, lastCommitted) {
       last_signal: lastCommitted?.signal ?? null,
       last_signal_date: lastCommitted?.signal_date ?? null,
       last_signal_price: lastCommitted?.price != null ? Number(lastCommitted.price) : null,
-      recommended_action: recommendedAction(conviction?.label),
+      recommended_action: recommendedAction(conviction?.label, lastDir),
     };
     const { error } = await supabaseAdmin
       .from('decision_log')

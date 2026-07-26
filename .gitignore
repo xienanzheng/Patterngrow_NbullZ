@@ -51,3 +51,5 @@ out/
 .next/
 .vercel/
 .superpowers/
+.vercel
+.env*
