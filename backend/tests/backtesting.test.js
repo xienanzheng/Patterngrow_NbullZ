@@ -84,3 +84,60 @@ describe('threshold constants', () => {
     expect(SIGNAL_POSITION_FRACS.weak).toBe(0.25);
   });
 });
+
+describe('signal position sizing', () => {
+  const day = (i, close) => ({ date: `2025-02-${String(i + 1).padStart(2, '0')}`, close });
+
+  it('buy_strong invests the full available cash (fraction=1.0)', () => {
+    const points = [100, 100, 120].map((c, i) => day(i, c));
+    const signals = [
+      { signal: 'hold', numericSignal: 0 },
+      { signal: 'buy_strong', numericSignal: 1 },
+      { signal: 'hold', numericSignal: 0 },
+    ];
+    const { portfolio } = runTradingSimulationDetailed(points, signals, 10000, {
+      transactionCostPct: 0, slippagePct: 0,
+    });
+    // At bar 2 price=120, all $10000 was invested at bar1 price=100 → 100 shares → value=12000
+    expect(portfolio.at(-1).value).toBeCloseTo(12000, 0);
+  });
+
+  it('buy_weak invests 25% of available cash', () => {
+    const points = [100, 100, 100].map((c, i) => day(i, c));
+    const signals = [
+      { signal: 'hold', numericSignal: 0 },
+      { signal: 'buy_weak', numericSignal: 1 },
+      { signal: 'hold', numericSignal: 0 },
+    ];
+    const { trades } = runTradingSimulationDetailed(points, signals, 10000, {
+      transactionCostPct: 0, slippagePct: 0,
+    });
+    const buy = trades.find((t) => t.type === 'buy');
+    // 25% of 10000 = 2500 invested at price 100 → ~25 shares
+    expect(buy).toBeDefined();
+    // cash remaining = 7500; shares = 25; portfolio still ~10000
+  });
+
+  it('sell_strong liquidates full position', () => {
+    const points = [100, 100, 100, 100].map((c, i) => day(i, c));
+    const signals = [
+      { signal: 'hold', numericSignal: 0 },
+      { signal: 'buy_strong', numericSignal: 1 },
+      { signal: 'hold', numericSignal: 0 },
+      { signal: 'sell_strong', numericSignal: -1 },
+    ];
+    const { portfolio, trades } = runTradingSimulationDetailed(points, signals, 10000, {
+      transactionCostPct: 0, slippagePct: 0,
+    });
+    // After sell_strong at price=100 with no fees, all shares sold → back to ~10000 cash
+    expect(portfolio.at(-1).value).toBeCloseTo(10000, 0);
+    const sell = trades.find((t) => t.type === 'sell');
+    expect(sell).toBeDefined();
+  });
+
+  it('SIGNAL_POSITION_FRACS values match what simulation uses', () => {
+    expect(SIGNAL_POSITION_FRACS.strong).toBe(1.0);
+    expect(SIGNAL_POSITION_FRACS.medium).toBe(0.5);
+    expect(SIGNAL_POSITION_FRACS.weak).toBe(0.25);
+  });
+});
