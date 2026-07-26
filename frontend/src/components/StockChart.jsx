@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   Area,
   AreaChart,
@@ -62,7 +62,8 @@ function CandlestickBars({ xAxisMap, yAxisMap, offset, chartData }) {
   );
 }
 
-function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint, hoverPoint, onLineDelete, scalesRef }) {
+function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint, hoverPoint, onLineDelete, scalesRef, onDragStart }) {
+  const [hoveredId, setHoveredId] = useState(null);
   const xScale = xAxisMap?.[0]?.scale;
   const yScale = yAxisMap?.['price']?.scale;
   if (scalesRef && xScale && yScale && offset) {
@@ -85,58 +86,78 @@ function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint
   const plotLeft  = (offset.left ?? 0);
   const plotRight = (offset.left ?? 0) + (offset.width ?? 0);
 
-  // For extended lines: compute where the infinite line through (x1,y1)→(x2,y2) intersects the plot edges.
   const extendLine = (px1, py1, px2, py2) => {
-    if (px1 === px2) return { ex1: px1, ey1: (offset.top ?? 0), ex2: px2, ey2: (offset.top ?? 0) + (offset.height ?? 0) };
+    if (px1 === px2) return { ex1: px1, ey1: offset.top ?? 0, ex2: px2, ey2: (offset.top ?? 0) + (offset.height ?? 0) };
     const slope = (py2 - py1) / (px2 - px1);
     const intercept = py1 - slope * px1;
-    const yAtLeft  = slope * plotLeft  + intercept;
-    const yAtRight = slope * plotRight + intercept;
-    return { ex1: plotLeft, ey1: yAtLeft, ex2: plotRight, ey2: yAtRight };
+    return { ex1: plotLeft, ey1: slope * plotLeft + intercept, ex2: plotRight, ey2: slope * plotRight + intercept };
   };
+
+  const HANDLE_R = 5;
 
   return (
     <g>
       {drawnLines.map((line) => {
-        const y1 = toY(line.y1);
-        const y2 = toY(line.y2);
-        if (y1 == null || y2 == null) return null;
+        const y1px = toY(line.y1);
+        const y2px = toY(line.y2);
+        if (y1px == null || y2px == null) return null;
 
         let rx1, ry1, rx2, ry2;
+        let h1x, h1y, h2x, h2y; // handle positions
 
         if (line.type === 'horizontal') {
-          rx1 = plotLeft;  ry1 = y1;
-          rx2 = plotRight; ry2 = y1;
+          rx1 = plotLeft;  ry1 = y1px;
+          rx2 = plotRight; ry2 = y1px;
+          h1x = plotLeft  + (plotRight - plotLeft) * 0.25; h1y = y1px;
+          h2x = plotLeft  + (plotRight - plotLeft) * 0.75; h2y = y1px;
         } else {
-          const x1 = toX(line.x1);
-          const x2 = toX(line.x2);
-          if (x1 == null || x2 == null) return null;
+          const x1px = toX(line.x1);
+          const x2px = toX(line.x2);
+          if (x1px == null || x2px == null) return null;
           if (line.type === 'extended-line') {
-            const ext = extendLine(x1, y1, x2, y2);
+            const ext = extendLine(x1px, y1px, x2px, y2px);
             rx1 = ext.ex1; ry1 = ext.ey1; rx2 = ext.ex2; ry2 = ext.ey2;
           } else {
-            rx1 = x1; ry1 = y1; rx2 = x2; ry2 = y2;
+            rx1 = x1px; ry1 = y1px; rx2 = x2px; ry2 = y2px;
           }
+          h1x = x1px; h1y = y1px;
+          h2x = x2px; h2y = y2px;
         }
 
-        // Price label at right edge
-        const labelPrice = line.y1.toFixed(line.y1 >= 100 ? 2 : line.y1 >= 10 ? 2 : 3);
-        const labelX = plotRight + 4;
+        const isHovered = hoveredId === line.id;
+        const labelPrice = line.y1 >= 100 ? line.y1.toFixed(2) : line.y1 >= 10 ? line.y1.toFixed(2) : line.y1.toFixed(3);
         const labelY = line.type === 'horizontal' ? ry1 : ry2;
 
         return (
-          <g key={line.id}>
+          <g key={line.id}
+            onMouseEnter={() => setHoveredId(line.id)}
+            onMouseLeave={() => setHoveredId(null)}
+          >
+            {/* Visible line */}
             <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
-              stroke="#fbbf24" strokeWidth={2} strokeLinecap="round" />
+              stroke="#fbbf24" strokeWidth={isHovered ? 2.5 : 2} strokeLinecap="round" />
             {/* Wide invisible hit target for delete */}
             <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
               stroke="transparent" strokeWidth={14} style={{ cursor: 'pointer' }}
               onClick={(e) => { e.stopPropagation(); onLineDelete?.(line.id); }} />
             {/* Price label */}
-            <rect x={labelX} y={labelY - 9} width={44} height={16} rx={3} fill="#18181b" />
-            <text x={labelX + 3} y={labelY + 3} fontSize={10} fill="#fbbf24" fontFamily="monospace">
+            <rect x={plotRight + 4} y={labelY - 9} width={48} height={16} rx={3} fill="#18181b" />
+            <text x={plotRight + 7} y={labelY + 3} fontSize={10} fill="#fbbf24" fontFamily="monospace">
               ${labelPrice}
             </text>
+            {/* Drag handles — visible on hover */}
+            {isHovered && onDragStart ? (
+              <>
+                <circle cx={h1x} cy={h1y} r={HANDLE_R}
+                  fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
+                  style={{ cursor: 'grab' }}
+                  onMouseDown={(e) => { e.stopPropagation(); onDragStart(line.id, 'start'); }} />
+                <circle cx={h2x} cy={h2y} r={HANDLE_R}
+                  fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
+                  style={{ cursor: 'grab' }}
+                  onMouseDown={(e) => { e.stopPropagation(); onDragStart(line.id, 'end'); }} />
+              </>
+            ) : null}
           </g>
         );
       })}
@@ -189,6 +210,9 @@ export default function StockChart({
   onChartMouseMove,
   onLineDelete,
   scalesRef = null,
+  onDragStart,
+  onChartMouseUp,
+  isDragging = false,
 }) {
   const actualData = useMemo(() => data.filter((row) => !row.isForecast), [data]);
 
@@ -260,7 +284,8 @@ export default function StockChart({
             data={chartData}
             onClick={onChartClick}
             onMouseMove={onChartMouseMove}
-            style={drawingMode ? { cursor: 'crosshair' } : undefined}
+            onMouseUp={onChartMouseUp}
+            style={(drawingMode || isDragging) ? { cursor: isDragging ? 'grabbing' : 'crosshair' } : undefined}
           >
             <defs>
               <linearGradient id="smaGradient" x1="0" x2="0" y1="0" y2="1">
@@ -455,6 +480,7 @@ export default function StockChart({
               hoverPoint={hoverPoint}
               onLineDelete={onLineDelete}
               scalesRef={scalesRef}
+              onDragStart={onDragStart}
             />
           </ComposedChart>
         </ResponsiveContainer>

@@ -109,6 +109,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [drawnLines, setDrawnLines] = useState([]);
   const [pendingPoint, setPendingPoint] = useState(null);
   const [hoverPoint, setHoverPoint] = useState(null);
+  const [draggingHandle, setDraggingHandle] = useState(null); // { lineId: string, endpoint: 'start'|'end' } | null
   const [initialCapital, setInitialCapital] = useState(10000);
   const [draftWeights, setDraftWeights] = useState(DEFAULT_WEIGHTS);
   const [appliedWeights, setAppliedWeights] = useState(DEFAULT_WEIGHTS);
@@ -439,6 +440,20 @@ export default function Dashboard({ user, session, onSignOut }) {
 
   const handleChartMouseMove = useCallback(
     (data) => {
+      if (draggingHandle) {
+        // Drag mode — update the dragged endpoint
+        const rawPrice = pixelToPrice(data.chartY);
+        if (rawPrice == null || !data?.activeLabel) return;
+        const newPrice = snapPrice(rawPrice);
+        const newDate  = data.activeLabel;
+        setDrawnLines((prev) => prev.map((l) => {
+          if (l.id !== draggingHandle.lineId) return l;
+          if (l.type === 'horizontal') return { ...l, y1: newPrice, y2: newPrice };
+          if (draggingHandle.endpoint === 'start') return { ...l, x1: newDate, y1: newPrice };
+          return { ...l, x2: newDate, y2: newPrice };
+        }));
+        return;
+      }
       if (!drawingMode || drawingTool === 'horizontal') {
         if (hoverPoint) setHoverPoint(null);
         return;
@@ -451,11 +466,20 @@ export default function Dashboard({ user, session, onSignOut }) {
       if (rawPrice == null) return;
       setHoverPoint({ x: data.activeLabel, y: snapPrice(rawPrice) });
     },
-    [drawingMode, drawingTool, pendingPoint, hoverPoint, pixelToPrice],
+    [draggingHandle, drawingMode, drawingTool, pendingPoint, hoverPoint, pixelToPrice],
   );
 
   const handleLineDelete = useCallback((id) => {
     setDrawnLines((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
+  const handleChartMouseUp = useCallback(() => {
+    if (draggingHandle) setDraggingHandle(null);
+  }, [draggingHandle]);
+
+  const handleDragStart = useCallback((lineId, endpoint) => {
+    setDraggingHandle({ lineId, endpoint });
+    setPendingPoint(null); // cancel any in-progress drawing
   }, []);
 
   useEffect(() => {
@@ -1011,6 +1035,9 @@ export default function Dashboard({ user, session, onSignOut }) {
                   onChartMouseMove={handleChartMouseMove}
                   onLineDelete={handleLineDelete}
                   scalesRef={scalesRef}
+                  onDragStart={handleDragStart}
+                  onChartMouseUp={handleChartMouseUp}
+                  isDragging={draggingHandle != null}
                 />
               </div>
             ) : insightsLoading ? (
