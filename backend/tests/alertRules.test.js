@@ -83,18 +83,27 @@ describe('alerts routes', () => {
   });
 });
 
-// recommendedAction — pure function, maps 7-tier conviction labels to BUY/HOLD/SELL.
+// recommendedAction — pure function, maps 7-tier conviction labels to 4-state actions.
+// Direction-aware: requires lastDir ('buy', 'sell', or null) to make position-aware recommendations.
 describe('recommendedAction', () => {
-  it('maps Strong Buy to BUY', () => expect(recommendedAction('Strong Buy')).toBe('BUY'));
-  it('maps Medium Buy to BUY', () => expect(recommendedAction('Medium Buy')).toBe('BUY'));
-  it('maps Buy to BUY', () => expect(recommendedAction('Buy')).toBe('BUY'));
-  it('maps Neutral to HOLD', () => expect(recommendedAction('Neutral')).toBe('HOLD'));
-  it('maps Sell to SELL', () => expect(recommendedAction('Sell')).toBe('SELL'));
-  it('maps Medium Sell to SELL', () => expect(recommendedAction('Medium Sell')).toBe('SELL'));
-  it('maps Strong Sell to SELL', () => expect(recommendedAction('Strong Sell')).toBe('SELL'));
-  it('maps null/undefined to HOLD (default)', () => {
-    expect(recommendedAction(null)).toBe('HOLD');
-    expect(recommendedAction(undefined)).toBe('HOLD');
+  it('Strong Buy + no position → consider_buy', () => {
+    expect(recommendedAction('Strong Buy', null)).toBe('consider_buy');
+  });
+  it('Strong Buy + in long → hold_long', () => {
+    expect(recommendedAction('Strong Buy', 'buy')).toBe('hold_long');
+  });
+  it('Strong Sell + in long → consider_sell', () => {
+    expect(recommendedAction('Strong Sell', 'buy')).toBe('consider_sell');
+  });
+  it('Strong Sell + no position → hold_flat', () => {
+    expect(recommendedAction('Strong Sell', null)).toBe('hold_flat');
+  });
+  it('Neutral + in long → hold_long', () => {
+    expect(recommendedAction('Neutral', 'buy')).toBe('hold_long');
+  });
+  it('null label + any position → hold_flat or hold_long depending on position', () => {
+    expect(recommendedAction(null, null)).toBe('hold_flat');
+    expect(recommendedAction(null, 'buy')).toBe('hold_long');
   });
 });
 
