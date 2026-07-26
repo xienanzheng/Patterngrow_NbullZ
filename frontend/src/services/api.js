@@ -209,3 +209,11 @@ export function placeBrokerOrder({ symbol, side, qty }, token) {
 export function disconnectBroker(token) {
   return request('/api/broker/connect', { method: 'DELETE', token });
 }
+
+export function runBacktest({ symbol, benchmark, period, strategy, initialCapital, stopLossPct, takeProfitPct }, token) {
+  return request('/api/backtests/run', {
+    method: 'POST',
+    token,
+    body: { symbol, benchmark, period, strategy, initialCapital, stopLossPct, takeProfitPct },
+  });
+}
