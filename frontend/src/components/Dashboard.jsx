@@ -11,6 +11,7 @@ import PortfolioPanel from './PortfolioPanel';
 import BrokerPanel from './BrokerPanel';
 import FundamentalsCard from './FundamentalsCard';
 import { getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
+import AlgoExplainer from './AlgoExplainer';
 
 const formatCurrency = (value) => {
   if (value == null) return 'N/A';
@@ -833,6 +834,8 @@ export default function Dashboard({ user, session, onSignOut }) {
               {insightsError}
             </div>
           ) : null}
+
+          <AlgoExplainer />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
