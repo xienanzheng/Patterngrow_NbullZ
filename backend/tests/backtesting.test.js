@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { runTradingSimulation, runTradingSimulationDetailed } from '../utils/backtesting.js';
+import {
+  runTradingSimulation,
+  runTradingSimulationDetailed,
+  CONVICTION_THRESHOLDS,
+  ENSEMBLE_SIGNAL_THRESHOLDS,
+  SIGNAL_POSITION_FRACS,
+} from '../utils/backtesting.js';
 
 const day = (i, close) => ({ date: `2025-01-${String(i + 1).padStart(2, '0')}`, close });
 const buy = { signal: 'buy_strong', numericSignal: 1 };
@@ -50,5 +56,31 @@ describe('runTradingSimulationDetailed', () => {
     const detailed = runTradingSimulationDetailed(points, signals, 5000, {});
     expect(detailed.portfolio).toHaveLength(3);
     expect(runTradingSimulation(points, signals, 5000)).toEqual(detailed.portfolio);
+  });
+});
+
+describe('threshold constants', () => {
+  it('CONVICTION_THRESHOLDS has required keys with correct values', () => {
+    expect(CONVICTION_THRESHOLDS.STRONG_BUY).toBe(0.60);
+    expect(CONVICTION_THRESHOLDS.MEDIUM_BUY).toBe(0.35);
+    expect(CONVICTION_THRESHOLDS.BUY).toBe(0.15);
+    expect(CONVICTION_THRESHOLDS.NEUTRAL_LOW).toBe(-0.15);
+    expect(CONVICTION_THRESHOLDS.SELL).toBe(-0.35);
+    expect(CONVICTION_THRESHOLDS.MEDIUM_SELL).toBe(-0.60);
+  });
+
+  it('ENSEMBLE_SIGNAL_THRESHOLDS has correct crossover and label thresholds', () => {
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.ENTRY).toBe(0.3);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.EXIT).toBe(-0.3);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.STRONG_BUY_SCORE).toBe(0.6);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.MEDIUM_BUY_SCORE).toBe(0.45);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.STRONG_SELL_SCORE).toBe(-0.6);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.MEDIUM_SELL_SCORE).toBe(-0.45);
+  });
+
+  it('SIGNAL_POSITION_FRACS: strong=1.0, medium=0.5, weak=0.25', () => {
+    expect(SIGNAL_POSITION_FRACS.strong).toBe(1.0);
+    expect(SIGNAL_POSITION_FRACS.medium).toBe(0.5);
+    expect(SIGNAL_POSITION_FRACS.weak).toBe(0.25);
   });
 });
