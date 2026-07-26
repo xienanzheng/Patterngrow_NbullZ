@@ -24,7 +24,6 @@ export const CONVICTION_THRESHOLDS = {
   NEUTRAL_LOW: -0.15,
   SELL:        -0.35,
   MEDIUM_SELL: -0.60,
-  // score < -0.60 → 'Strong Sell'
 };
 
 // Ensemble strategy: score must cross these levels to fire entry/exit signals.
@@ -37,10 +36,6 @@ export const ENSEMBLE_SIGNAL_THRESHOLDS = {
   MEDIUM_SELL_SCORE: -0.45,
 };
 
-// Fraction of position (shares or cash) committed per signal strength.
-// Strong = full conviction: go all-in or fully exit.
-// Medium = partial: build/trim the position.
-// Weak   = starter/probe: small add or early trim.
 export const SIGNAL_POSITION_FRACS = {
   strong: 1.0,
   medium: 0.5,
