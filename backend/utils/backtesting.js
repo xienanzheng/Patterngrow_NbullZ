@@ -236,9 +236,9 @@ export function backtestStrategy(points, indicator, options = {}) {
 }
 
 function signalWeight(signal) {
-  if (signal.endsWith('strong')) return 0.5;
-  if (signal.endsWith('medium')) return 0.3;
-  if (signal.endsWith('weak')) return 0.1;
+  if (signal.endsWith('strong')) return SIGNAL_POSITION_FRACS.strong;
+  if (signal.endsWith('medium')) return SIGNAL_POSITION_FRACS.medium;
+  if (signal.endsWith('weak')) return SIGNAL_POSITION_FRACS.weak;
   return 1;
 }
 
