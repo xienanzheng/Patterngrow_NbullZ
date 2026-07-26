@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useLayoutEffect } from 'react';
+import { useState, useMemo, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   Area,
   AreaChart,
@@ -21,6 +21,11 @@ import {
   calculateStochasticOscillator,
   calculateVWAP,
 } from '../lib/indicators';
+
+// Fixed layout constants — must match ComposedChart margin + explicit axis sizes below.
+const CHART_MARGIN = { top: 5, right: 5, left: 5, bottom: 5 };
+const Y_AXIS_W = 62;
+const X_AXIS_H = 30;
 
 function CandlestickBars({ xAxisMap, yAxisMap, offset, chartData }) {
   const xScale = xAxisMap?.[0]?.scale;
@@ -62,124 +67,6 @@ function CandlestickBars({ xAxisMap, yAxisMap, offset, chartData }) {
   );
 }
 
-function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint, hoverPoint, onLineDelete, scalesRef, onDragStart }) {
-  const [hoveredId, setHoveredId] = useState(null);
-  const xScale = xAxisMap?.[0]?.scale;
-  const yScale = yAxisMap?.['price']?.scale;
-  useLayoutEffect(() => {
-    if (scalesRef && xScale && yScale && offset) {
-      scalesRef.current = { xScale, yScale, offset };
-    }
-  });
-  if (!xScale || !yScale || !offset) return null;
-
-  const bw = typeof xScale.bandwidth === 'function' ? xScale.bandwidth() : 0;
-
-  const toX = (date) => {
-    if (date == null) return null;
-    const v = xScale(date);
-    return v != null ? v + bw / 2 + (offset.left ?? 0) : null;
-  };
-  const toY = (price) => {
-    const v = yScale(price);
-    return v != null ? v + (offset.top ?? 0) : null;
-  };
-
-  const plotLeft  = (offset.left ?? 0);
-  const plotRight = (offset.left ?? 0) + (offset.width ?? 0);
-
-  const extendLine = (px1, py1, px2, py2) => {
-    if (px1 === px2) return { ex1: px1, ey1: offset.top ?? 0, ex2: px2, ey2: (offset.top ?? 0) + (offset.height ?? 0) };
-    const slope = (py2 - py1) / (px2 - px1);
-    const intercept = py1 - slope * px1;
-    return { ex1: plotLeft, ey1: slope * plotLeft + intercept, ex2: plotRight, ey2: slope * plotRight + intercept };
-  };
-
-  const HANDLE_R = 5;
-
-  return (
-    <g>
-      {drawnLines.map((line) => {
-        const y1px = toY(line.y1);
-        const y2px = toY(line.y2);
-        if (y1px == null || y2px == null) return null;
-
-        let rx1, ry1, rx2, ry2;
-        let h1x, h1y, h2x, h2y; // handle positions
-
-        if (line.type === 'horizontal') {
-          rx1 = plotLeft;  ry1 = y1px;
-          rx2 = plotRight; ry2 = y1px;
-          h1x = plotLeft  + (plotRight - plotLeft) * 0.25; h1y = y1px;
-          h2x = plotLeft  + (plotRight - plotLeft) * 0.75; h2y = y1px;
-        } else {
-          const x1px = toX(line.x1);
-          const x2px = toX(line.x2);
-          if (x1px == null || x2px == null) return null;
-          if (line.type === 'extended-line') {
-            const ext = extendLine(x1px, y1px, x2px, y2px);
-            rx1 = ext.ex1; ry1 = ext.ey1; rx2 = ext.ex2; ry2 = ext.ey2;
-          } else {
-            rx1 = x1px; ry1 = y1px; rx2 = x2px; ry2 = y2px;
-          }
-          h1x = x1px; h1y = y1px;
-          h2x = x2px; h2y = y2px;
-        }
-
-        const isHovered = hoveredId === line.id;
-        const labelVal = line.type === 'horizontal' ? line.y1 : (line.y2 ?? line.y1);
-        const labelPrice = labelVal >= 100 ? labelVal.toFixed(0) : labelVal >= 10 ? labelVal.toFixed(2) : labelVal.toFixed(3);
-        const labelY = line.type === 'horizontal' ? ry1 : ry2;
-
-        return (
-          <g key={line.id}
-            onMouseEnter={() => setHoveredId(line.id)}
-            onMouseLeave={() => setHoveredId(null)}
-          >
-            {/* Visible line */}
-            <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
-              stroke="#fbbf24" strokeWidth={isHovered ? 2.5 : 2} strokeLinecap="round" />
-            {/* Wide invisible hit target for delete */}
-            <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
-              stroke="transparent" strokeWidth={14} style={{ cursor: 'pointer' }}
-              onClick={(e) => { e.stopPropagation(); onLineDelete?.(line.id); }} />
-            {/* Price label */}
-            <rect x={plotRight + 4} y={labelY - 9} width={48} height={16} rx={3} fill="#18181b" />
-            <text x={plotRight + 7} y={labelY + 3} fontSize={10} fill="#fbbf24" fontFamily="monospace">
-              ${labelPrice}
-            </text>
-            {/* Drag handles — visible on hover */}
-            {isHovered && onDragStart ? (
-              <>
-                <circle cx={h1x} cy={h1y} r={HANDLE_R}
-                  fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
-                  style={{ cursor: 'grab' }}
-                  onMouseDown={(e) => { e.stopPropagation(); onDragStart(line.id, 'start'); }} />
-                <circle cx={h2x} cy={h2y} r={HANDLE_R}
-                  fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
-                  style={{ cursor: 'grab' }}
-                  onMouseDown={(e) => { e.stopPropagation(); onDragStart(line.id, 'end'); }} />
-              </>
-            ) : null}
-          </g>
-        );
-      })}
-
-      {/* Dashed preview line */}
-      {pendingPoint && hoverPoint ? (() => {
-        const px = toX(pendingPoint.x);
-        const py = toY(pendingPoint.y);
-        const hx = toX(hoverPoint.x);
-        const hy = toY(hoverPoint.y);
-        if (px == null || py == null || hx == null || hy == null) return null;
-        return (
-          <line x1={px} y1={py} x2={hx} y2={hy}
-            stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="6 3" strokeLinecap="round" />
-        );
-      })() : null}
-    </g>
-  );
-}
 
 function formatAxisTick(value, chartInterval) {
   if (!value) return '';
@@ -209,13 +96,16 @@ export default function StockChart({
   drawnLines = [],
   pendingPoint = null,
   hoverPoint = null,
-  onChartClick,
-  onChartMouseMove,
+  onDrawingClick,
+  onDrawingMove,
   onLineDelete,
-  scalesRef = null,
   onDragStart,
   isDragging = false,
 }) {
+  const plotContainerRef = useRef(null);
+  const plotBoundsRef = useRef(null);
+  const [hoveredLineId, setHoveredLineId] = useState(null);
+
   const actualData = useMemo(() => data.filter((row) => !row.isForecast), [data]);
 
   // Calculate only the indicators that are currently toggled on.
@@ -278,15 +168,61 @@ export default function StockChart({
 
   const forecastStartIndex = useMemo(() => chartData.findIndex((row) => row.isForecast), [chartData]);
 
+  const dates = useMemo(() => chartData.map((r) => r.date), [chartData]);
+
+  // Update plot bounds after every render so the SVG overlay always has accurate coordinates.
+  useLayoutEffect(() => {
+    const el = plotContainerRef.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    const left = CHART_MARGIN.left + Y_AXIS_W;
+    const top = CHART_MARGIN.top;
+    const right = width - CHART_MARGIN.right;
+    const bottom = height - CHART_MARGIN.bottom - X_AXIS_H;
+    plotBoundsRef.current = { left, top, right, bottom, width: right - left, height: bottom - top };
+  });
+
+  const handleOverlayClick = useCallback((e) => {
+    if (!drawingMode) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const svgX = e.clientX - rect.left;
+    const svgY = e.clientY - rect.top;
+    const b = plotBoundsRef.current;
+    if (!b || svgX < b.left || svgX > b.right || svgY < b.top || svgY > b.bottom) return;
+    const [minP, maxP] = priceDomain;
+    if (!Number.isFinite(minP) || !Number.isFinite(maxP) || b.height <= 0 || b.width <= 0) return;
+    const price = maxP - ((svgY - b.top) / b.height) * (maxP - minP);
+    const dateIdx = Math.round(((svgX - b.left) / b.width) * (dates.length - 1));
+    const date = dates[Math.max(0, Math.min(dates.length - 1, dateIdx))] ?? null;
+    if (date != null) onDrawingClick?.(date, price);
+  }, [drawingMode, priceDomain, dates, onDrawingClick]);
+
+  const handleOverlayMouseMove = useCallback((e) => {
+    if (!drawingMode && !isDragging) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const svgX = e.clientX - rect.left;
+    const svgY = e.clientY - rect.top;
+    const b = plotBoundsRef.current;
+    if (!b || svgX < b.left || svgX > b.right || svgY < b.top || svgY > b.bottom) {
+      onDrawingMove?.(null, null);
+      return;
+    }
+    const [minP, maxP] = priceDomain;
+    if (!Number.isFinite(minP) || !Number.isFinite(maxP) || b.height <= 0 || b.width <= 0) return;
+    const price = maxP - ((svgY - b.top) / b.height) * (maxP - minP);
+    const dateIdx = Math.round(((svgX - b.left) / b.width) * (dates.length - 1));
+    const date = dates[Math.max(0, Math.min(dates.length - 1, dateIdx))] ?? null;
+    onDrawingMove?.(date, price);
+  }, [drawingMode, isDragging, priceDomain, dates, onDrawingMove]);
+
   return (
     <div className="space-y-6">
       <div className="h-[360px] rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+        <div ref={plotContainerRef} className="relative w-full h-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={chartData}
-            onClick={onChartClick}
-            onMouseMove={onChartMouseMove}
-            style={(drawingMode || isDragging) ? { cursor: isDragging ? 'grabbing' : 'crosshair' } : undefined}
+            margin={CHART_MARGIN}
           >
             <defs>
               <linearGradient id="smaGradient" x1="0" x2="0" y1="0" y2="1">
@@ -295,8 +231,8 @@ export default function StockChart({
               </linearGradient>
             </defs>
             <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-            <XAxis dataKey="date" tickFormatter={xTickFormatter} minTickGap={24} />
-            <YAxis yAxisId="price" stroke="#52525b" domain={priceDomain} tickFormatter={(v) => (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2))} />
+            <XAxis dataKey="date" height={X_AXIS_H} tickFormatter={xTickFormatter} minTickGap={24} />
+            <YAxis yAxisId="price" width={Y_AXIS_W} stroke="#52525b" domain={priceDomain} tickFormatter={(v) => (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2))} />
             <Tooltip
               contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
               labelFormatter={(value) => `Date: ${formatAxisTick(value, interval)}`}
@@ -474,17 +410,118 @@ export default function StockChart({
                 />
               </>
             ) : null}
-            <Customized
-              component={TrendLineOverlay}
-              drawnLines={drawnLines}
-              pendingPoint={pendingPoint}
-              hoverPoint={hoverPoint}
-              onLineDelete={onLineDelete}
-              scalesRef={scalesRef}
-              onDragStart={onDragStart}
-            />
           </ComposedChart>
         </ResponsiveContainer>
+
+        {/* SVG overlay — native events, no Recharts dependency for drawing */}
+        <svg
+          className="absolute inset-0 w-full h-full"
+          style={{
+            overflow: 'visible',
+            pointerEvents: (drawingMode || isDragging) ? 'all' : 'none',
+            cursor: drawingMode ? 'crosshair' : isDragging ? 'grabbing' : 'default',
+          }}
+          onClick={handleOverlayClick}
+          onMouseMove={handleOverlayMouseMove}
+        >
+          {(() => {
+            const b = plotBoundsRef.current;
+            if (!b || b.height <= 0 || b.width <= 0) return null;
+            const [minP, maxP] = priceDomain;
+            if (!Number.isFinite(minP) || !Number.isFinite(maxP) || maxP <= minP) return null;
+            const range = maxP - minP;
+            const toY = (p) => b.top + ((maxP - p) / range) * b.height;
+            const toX = (d) => {
+              const idx = dates.indexOf(d);
+              return idx === -1 ? null : b.left + (idx / Math.max(dates.length - 1, 1)) * b.width;
+            };
+            return (
+              <>
+                {drawnLines.map((line) => {
+                  const y1px = toY(line.y1);
+                  const y2px = line.type === 'horizontal' ? y1px : toY(line.y2);
+                  let rx1, ry1, rx2, ry2, h1x, h1y, h2x, h2y;
+                  if (line.type === 'horizontal') {
+                    rx1 = b.left; ry1 = y1px; rx2 = b.right; ry2 = y1px;
+                    h1x = b.left + b.width * 0.25; h1y = y1px;
+                    h2x = b.left + b.width * 0.75; h2y = y1px;
+                  } else {
+                    const x1px = toX(line.x1);
+                    const x2px = toX(line.x2);
+                    if (x1px == null || x2px == null) return null;
+                    if (line.type === 'extended-line') {
+                      if (x1px !== x2px) {
+                        const slope = (y2px - y1px) / (x2px - x1px);
+                        const ic = y1px - slope * x1px;
+                        rx1 = b.left; ry1 = slope * b.left + ic;
+                        rx2 = b.right; ry2 = slope * b.right + ic;
+                      } else {
+                        rx1 = x1px; ry1 = b.top; rx2 = x2px; ry2 = b.bottom;
+                      }
+                    } else {
+                      rx1 = x1px; ry1 = y1px; rx2 = x2px; ry2 = y2px;
+                    }
+                    h1x = x1px; h1y = y1px;
+                    h2x = x2px; h2y = y2px;
+                  }
+                  const isHov = hoveredLineId === line.id;
+                  const labelVal = line.y2 ?? line.y1;
+                  const lp = labelVal >= 1000 ? labelVal.toFixed(0) : labelVal >= 100 ? labelVal.toFixed(1) : labelVal.toFixed(2);
+                  const labelY = line.type === 'horizontal' ? ry1 : ry2;
+                  return (
+                    <g key={line.id}
+                      onMouseEnter={() => setHoveredLineId(line.id)}
+                      onMouseLeave={() => setHoveredLineId(null)}
+                    >
+                      <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
+                        stroke="#fbbf24" strokeWidth={isHov ? 2.5 : 2} strokeLinecap="round"
+                        style={{ pointerEvents: 'none' }} />
+                      <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
+                        stroke="transparent" strokeWidth={14}
+                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                        onClick={(ev) => { ev.stopPropagation(); onLineDelete?.(line.id); }} />
+                      <text x={b.right - 4} y={labelY - 4} fontSize={10} fill="#fbbf24"
+                        fontFamily="monospace" textAnchor="end" style={{ pointerEvents: 'none' }}>
+                        ${lp}
+                      </text>
+                      {isHov && onDragStart ? (
+                        <>
+                          <circle cx={h1x} cy={h1y} r={5} fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
+                            style={{ cursor: 'grab', pointerEvents: 'all' }}
+                            onMouseDown={(ev) => { ev.stopPropagation(); onDragStart(line.id, 'start'); }} />
+                          <circle cx={h2x} cy={h2y} r={5} fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
+                            style={{ cursor: 'grab', pointerEvents: 'all' }}
+                            onMouseDown={(ev) => { ev.stopPropagation(); onDragStart(line.id, 'end'); }} />
+                        </>
+                      ) : null}
+                    </g>
+                  );
+                })}
+                {pendingPoint && hoverPoint ? (() => {
+                  const px = toX(pendingPoint.x); const py = toY(pendingPoint.y);
+                  const hx = toX(hoverPoint.x); const hy = toY(hoverPoint.y);
+                  if (px == null || py == null || hx == null || hy == null) return null;
+                  return (
+                    <>
+                      <circle cx={px} cy={py} r={4} fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
+                        style={{ pointerEvents: 'none' }} />
+                      <line x1={px} y1={py} x2={hx} y2={hy}
+                        stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="6 3" strokeLinecap="round"
+                        style={{ pointerEvents: 'none' }} />
+                    </>
+                  );
+                })() : null}
+                {pendingPoint && !hoverPoint ? (() => {
+                  const x = toX(pendingPoint.x); const y = toY(pendingPoint.y);
+                  if (x == null || y == null) return null;
+                  return <circle cx={x} cy={y} r={4} fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
+                    style={{ pointerEvents: 'none' }} />;
+                })() : null}
+              </>
+            );
+          })()}
+        </svg>
+        </div>
       </div>
 
       <div className="h-40 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">

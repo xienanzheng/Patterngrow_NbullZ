@@ -393,33 +393,20 @@ export default function Dashboard({ user, session, onSignOut }) {
     return base;
   }, [stockData, predictionSeries, forecastCloud]);
 
-  const scalesRef = useRef(null);
-
-  const pixelToPrice = useCallback((chartY) => {
-    const sc = scalesRef.current;
-    if (!sc?.yScale?.invert || !sc?.offset) return null;
-    const price = sc.yScale.invert(chartY - (sc.offset.top ?? 0));
-    return Number.isFinite(price) ? price : null;
-  }, []); // reads from ref — no reactive deps needed
-
-  const handleChartClick = useCallback(
-    (data) => {
-      if (!drawingMode || !data?.activeLabel) return;
-      const rawPrice = pixelToPrice(data.chartY);
-      if (rawPrice == null) return;
-      const price = snapPrice(rawPrice);
+  const handleDrawingClick = useCallback(
+    (date, price) => {
+      if (!drawingMode) return;
+      const snappedPrice = snapPrice(price);
 
       if (drawingTool === 'horizontal') {
-        // Single click — full-width horizontal line
         setDrawnLines((prev) => [
           ...prev,
-          { id: Date.now().toString(), type: 'horizontal', x1: null, y1: price, x2: null, y2: price },
+          { id: Date.now().toString(), type: 'horizontal', x1: null, y1: snappedPrice, x2: null, y2: snappedPrice },
         ]);
         return;
       }
 
-      // trend-line and extended-line: two-click flow
-      const point = { x: data.activeLabel, y: price };
+      const point = { x: date, y: snappedPrice };
       if (!pendingPoint) {
         setPendingPoint(point);
       } else {
@@ -436,22 +423,19 @@ export default function Dashboard({ user, session, onSignOut }) {
         setHoverPoint(null);
       }
     },
-    [drawingMode, drawingTool, pendingPoint, pixelToPrice],
+    [drawingMode, drawingTool, pendingPoint],
   );
 
-  const handleChartMouseMove = useCallback(
-    (data) => {
+  const handleDrawingMove = useCallback(
+    (date, price) => {
       if (draggingHandle) {
-        // Drag mode — update the dragged endpoint
-        const rawPrice = pixelToPrice(data.chartY);
-        if (rawPrice == null || !data?.activeLabel) return;
-        const newPrice = snapPrice(rawPrice);
-        const newDate  = data.activeLabel;
+        if (!date || price == null) return;
+        const newPrice = snapPrice(price);
         setDrawnLines((prev) => prev.map((l) => {
           if (l.id !== draggingHandle.lineId) return l;
           if (l.type === 'horizontal') return { ...l, y1: newPrice, y2: newPrice };
-          if (draggingHandle.endpoint === 'start') return { ...l, x1: newDate, y1: newPrice };
-          return { ...l, x2: newDate, y2: newPrice };
+          if (draggingHandle.endpoint === 'start') return { ...l, x1: date, y1: newPrice };
+          return { ...l, x2: date, y2: newPrice };
         }));
         return;
       }
@@ -459,15 +443,13 @@ export default function Dashboard({ user, session, onSignOut }) {
         if (hoverPoint) setHoverPoint(null);
         return;
       }
-      if (!pendingPoint || !data?.activeLabel) {
+      if (!pendingPoint || !date || price == null) {
         if (hoverPoint) setHoverPoint(null);
         return;
       }
-      const rawPrice = pixelToPrice(data.chartY);
-      if (rawPrice == null) return;
-      setHoverPoint({ x: data.activeLabel, y: snapPrice(rawPrice) });
+      setHoverPoint({ x: date, y: snapPrice(price) });
     },
-    [draggingHandle, drawingMode, drawingTool, pendingPoint, hoverPoint, pixelToPrice],
+    [draggingHandle, drawingMode, drawingTool, pendingPoint, hoverPoint],
   );
 
   const handleLineDelete = useCallback((id) => {
@@ -1040,10 +1022,9 @@ export default function Dashboard({ user, session, onSignOut }) {
                   drawnLines={drawnLines}
                   pendingPoint={pendingPoint}
                   hoverPoint={hoverPoint}
-                  onChartClick={handleChartClick}
-                  onChartMouseMove={handleChartMouseMove}
+                  onDrawingClick={handleDrawingClick}
+                  onDrawingMove={handleDrawingMove}
                   onLineDelete={handleLineDelete}
-                  scalesRef={scalesRef}
                   onDragStart={handleDragStart}
                   isDragging={draggingHandle != null}
                 />
