@@ -65,41 +65,83 @@ function CandlestickBars({ xAxisMap, yAxisMap, offset, chartData }) {
 function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint, hoverPoint, onLineDelete, scalesRef }) {
   const xScale = xAxisMap?.[0]?.scale;
   const yScale = yAxisMap?.['price']?.scale;
-  // Populate the ref so Dashboard handlers can use the real D3 scales for coordinate conversion.
   if (scalesRef && xScale && yScale && offset) {
     scalesRef.current = { xScale, yScale, offset };
   }
   if (!xScale || !yScale || !offset) return null;
 
+  const bw = typeof xScale.bandwidth === 'function' ? xScale.bandwidth() : 0;
+
   const toX = (date) => {
+    if (date == null) return null;
     const v = xScale(date);
-    return v != null ? v + (offset.left ?? 0) : null;
+    return v != null ? v + bw / 2 + (offset.left ?? 0) : null;
   };
   const toY = (price) => {
     const v = yScale(price);
     return v != null ? v + (offset.top ?? 0) : null;
   };
 
+  const plotLeft  = (offset.left ?? 0);
+  const plotRight = (offset.left ?? 0) + (offset.width ?? 0);
+
+  // For extended lines: compute where the infinite line through (x1,y1)→(x2,y2) intersects the plot edges.
+  const extendLine = (px1, py1, px2, py2) => {
+    if (px1 === px2) return { ex1: px1, ey1: (offset.top ?? 0), ex2: px2, ey2: (offset.top ?? 0) + (offset.height ?? 0) };
+    const slope = (py2 - py1) / (px2 - px1);
+    const intercept = py1 - slope * px1;
+    const yAtLeft  = slope * plotLeft  + intercept;
+    const yAtRight = slope * plotRight + intercept;
+    return { ex1: plotLeft, ey1: yAtLeft, ex2: plotRight, ey2: yAtRight };
+  };
+
   return (
     <g>
       {drawnLines.map((line) => {
-        const x1 = toX(line.x1);
         const y1 = toY(line.y1);
-        const x2 = toX(line.x2);
         const y2 = toY(line.y2);
-        if (x1 == null || y1 == null || x2 == null || y2 == null) return null;
+        if (y1 == null || y2 == null) return null;
+
+        let rx1, ry1, rx2, ry2;
+
+        if (line.type === 'horizontal') {
+          rx1 = plotLeft;  ry1 = y1;
+          rx2 = plotRight; ry2 = y1;
+        } else {
+          const x1 = toX(line.x1);
+          const x2 = toX(line.x2);
+          if (x1 == null || x2 == null) return null;
+          if (line.type === 'extended-line') {
+            const ext = extendLine(x1, y1, x2, y2);
+            rx1 = ext.ex1; ry1 = ext.ey1; rx2 = ext.ex2; ry2 = ext.ey2;
+          } else {
+            rx1 = x1; ry1 = y1; rx2 = x2; ry2 = y2;
+          }
+        }
+
+        // Price label at right edge
+        const labelPrice = line.y1.toFixed(line.y1 >= 100 ? 2 : line.y1 >= 10 ? 2 : 3);
+        const labelX = plotRight + 4;
+        const labelY = line.type === 'horizontal' ? ry1 : ry2;
+
         return (
           <g key={line.id}>
-            {/* Visible line */}
-            <line x1={x1} y1={y1} x2={x2} y2={y2}
+            <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
               stroke="#fbbf24" strokeWidth={2} strokeLinecap="round" />
-            {/* Wide invisible hit target — click to delete */}
-            <line x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke="transparent" strokeWidth={12} style={{ cursor: 'pointer' }}
+            {/* Wide invisible hit target for delete */}
+            <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
+              stroke="transparent" strokeWidth={14} style={{ cursor: 'pointer' }}
               onClick={(e) => { e.stopPropagation(); onLineDelete?.(line.id); }} />
+            {/* Price label */}
+            <rect x={labelX} y={labelY - 9} width={44} height={16} rx={3} fill="#18181b" />
+            <text x={labelX + 3} y={labelY + 3} fontSize={10} fill="#fbbf24" fontFamily="monospace">
+              ${labelPrice}
+            </text>
           </g>
         );
       })}
+
+      {/* Dashed preview line */}
       {pendingPoint && hoverPoint ? (() => {
         const px = toX(pendingPoint.x);
         const py = toY(pendingPoint.y);

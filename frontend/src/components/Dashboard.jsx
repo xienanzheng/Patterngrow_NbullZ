@@ -67,6 +67,16 @@ const TABS = [
   { id: 'assistant', label: 'AI Assistant' },
 ];
 
+function snapPrice(price) {
+  if (price == null || !Number.isFinite(price)) return price;
+  const abs = Math.abs(price);
+  if (abs >= 1000) return Math.round(price / 5) * 5;
+  if (abs >= 100)  return Math.round(price);
+  if (abs >= 10)   return Math.round(price * 4) / 4;       // nearest 0.25
+  if (abs >= 1)    return Math.round(price * 20) / 20;     // nearest 0.05
+  return Math.round(price * 100) / 100;                    // nearest 0.01
+}
+
 const SIGNAL_STRENGTH = {
   buy_strong: 3,
   buy_medium: 2,
@@ -95,6 +105,7 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [forecastModel, setForecastModel] = useState('drift');
   const [showForecast, setShowForecast] = useState(true);
   const [drawingMode, setDrawingMode] = useState(false);
+  const [drawingTool, setDrawingTool] = useState('trend-line'); // 'trend-line' | 'horizontal' | 'extended-line'
   const [drawnLines, setDrawnLines] = useState([]);
   const [pendingPoint, setPendingPoint] = useState(null);
   const [hoverPoint, setHoverPoint] = useState(null);
@@ -392,34 +403,55 @@ export default function Dashboard({ user, session, onSignOut }) {
   const handleChartClick = useCallback(
     (data) => {
       if (!drawingMode || !data?.activeLabel) return;
-      const price = pixelToPrice(data.chartY);
-      if (price == null) return;
+      const rawPrice = pixelToPrice(data.chartY);
+      if (rawPrice == null) return;
+      const price = snapPrice(rawPrice);
+
+      if (drawingTool === 'horizontal') {
+        // Single click — full-width horizontal line
+        setDrawnLines((prev) => [
+          ...prev,
+          { id: Date.now().toString(), type: 'horizontal', x1: null, y1: price, x2: null, y2: price },
+        ]);
+        return;
+      }
+
+      // trend-line and extended-line: two-click flow
       const point = { x: data.activeLabel, y: price };
       if (!pendingPoint) {
         setPendingPoint(point);
       } else {
         setDrawnLines((prev) => [
           ...prev,
-          { id: Date.now().toString(), x1: pendingPoint.x, y1: pendingPoint.y, x2: point.x, y2: point.y },
+          {
+            id: Date.now().toString(),
+            type: drawingTool,
+            x1: pendingPoint.x, y1: pendingPoint.y,
+            x2: point.x, y2: point.y,
+          },
         ]);
         setPendingPoint(null);
         setHoverPoint(null);
       }
     },
-    [drawingMode, pendingPoint, pixelToPrice],
+    [drawingMode, drawingTool, pendingPoint, pixelToPrice],
   );
 
   const handleChartMouseMove = useCallback(
     (data) => {
-      if (!drawingMode || !pendingPoint || !data?.activeLabel) {
+      if (!drawingMode || drawingTool === 'horizontal') {
         if (hoverPoint) setHoverPoint(null);
         return;
       }
-      const price = pixelToPrice(data.chartY);
-      if (price == null) return;
-      setHoverPoint({ x: data.activeLabel, y: price });
+      if (!pendingPoint || !data?.activeLabel) {
+        if (hoverPoint) setHoverPoint(null);
+        return;
+      }
+      const rawPrice = pixelToPrice(data.chartY);
+      if (rawPrice == null) return;
+      setHoverPoint({ x: data.activeLabel, y: snapPrice(rawPrice) });
     },
-    [drawingMode, pendingPoint, hoverPoint, pixelToPrice],
+    [drawingMode, drawingTool, pendingPoint, hoverPoint, pixelToPrice],
   );
 
   const handleLineDelete = useCallback((id) => {
@@ -431,6 +463,7 @@ export default function Dashboard({ user, session, onSignOut }) {
     setPendingPoint(null);
     setHoverPoint(null);
     setDrawingMode(false);
+    setDrawingTool('trend-line');
   }, [symbol]);
 
   useEffect(() => {
@@ -891,6 +924,31 @@ export default function Dashboard({ user, session, onSignOut }) {
 
               {/* Drawing toolbar */}
               <div className="flex flex-wrap items-center gap-2">
+                {/* Tool type selector — only visible in draw mode */}
+                {drawingMode ? (
+                  <div className="flex items-center rounded-md border border-zinc-700 overflow-hidden">
+                    {[
+                      { key: 'trend-line',    label: 'Trend' },
+                      { key: 'horizontal',    label: 'H-Line' },
+                      { key: 'extended-line', label: 'Extended' },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setDrawingTool(key)}
+                        className={`px-2.5 py-1 text-xs font-semibold transition ${
+                          drawingTool === key
+                            ? 'bg-amber-400 text-zinc-900'
+                            : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* Draw / Stop button */}
                 <button
                   type="button"
                   onClick={() => {
@@ -904,8 +962,9 @@ export default function Dashboard({ user, session, onSignOut }) {
                       : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                   }`}
                 >
-                  ✏ Draw Line
+                  {drawingMode ? '✓ Done' : '✏ Draw'}
                 </button>
+
                 {drawnLines.length > 0 ? (
                   <button
                     type="button"
@@ -915,6 +974,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                     Clear ({drawnLines.length})
                   </button>
                 ) : null}
+
                 {(drawingMode || drawnLines.length > 0) && !showForecast ? (
                   <button
                     type="button"
@@ -924,10 +984,13 @@ export default function Dashboard({ user, session, onSignOut }) {
                     Overlay Prediction
                   </button>
                 ) : null}
+
                 {pendingPoint ? (
-                  <span className="text-xs text-zinc-500">Click on the chart to set the endpoint</span>
+                  <span className="text-xs text-zinc-500">Click to set endpoint</span>
+                ) : drawingMode && drawingTool === 'horizontal' ? (
+                  <span className="text-xs text-zinc-500">Click anywhere to place a horizontal line</span>
                 ) : drawingMode ? (
-                  <span className="text-xs text-zinc-500">Click on the chart to start a trend line</span>
+                  <span className="text-xs text-zinc-500">Click to start drawing</span>
                 ) : null}
               </div>
             </div>
