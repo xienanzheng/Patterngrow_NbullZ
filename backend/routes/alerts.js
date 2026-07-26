@@ -131,19 +131,36 @@ function convictionEmoji(label) {
   return '⚪';
 }
 
-function lastSignalFromHistory(history, signals) {
-  for (let i = history.length - 1; i >= 0; i--) {
+// Persist all non-hold signals for a symbol to Supabase (ON CONFLICT DO NOTHING
+// preserves the first observation — signals never retroactively change in the DB).
+async function persistSignals(symbol, history, signals) {
+  const rows = [];
+  for (let i = 0; i < history.length; i++) {
     const s = signals[i];
-    if (s && s.numericSignal !== 0) {
-      const dateStr = history[i].date ?? history[i].t ?? null;
-      const price = history[i].close;
-      const action = s.numericSignal > 0 ? 'Buy' : 'Sell';
-      const strength = formatSignalLabel(s.signal);
-      const date = dateStr ? new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '?';
-      return `${action} (${strength}) @ $${Number(price).toFixed(2)} on ${date}`;
-    }
+    if (!s || s.numericSignal === 0) continue;
+    const dateStr = history[i].date ?? history[i].t ?? null;
+    if (!dateStr) continue;
+    const signalDate = new Date(dateStr).toISOString().slice(0, 10);
+    rows.push({ symbol, signal_date: signalDate, signal: s.signal, price: Number(history[i].close) });
   }
-  return null;
+  if (!rows.length) return;
+  // Ignore conflicts — first write wins, keeping historical signals stable.
+  await supabaseAdmin.from('watchlist_signals').upsert(rows, { onConflict: 'symbol,signal_date', ignoreDuplicates: true });
+}
+
+async function lastSignalFromDb(symbol) {
+  const { data } = await supabaseAdmin
+    .from('watchlist_signals')
+    .select('signal_date, signal, price')
+    .eq('symbol', symbol)
+    .order('signal_date', { ascending: false })
+    .limit(1)
+    .single();
+  if (!data) return null;
+  const action = data.signal.startsWith('buy') ? 'Buy' : 'Sell';
+  const strength = formatSignalLabel(data.signal);
+  const date = new Date(data.signal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${action} (${strength}) @ $${Number(data.price).toFixed(2)} on ${date}`;
 }
 
 const runDailySummary = async (req, res) => {
@@ -177,7 +194,10 @@ const runDailySummary = async (req, res) => {
             latest?.close && previous?.close
               ? ((latest.close - previous.close) / previous.close) * 100
               : null;
-          const lastSignal = lastSignalFromHistory(history, signals);
+          // Persist signals first (ON CONFLICT DO NOTHING keeps first observation stable).
+          await persistSignals(symbol, history, signals);
+          // Read last signal from DB — never recomputed, always the original observation.
+          const lastSignal = await lastSignalFromDb(symbol);
           return {
             symbol,
             close: latest?.close ?? null,
