@@ -243,7 +243,7 @@ function signalWeight(signal) {
 }
 
 export function runTradingSimulationDetailed(points, signals, initialCapital, options = {}) {
-  const { transactionCostPct = 0.001, slippagePct = 0.0005, stopLossPct = null } = options;
+  const { transactionCostPct = 0.001, slippagePct = 0.0005, stopLossPct = null, takeProfitPct = null } = options;
   const portfolio = [];
   const trades = [];
   let cash = initialCapital;
@@ -282,6 +282,20 @@ export function runTradingSimulationDetailed(points, signals, initialCapital, op
       cash += proceeds - fee;
       costsPaid += fee;
       trades.push({ type: 'stop', date: row.date, price: execPrice, pnlPct: netPnlPct(execPrice) });
+      shares = 0;
+      position = 0;
+      entryPrice = null;
+    }
+
+    // Take-profit exit — checked before new signals so it fires on the same bar.
+    if (takeProfitPct != null && position === 1 && entryPrice != null
+        && price >= entryPrice * (1 + takeProfitPct)) {
+      const execPrice = price * (1 - slippagePct);
+      const proceeds = shares * execPrice;
+      const fee = proceeds * transactionCostPct;
+      cash += proceeds - fee;
+      costsPaid += fee;
+      trades.push({ type: 'target', date: row.date, price: execPrice, pnlPct: netPnlPct(execPrice) });
       shares = 0;
       position = 0;
       entryPrice = null;
