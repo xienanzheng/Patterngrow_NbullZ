@@ -125,7 +125,8 @@ function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint
         }
 
         const isHovered = hoveredId === line.id;
-        const labelPrice = line.y1 >= 100 ? line.y1.toFixed(2) : line.y1 >= 10 ? line.y1.toFixed(2) : line.y1.toFixed(3);
+        const labelVal = line.type === 'horizontal' ? line.y1 : (line.y2 ?? line.y1);
+        const labelPrice = labelVal >= 100 ? labelVal.toFixed(0) : labelVal >= 10 ? labelVal.toFixed(2) : labelVal.toFixed(3);
         const labelY = line.type === 'horizontal' ? ry1 : ry2;
 
         return (
