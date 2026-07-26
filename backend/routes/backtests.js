@@ -1,10 +1,8 @@
 import express from 'express';
 import { backtestStrategy, runTradingSimulationDetailed } from '../utils/backtesting.js';
 import { fetchYahooHistory } from '../utils/marketData.js';
-import { requireAuth } from '../utils/authMiddleware.js';
 
 const router = express.Router();
-router.use(requireAuth);
 
 function maxDrawdown(series) {
   let peak = -Infinity;
