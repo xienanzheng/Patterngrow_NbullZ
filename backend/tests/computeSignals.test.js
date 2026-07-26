@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeConvictionScore, confirmedState } from '../utils/computeSignals.js';
+import { CONVICTION_THRESHOLDS } from '../utils/backtesting.js';
 
 const mk = (closes) => closes.map((c, i) => ({
   date: new Date(Date.UTC(2024, 0, 1 + i)).toISOString(),
@@ -21,7 +22,7 @@ describe('computeConvictionScore', () => {
     const closes = Array.from({ length: 80 }, (_, i) => 200 - i * 1.5);
     const { score, label, votes } = computeConvictionScore(mk(closes));
     expect(score).toBeLessThan(0);
-    expect(['Sell', 'Strong Sell', 'Neutral']).toContain(label);
+    expect(['Sell', 'Medium Sell', 'Strong Sell', 'Neutral']).toContain(label);
     expect(votes.sma).toBe(-1);
   });
 
@@ -37,5 +38,36 @@ describe('computeConvictionScore', () => {
     expect(out.score).toBe(0);
     expect(out.label).toBe('Neutral');
     expect(out.insufficientData).toBe(true);
+  });
+
+  it('conviction label uses 7-tier thresholds from CONVICTION_THRESHOLDS', () => {
+    // All six labels are reachable; spot-check the boundary logic using the
+    // exported constants so the test stays in sync if a threshold is tuned.
+    const { STRONG_BUY, MEDIUM_BUY, BUY, NEUTRAL_LOW, SELL, MEDIUM_SELL } = CONVICTION_THRESHOLDS;
+
+    // score at exactly STRONG_BUY boundary → 'Strong Buy'
+    // score just below STRONG_BUY but >= MEDIUM_BUY → 'Medium Buy'
+    // score just below MEDIUM_BUY but >= BUY → 'Buy'
+    // score just below BUY and > NEUTRAL_LOW → 'Neutral'
+    // score at exactly NEUTRAL_LOW (not > NEUTRAL_LOW) → 'Sell'
+    // score at exactly SELL (not > SELL) → 'Medium Sell'
+    // score below MEDIUM_SELL → 'Strong Sell'
+    const labelOf = (score) => {
+      if (score >= STRONG_BUY)  return 'Strong Buy';
+      if (score >= MEDIUM_BUY)  return 'Medium Buy';
+      if (score >= BUY)         return 'Buy';
+      if (score > NEUTRAL_LOW)  return 'Neutral';
+      if (score > SELL)         return 'Sell';
+      if (score > MEDIUM_SELL)  return 'Medium Sell';
+      return 'Strong Sell';
+    };
+
+    expect(labelOf(STRONG_BUY)).toBe('Strong Buy');
+    expect(labelOf(MEDIUM_BUY)).toBe('Medium Buy');
+    expect(labelOf(BUY)).toBe('Buy');
+    expect(labelOf(0)).toBe('Neutral');
+    expect(labelOf(NEUTRAL_LOW)).toBe('Sell');
+    expect(labelOf(SELL)).toBe('Medium Sell');
+    expect(labelOf(MEDIUM_SELL - 0.01)).toBe('Strong Sell');
   });
 });

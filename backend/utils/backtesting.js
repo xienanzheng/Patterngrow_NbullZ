@@ -14,6 +14,39 @@ const getClose = (row) => Number(row.close);
 
 export const DEFAULT_ENSEMBLE_WEIGHTS = { sma: 0.2, rsi: 0.2, macd: 0.2, bollinger: 0.15, stochastic: 0.15, adx: 0.1 };
 
+// Conviction label boundaries — the thresholds that map a [-1,+1] ensemble
+// score to a human-readable rating. Changing these shifts how aggressively
+// the system calls Strong Buy vs Buy vs Neutral.
+export const CONVICTION_THRESHOLDS = {
+  STRONG_BUY:   0.60,
+  MEDIUM_BUY:   0.35,
+  BUY:          0.15,
+  NEUTRAL_LOW: -0.15,
+  SELL:        -0.35,
+  MEDIUM_SELL: -0.60,
+  // score < -0.60 → 'Strong Sell'
+};
+
+// Ensemble strategy: score must cross these levels to fire entry/exit signals.
+export const ENSEMBLE_SIGNAL_THRESHOLDS = {
+  ENTRY:             0.3,    // prev < ENTRY && curr >= ENTRY → buy signal
+  EXIT:             -0.3,    // prev > EXIT  && curr <= EXIT  → sell signal
+  STRONG_BUY_SCORE:  0.6,
+  MEDIUM_BUY_SCORE:  0.45,
+  STRONG_SELL_SCORE: -0.6,
+  MEDIUM_SELL_SCORE: -0.45,
+};
+
+// Fraction of position (shares or cash) committed per signal strength.
+// Strong = full conviction: go all-in or fully exit.
+// Medium = partial: build/trim the position.
+// Weak   = starter/probe: small add or early trim.
+export const SIGNAL_POSITION_FRACS = {
+  strong: 1.0,
+  medium: 0.5,
+  weak:   0.25,
+};
+
 export function normalizeEnsembleWeights(weights) {
   if (!weights || typeof weights !== 'object') return { ...DEFAULT_ENSEMBLE_WEIGHTS };
   const merged = {};
@@ -74,14 +107,15 @@ export function backtestStrategy(points, indicator, options = {}) {
 
   if (indicator === 'ensemble') {
     const score = computeEnsembleScoreSeries(points, options.weights);
+    const { ENTRY, EXIT, STRONG_BUY_SCORE, MEDIUM_BUY_SCORE, STRONG_SELL_SCORE, MEDIUM_SELL_SCORE } = ENSEMBLE_SIGNAL_THRESHOLDS;
     for (let i = 1; i < points.length; i += 1) {
       const prev = score[i - 1];
       const curr = score[i];
-      if (prev < 0.3 && curr >= 0.3) {
-        const label = curr >= 0.6 ? 'buy_strong' : curr >= 0.45 ? 'buy_medium' : 'buy_weak';
+      if (prev < ENTRY && curr >= ENTRY) {
+        const label = curr >= STRONG_BUY_SCORE ? 'buy_strong' : curr >= MEDIUM_BUY_SCORE ? 'buy_medium' : 'buy_weak';
         signals[i] = { signal: label, numericSignal: 1 };
-      } else if (prev > -0.3 && curr <= -0.3) {
-        const label = curr <= -0.6 ? 'sell_strong' : curr <= -0.45 ? 'sell_medium' : 'sell_weak';
+      } else if (prev > EXIT && curr <= EXIT) {
+        const label = curr <= STRONG_SELL_SCORE ? 'sell_strong' : curr <= MEDIUM_SELL_SCORE ? 'sell_medium' : 'sell_weak';
         signals[i] = { signal: label, numericSignal: -1 };
       }
     }
