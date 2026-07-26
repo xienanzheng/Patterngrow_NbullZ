@@ -1,6 +1,7 @@
 import express from 'express';
 import { backtestStrategy, runTradingSimulationDetailed } from '../utils/backtesting.js';
 import { fetchYahooHistory } from '../utils/marketData.js';
+import { evaluateLimiter } from '../utils/rateLimits.js';
 
 const router = express.Router();
 
@@ -39,7 +40,7 @@ function buildResult(sim, capital) {
   };
 }
 
-router.post('/run', async (req, res) => {
+router.post('/run', evaluateLimiter, async (req, res) => {
   try {
     const {
       symbol,
@@ -54,15 +55,26 @@ router.post('/run', async (req, res) => {
     if (!symbol || typeof symbol !== 'string') {
       return res.status(400).json({ error: 'symbol is required' });
     }
+    if (benchmark != null && typeof benchmark !== 'string') {
+      return res.status(400).json({ error: 'benchmark must be a string' });
+    }
     const capital = Number(initialCapital);
     if (!Number.isFinite(capital) || capital <= 0) {
       return res.status(400).json({ error: 'initialCapital must be a positive number' });
+    }
+
+    const VALID_STRATEGIES = ['sma', 'rsi', 'macd', 'bollinger', 'stochastic', 'ensemble'];
+    if (!VALID_STRATEGIES.includes(strategy)) {
+      return res.status(400).json({ error: `strategy must be one of: ${VALID_STRATEGIES.join(', ')}` });
     }
 
     const simOpts = {
       stopLossPct: Number(stopLossPct) > 0 ? Number(stopLossPct) / 100 : null,
       takeProfitPct: Number(takeProfitPct) > 0 ? Number(takeProfitPct) / 100 : null,
     };
+    if (Number(stopLossPct) >= 100 || Number(takeProfitPct) >= 100) {
+      return res.status(400).json({ error: 'stopLossPct and takeProfitPct must be less than 100' });
+    }
 
     const [targetHistory, benchHistory] = await Promise.all([
       fetchYahooHistory(symbol.toUpperCase(), period, '1d'),
@@ -84,6 +96,7 @@ router.post('/run', async (req, res) => {
       benchmark: buildResult(benchSim, capital),
     });
   } catch (err) {
+    console.error('backtests/run error:', err);
     res.status(500).json({ error: err.message });
   }
 });
