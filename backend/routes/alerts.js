@@ -131,24 +131,8 @@ function convictionEmoji(label) {
   return '⚪';
 }
 
-// Persist all non-hold signals for a symbol to Supabase (ON CONFLICT DO NOTHING
-// preserves the first observation — signals never retroactively change in the DB).
-async function persistSignals(symbol, history, signals) {
-  const rows = [];
-  for (let i = 0; i < history.length; i++) {
-    const s = signals[i];
-    if (!s || s.numericSignal === 0) continue;
-    const dateStr = history[i].date ?? history[i].t ?? null;
-    if (!dateStr) continue;
-    const signalDate = new Date(dateStr).toISOString().slice(0, 10);
-    rows.push({ symbol, signal_date: signalDate, signal: s.signal, price: Number(history[i].close) });
-  }
-  if (!rows.length) return;
-  // Ignore conflicts — first write wins, keeping historical signals stable.
-  await supabaseAdmin.from('watchlist_signals').upsert(rows, { onConflict: 'symbol,signal_date', ignoreDuplicates: true });
-}
-
-async function lastSignalFromDb(symbol) {
+// Returns the last committed signal row from DB (the locked-in state).
+async function getLastCommittedSignal(symbol) {
   const { data } = await supabaseAdmin
     .from('watchlist_signals')
     .select('signal_date, signal, price')
@@ -156,11 +140,35 @@ async function lastSignalFromDb(symbol) {
     .order('signal_date', { ascending: false })
     .limit(1)
     .single();
-  if (!data) return null;
-  const action = data.signal.startsWith('buy') ? 'Buy' : 'Sell';
-  const strength = formatSignalLabel(data.signal);
-  const date = new Date(data.signal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${action} (${strength}) @ $${Number(data.price).toFixed(2)} on ${date}`;
+  return data ?? null;
+}
+
+// Persist only signals on dates strictly after lastCommittedDate.
+// This enforces the state-machine contract: backtesting provides warmup context,
+// but only new bars (after the last committed signal) can advance the state.
+async function persistNewSignals(symbol, history, signals, lastCommittedDate) {
+  const rows = [];
+  for (let i = 0; i < history.length; i++) {
+    const s = signals[i];
+    if (!s || s.numericSignal === 0) continue;
+    const dateStr = history[i].date ?? history[i].t ?? null;
+    if (!dateStr) continue;
+    const signalDate = new Date(dateStr).toISOString().slice(0, 10);
+    // Skip dates we've already committed — the state machine only moves forward.
+    if (lastCommittedDate && signalDate <= lastCommittedDate) continue;
+    rows.push({ symbol, signal_date: signalDate, signal: s.signal, price: Number(history[i].close) });
+  }
+  if (!rows.length) return;
+  // ON CONFLICT DO NOTHING as a safety net in case of duplicate runs on the same day.
+  await supabaseAdmin.from('watchlist_signals').upsert(rows, { onConflict: 'symbol,signal_date', ignoreDuplicates: true });
+}
+
+function formatLastSignal(row) {
+  if (!row) return null;
+  const action = row.signal.startsWith('buy') ? 'Buy' : 'Sell';
+  const strength = formatSignalLabel(row.signal);
+  const date = new Date(row.signal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${action} (${strength}) @ $${Number(row.price).toFixed(2)} on ${date}`;
 }
 
 const runDailySummary = async (req, res) => {
@@ -194,10 +202,12 @@ const runDailySummary = async (req, res) => {
             latest?.close && previous?.close
               ? ((latest.close - previous.close) / previous.close) * 100
               : null;
-          // Persist signals first (ON CONFLICT DO NOTHING keeps first observation stable).
-          await persistSignals(symbol, history, signals);
-          // Read last signal from DB — never recomputed, always the original observation.
-          const lastSignal = await lastSignalFromDb(symbol);
+          // State-machine: load committed state, then advance it with new bars only.
+          const lastCommitted = await getLastCommittedSignal(symbol);
+          await persistNewSignals(symbol, history, signals, lastCommitted?.signal_date ?? null);
+          // Re-read after potential new writes — DB is always the source of truth.
+          const latest_committed = await getLastCommittedSignal(symbol);
+          const lastSignal = formatLastSignal(latest_committed);
           return {
             symbol,
             close: latest?.close ?? null,
