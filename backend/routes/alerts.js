@@ -109,6 +109,73 @@ const runAlerts = async (req, res) => {
 router.get('/run', runAlerts);
 router.post('/run', runAlerts);
 
+const SUMMARY_SYMBOL_CAP = 20;
+
+const runDailySummary = async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  const header = req.headers.authorization ?? '';
+  const expected = `Bearer ${secret}`;
+  const headerBuf = Buffer.from(header);
+  const expectedBuf = Buffer.from(expected);
+  if (!secret || headerBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(headerBuf, expectedBuf)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { data: wl, error: wlError } = await supabaseAdmin.from('watchlists').select('symbol');
+    if (wlError) throw wlError;
+
+    const symbols = [...new Set((wl ?? []).map((r) => r.symbol.toUpperCase()))].slice(0, SUMMARY_SYMBOL_CAP);
+    if (!symbols.length) return res.json({ sent: false, reason: 'watchlist is empty' });
+
+    const rows = await Promise.all(
+      symbols.map(async (symbol) => {
+        try {
+          const history = await fetchYahooHistory(symbol, '1mo', '1d');
+          if (!history.length) return null;
+          const context = buildAlertContext(history);
+          const latest = history.at(-1);
+          const previous = history.at(-2);
+          const changePercent =
+            latest?.close && previous?.close
+              ? ((latest.close - previous.close) / previous.close) * 100
+              : null;
+          return { symbol, close: latest?.close ?? null, changePercent, conviction: context.conviction };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const valid = rows.filter(Boolean).sort((a, b) => (b.conviction?.score ?? 0) - (a.conviction?.score ?? 0));
+    if (!valid.length) return res.json({ sent: false, reason: 'no data returned for any symbol' });
+
+    const date = new Date().toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York',
+    });
+
+    const lines = valid.map((r) => {
+      const price = r.close != null ? `$${r.close.toFixed(2)}` : '—';
+      const chg = r.changePercent != null
+        ? `${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%`
+        : '—';
+      const label = r.conviction?.label ?? 'neutral';
+      const dot = label === 'buy' ? '🟢' : label === 'sell' ? '🔴' : '⚪';
+      return `${dot} <b>${r.symbol}</b>  ${price}  ${chg}  — ${label}`;
+    });
+
+    const text = `<b>📊 Daily Watchlist — ${date}</b>\n\n${lines.join('\n')}`;
+    await sendTelegram(text);
+
+    res.json({ sent: true, symbols: valid.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+router.get('/daily-summary', runDailySummary);
+router.post('/daily-summary', runDailySummary);
+
 router.use(requireAuth);
 
 router.get('/', async (req, res) => {
