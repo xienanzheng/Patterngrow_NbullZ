@@ -22,6 +22,46 @@ import {
   calculateVWAP,
 } from '../lib/indicators';
 
+function CandlestickBars({ xAxisMap, yAxisMap, offset, chartData }) {
+  const xScale = xAxisMap?.[0]?.scale;
+  const yScale = yAxisMap?.['price']?.scale;
+  if (!xScale || !yScale || !offset) return null;
+
+  // Recharts band scale: xScale(date) → left edge of band; bandwidth() → full band width.
+  // Center x = left + bandwidth/2. Fall back to 6px slot if bandwidth unavailable.
+  const bw = typeof xScale.bandwidth === 'function' ? xScale.bandwidth() : 6;
+  const halfBw = bw / 2;
+  const bodyW = Math.max(Math.floor(bw * 0.65), 2);
+
+  return (
+    <g>
+      {chartData
+        .filter((d) => !d.isForecast && d.open != null && d.close != null && d.high != null && d.low != null)
+        .map((d) => {
+          const cx = xScale(d.date);
+          if (cx == null) return null;
+          const px = cx + halfBw + (offset.left ?? 0);
+          const openY  = yScale(d.open)  + (offset.top ?? 0);
+          const closeY = yScale(d.close) + (offset.top ?? 0);
+          const highY  = yScale(d.high)  + (offset.top ?? 0);
+          const lowY   = yScale(d.low)   + (offset.top ?? 0);
+          const bullish = d.close >= d.open;
+          const color = bullish ? '#10b981' : '#ef4444';
+          const bodyTop = Math.min(openY, closeY);
+          const bodyH   = Math.max(Math.abs(closeY - openY), 1);
+          return (
+            <g key={d.date}>
+              {/* High-low wick */}
+              <line x1={px} y1={highY} x2={px} y2={lowY} stroke={color} strokeWidth={1} />
+              {/* Open-close body */}
+              <rect x={px - bodyW / 2} y={bodyTop} width={bodyW} height={bodyH} fill={color} />
+            </g>
+          );
+        })}
+    </g>
+  );
+}
+
 function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint, hoverPoint, onLineDelete }) {
   const xScale = xAxisMap?.[0]?.scale;
   const yScale = yAxisMap?.['price']?.scale;
@@ -190,14 +230,9 @@ export default function StockChart({
               formatter={tooltipFormatter}
             />
             <Legend verticalAlign="top" height={36} />
-            <Line
-              type="monotone"
-              dataKey="close"
-              yAxisId="price"
-              stroke="#d4d4d8"
-              strokeWidth={2.2}
-              dot={false}
-              name="Close"
+            <Customized
+              component={CandlestickBars}
+              chartData={chartData}
             />
             {selectedIndicators.includes('sma') ? (
               <Line
