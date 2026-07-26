@@ -188,13 +188,13 @@ export default function StockChart({
   }, [data, indicatorData]);
 
   const priceDomain = useMemo(() => {
-    const closes = chartData
-      .filter((row) => !row.isForecast && row.close != null)
-      .map((row) => row.close);
-    if (!closes.length) return ['auto', 'auto'];
-    const mn = Math.min(...closes);
-    const mx = Math.max(...closes);
-    const pad = Math.max((mx - mn) * 0.08, mx * 0.015);
+    const nonForecast = chartData.filter((row) => !row.isForecast);
+    const lows  = nonForecast.map((row) => row.low  ?? row.close).filter((v) => v != null);
+    const highs = nonForecast.map((row) => row.high ?? row.close).filter((v) => v != null);
+    if (!lows.length) return ['auto', 'auto'];
+    const mn = Math.min(...lows);
+    const mx = Math.max(...highs);
+    const pad = Math.max((mx - mn) * 0.06, mx * 0.01);
     return [mn - pad, mx + pad];
   }, [chartData]);
 
