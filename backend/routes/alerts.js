@@ -143,10 +143,17 @@ async function getLastCommittedSignal(symbol) {
   return data ?? null;
 }
 
-// Persist only signals on dates strictly after lastCommittedDate.
-// This enforces the state-machine contract: backtesting provides warmup context,
-// but only new bars (after the last committed signal) can advance the state.
-async function persistNewSignals(symbol, history, signals, lastCommittedDate) {
+// Pure helper: filters history+signals down to the rows that represent a genuine
+// direction change from the last committed state. No DB access — easy to unit-test.
+// Rules:
+//   • Only dates strictly after lastCommitted.signal_date are candidates.
+//   • A buy signal while already long (lastDir=buy) is noise — skip it.
+//   • A sell signal while flat (lastDir≠buy) has nothing to exit — skip it.
+export function filterNewSignalRows(history, signals, lastCommitted) {
+  const lastDate = lastCommitted?.signal_date ?? null;
+  const lastDir = lastCommitted?.signal?.startsWith('buy') ? 'buy'
+    : lastCommitted?.signal?.startsWith('sell') ? 'sell' : null;
+
   const rows = [];
   for (let i = 0; i < history.length; i++) {
     const s = signals[i];
@@ -154,12 +161,30 @@ async function persistNewSignals(symbol, history, signals, lastCommittedDate) {
     const dateStr = history[i].date ?? history[i].t ?? null;
     if (!dateStr) continue;
     const signalDate = new Date(dateStr).toISOString().slice(0, 10);
-    // Skip dates we've already committed — the state machine only moves forward.
-    if (lastCommittedDate && signalDate <= lastCommittedDate) continue;
-    rows.push({ symbol, signal_date: signalDate, signal: s.signal, price: Number(history[i].close) });
+    if (lastDate && signalDate <= lastDate) continue;
+
+    const newDir = s.signal.startsWith('buy') ? 'buy' : s.signal.startsWith('sell') ? 'sell' : null;
+    if (!newDir) continue;                            // skip hold signals
+    if (newDir === lastDir) continue;                 // already in this direction
+    if (newDir === 'sell' && lastDir !== 'buy') continue; // nothing to exit
+
+    rows.push({ signalDate, signal: s.signal, close: history[i].close });
   }
-  if (!rows.length) return;
-  // ON CONFLICT DO NOTHING as a safety net in case of duplicate runs on the same day.
+  return rows;
+}
+
+// Persist signals that represent a genuine direction change from the last
+// committed state. Rules:
+//   • Only dates strictly after lastCommittedDate are candidates.
+//   • A buy signal while already long (lastDir=buy) is noise — skip it.
+//   • A sell signal while flat (lastDir≠buy) has nothing to exit — skip it.
+//   • ON CONFLICT DO NOTHING guards against duplicate runs on the same day.
+async function persistNewSignals(symbol, history, signals, lastCommitted) {
+  const filtered = filterNewSignalRows(history, signals, lastCommitted);
+  if (!filtered.length) return;
+  const rows = filtered.map(({ signalDate, signal, close }) => ({
+    symbol, signal_date: signalDate, signal, price: Number(close),
+  }));
   await supabaseAdmin.from('watchlist_signals').upsert(rows, { onConflict: 'symbol,signal_date', ignoreDuplicates: true });
 }
 
@@ -204,7 +229,7 @@ const runDailySummary = async (req, res) => {
               : null;
           // State-machine: load committed state, then advance it with new bars only.
           const lastCommitted = await getLastCommittedSignal(symbol);
-          await persistNewSignals(symbol, history, signals, lastCommitted?.signal_date ?? null);
+          await persistNewSignals(symbol, history, signals, lastCommitted);
           // Re-read after potential new writes — DB is always the source of truth.
           const latest_committed = await getLastCommittedSignal(symbol);
           const lastSignal = formatLastSignal(latest_committed);
