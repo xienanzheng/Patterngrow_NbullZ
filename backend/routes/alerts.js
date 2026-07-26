@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import express from 'express';
 import { buildAlertContext, evaluateAlertRule, RULE_TYPES } from '../utils/alertRules.js';
 import { requireAuth } from '../utils/authMiddleware.js';
+import { backtestStrategy } from '../utils/backtesting.js';
 import { fetchYahooHistory } from '../utils/marketData.js';
 import { supabaseAdmin } from '../utils/supabaseClient.js';
 
@@ -111,6 +112,40 @@ router.post('/run', runAlerts);
 
 const SUMMARY_SYMBOL_CAP = 20;
 
+function formatSignalLabel(signal) {
+  const map = {
+    buy_strong: 'Strong Buy', buy_medium: 'Medium Buy', buy_weak: 'Weak Buy',
+    sell_strong: 'Strong Sell', sell_medium: 'Medium Sell', sell_weak: 'Weak Sell',
+    hold: 'Hold',
+  };
+  return map[signal] ?? signal;
+}
+
+function convictionEmoji(label) {
+  if (!label) return '⚪';
+  const l = label.toLowerCase();
+  if (l === 'strong buy') return '🟢🟢';
+  if (l === 'buy') return '🟢';
+  if (l === 'sell') return '🔴';
+  if (l === 'strong sell') return '🔴🔴';
+  return '⚪';
+}
+
+function lastSignalFromHistory(history, signals) {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const s = signals[i];
+    if (s && s.numericSignal !== 0) {
+      const dateStr = history[i].date ?? history[i].t ?? null;
+      const price = history[i].close;
+      const action = s.numericSignal > 0 ? 'Buy' : 'Sell';
+      const strength = formatSignalLabel(s.signal);
+      const date = dateStr ? new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '?';
+      return `${action} (${strength}) @ $${Number(price).toFixed(2)} on ${date}`;
+    }
+  }
+  return null;
+}
+
 const runDailySummary = async (req, res) => {
   const secret = process.env.CRON_SECRET;
   const header = req.headers.authorization ?? '';
@@ -131,16 +166,25 @@ const runDailySummary = async (req, res) => {
     const rows = await Promise.all(
       symbols.map(async (symbol) => {
         try {
-          const history = await fetchYahooHistory(symbol, '1mo', '1d');
+          // 3mo gives 60+ bars — enough for conviction indicators to warm up (need 30+)
+          const history = await fetchYahooHistory(symbol, '3mo', '1d');
           if (!history.length) return null;
           const context = buildAlertContext(history);
+          const { signals } = backtestStrategy(history, 'sma');
           const latest = history.at(-1);
           const previous = history.at(-2);
           const changePercent =
             latest?.close && previous?.close
               ? ((latest.close - previous.close) / previous.close) * 100
               : null;
-          return { symbol, close: latest?.close ?? null, changePercent, conviction: context.conviction };
+          const lastSignal = lastSignalFromHistory(history, signals);
+          return {
+            symbol,
+            close: latest?.close ?? null,
+            changePercent,
+            conviction: context.conviction,
+            lastSignal,
+          };
         } catch {
           return null;
         }
@@ -159,12 +203,16 @@ const runDailySummary = async (req, res) => {
       const chg = r.changePercent != null
         ? `${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%`
         : '—';
-      const label = r.conviction?.label ?? 'neutral';
-      const dot = label === 'buy' ? '🟢' : label === 'sell' ? '🔴' : '⚪';
-      return `${dot} <b>${r.symbol}</b>  ${price}  ${chg}  — ${label}`;
+      const convLabel = r.conviction?.label ?? 'Neutral';
+      const score = r.conviction?.score != null
+        ? ` (${r.conviction.score >= 0 ? '+' : ''}${r.conviction.score})`
+        : '';
+      const dot = convictionEmoji(convLabel);
+      const lastSig = r.lastSignal ? `\n    ↳ Last signal: ${r.lastSignal}` : '';
+      return `${dot} <b>${r.symbol}</b>  ${price}  ${chg}\n    Rating: <b>${convLabel}</b>${score}${lastSig}`;
     });
 
-    const text = `<b>📊 Daily Watchlist — ${date}</b>\n\n${lines.join('\n')}`;
+    const text = `<b>📊 Daily Watchlist — ${date}</b>\n\n${lines.join('\n\n')}`;
     await sendTelegram(text);
 
     res.json({ sent: true, symbols: valid.length });
