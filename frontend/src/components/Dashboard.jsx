@@ -77,9 +77,6 @@ const SIGNAL_STRENGTH = {
   sell_strong: -3,
 };
 
-const PLOT_TOP = 5;
-const PLOT_HEIGHT = 320;
-
 function signalColor(value) {
   if (value >= 3) return '#10b981'; // emerald-500 — strong buy
   if (value >= 2) return '#34d399'; // emerald-400 — medium buy
@@ -383,26 +380,14 @@ export default function Dashboard({ user, session, onSignOut }) {
     return base;
   }, [stockData, predictionSeries, forecastCloud]);
 
-  const chartPriceDomain = useMemo(() => {
-    const closes = chartData
-      .filter((row) => !row.isForecast && row.close != null)
-      .map((row) => row.close);
-    if (!closes.length) return null;
-    const mn = Math.min(...closes);
-    const mx = Math.max(...closes);
-    const pad = Math.max((mx - mn) * 0.08, mx * 0.015);
-    return [mn - pad, mx + pad];
-  }, [chartData]);
+  const scalesRef = useRef(null);
 
-  const pixelToPrice = useCallback(
-    (chartY) => {
-      if (!chartPriceDomain) return null;
-      const [yMin, yMax] = chartPriceDomain;
-      const price = yMax - ((chartY - PLOT_TOP) / PLOT_HEIGHT) * (yMax - yMin);
-      return Number.isFinite(price) ? price : null;
-    },
-    [chartPriceDomain],
-  );
+  const pixelToPrice = useCallback((chartY) => {
+    const sc = scalesRef.current;
+    if (!sc?.yScale?.invert || !sc?.offset) return null;
+    const price = sc.yScale.invert(chartY - (sc.offset.top ?? 0));
+    return Number.isFinite(price) ? price : null;
+  }, []); // reads from ref — no reactive deps needed
 
   const handleChartClick = useCallback(
     (data) => {
@@ -962,6 +947,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                   onChartClick={handleChartClick}
                   onChartMouseMove={handleChartMouseMove}
                   onLineDelete={handleLineDelete}
+                  scalesRef={scalesRef}
                 />
               </div>
             ) : insightsLoading ? (

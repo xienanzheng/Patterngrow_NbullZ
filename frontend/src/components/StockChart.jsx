@@ -62,9 +62,13 @@ function CandlestickBars({ xAxisMap, yAxisMap, offset, chartData }) {
   );
 }
 
-function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint, hoverPoint, onLineDelete }) {
+function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint, hoverPoint, onLineDelete, scalesRef }) {
   const xScale = xAxisMap?.[0]?.scale;
   const yScale = yAxisMap?.['price']?.scale;
+  // Populate the ref so Dashboard handlers can use the real D3 scales for coordinate conversion.
+  if (scalesRef && xScale && yScale && offset) {
+    scalesRef.current = { xScale, yScale, offset };
+  }
   if (!xScale || !yScale || !offset) return null;
 
   const toX = (date) => {
@@ -142,6 +146,7 @@ export default function StockChart({
   onChartClick,
   onChartMouseMove,
   onLineDelete,
+  scalesRef = null,
 }) {
   const actualData = useMemo(() => data.filter((row) => !row.isForecast), [data]);
 
@@ -407,6 +412,7 @@ export default function StockChart({
               pendingPoint={pendingPoint}
               hoverPoint={hoverPoint}
               onLineDelete={onLineDelete}
+              scalesRef={scalesRef}
             />
           </ComposedChart>
         </ResponsiveContainer>
