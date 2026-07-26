@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useLayoutEffect } from 'react';
 import {
   Area,
   AreaChart,
@@ -66,9 +66,11 @@ function TrendLineOverlay({ xAxisMap, yAxisMap, offset, drawnLines, pendingPoint
   const [hoveredId, setHoveredId] = useState(null);
   const xScale = xAxisMap?.[0]?.scale;
   const yScale = yAxisMap?.['price']?.scale;
-  if (scalesRef && xScale && yScale && offset) {
-    scalesRef.current = { xScale, yScale, offset };
-  }
+  useLayoutEffect(() => {
+    if (scalesRef && xScale && yScale && offset) {
+      scalesRef.current = { xScale, yScale, offset };
+    }
+  });
   if (!xScale || !yScale || !offset) return null;
 
   const bw = typeof xScale.bandwidth === 'function' ? xScale.bandwidth() : 0;
@@ -212,7 +214,6 @@ export default function StockChart({
   onLineDelete,
   scalesRef = null,
   onDragStart,
-  onChartMouseUp,
   isDragging = false,
 }) {
   const actualData = useMemo(() => data.filter((row) => !row.isForecast), [data]);
@@ -275,7 +276,7 @@ export default function StockChart({
     [interval],
   );
 
-  const forecastStartIndex = chartData.findIndex((row) => row.isForecast);
+  const forecastStartIndex = useMemo(() => chartData.findIndex((row) => row.isForecast), [chartData]);
 
   return (
     <div className="space-y-6">
@@ -285,7 +286,6 @@ export default function StockChart({
             data={chartData}
             onClick={onChartClick}
             onMouseMove={onChartMouseMove}
-            onMouseUp={onChartMouseUp}
             style={(drawingMode || isDragging) ? { cursor: isDragging ? 'grabbing' : 'crosshair' } : undefined}
           >
             <defs>
