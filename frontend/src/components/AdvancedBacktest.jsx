@@ -90,7 +90,8 @@ export default function AdvancedBacktest() {
         takeProfitPct: Number(takeProfit) || 0,
       });
 
-      const benchEquityMap = new Map(data.benchmark.equity.map((r) => [r.date, r.value]));
+      const toDateKey = (d) => (d ? String(d).slice(0, 10) : '');
+      const benchEquityMap = new Map(data.benchmark.equity.map((r) => [toDateKey(r.date), r.value]));
       setResult({
         trades: data.target.trades,
         metrics: {
@@ -103,7 +104,7 @@ export default function AdvancedBacktest() {
         chart: data.target.equity.map((row) => ({
           date: row.date,
           strategy: row.value,
-          benchmark: benchEquityMap.get(row.date) ?? null,
+          benchmark: benchEquityMap.get(toDateKey(row.date)) ?? null,
         })),
       });
     } catch (err) {
