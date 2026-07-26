@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../index.js';
 import { evaluateAlertRule } from '../utils/alertRules.js';
-import { filterNewSignalRows } from '../routes/alerts.js';
+import { filterNewSignalRows, recommendedAction } from '../routes/alerts.js';
 
 const ctx = (overrides = {}) => ({
   close: 100,
@@ -80,6 +80,21 @@ describe('alerts routes', () => {
     const res = await request(app).get('/api/alerts/run').set('Authorization', 'Bearer anything');
     expect(res.status).toBe(401);
     if (prev) process.env.CRON_SECRET = prev;
+  });
+});
+
+// recommendedAction — pure function, maps 7-tier conviction labels to BUY/HOLD/SELL.
+describe('recommendedAction', () => {
+  it('maps Strong Buy to BUY', () => expect(recommendedAction('Strong Buy')).toBe('BUY'));
+  it('maps Medium Buy to BUY', () => expect(recommendedAction('Medium Buy')).toBe('BUY'));
+  it('maps Buy to BUY', () => expect(recommendedAction('Buy')).toBe('BUY'));
+  it('maps Neutral to HOLD', () => expect(recommendedAction('Neutral')).toBe('HOLD'));
+  it('maps Sell to SELL', () => expect(recommendedAction('Sell')).toBe('SELL'));
+  it('maps Medium Sell to SELL', () => expect(recommendedAction('Medium Sell')).toBe('SELL'));
+  it('maps Strong Sell to SELL', () => expect(recommendedAction('Strong Sell')).toBe('SELL'));
+  it('maps null/undefined to HOLD (default)', () => {
+    expect(recommendedAction(null)).toBe('HOLD');
+    expect(recommendedAction(undefined)).toBe('HOLD');
   });
 });
 

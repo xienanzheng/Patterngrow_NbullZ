@@ -196,6 +196,40 @@ function formatLastSignal(row) {
   return `${action} (${strength}) @ $${Number(row.price).toFixed(2)} on ${date}`;
 }
 
+// Pure function: maps the 7-tier conviction label to a 3-state recommended action.
+export function recommendedAction(convictionLabel) {
+  const label = convictionLabel ?? 'Neutral';
+  if (label === 'Strong Buy' || label === 'Medium Buy' || label === 'Buy') return 'BUY';
+  if (label === 'Sell' || label === 'Medium Sell' || label === 'Strong Sell') return 'SELL';
+  return 'HOLD';
+}
+
+// Best-effort write: upserts one row to decision_log for today.
+// ON CONFLICT DO NOTHING (ignoreDuplicates) means the first write wins if the
+// cron fires twice in a single day.
+async function writeDecisionLog(symbol, conviction, lastCommitted) {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const row = {
+      symbol,
+      decision_date: today,
+      conviction_label: conviction?.label ?? 'Neutral',
+      conviction_score: conviction?.score ?? null,
+      votes: conviction?.votes ?? null,
+      last_signal: lastCommitted?.signal ?? null,
+      last_signal_date: lastCommitted?.signal_date ?? null,
+      last_signal_price: lastCommitted?.price != null ? Number(lastCommitted.price) : null,
+      recommended_action: recommendedAction(conviction?.label),
+    };
+    const { error } = await supabaseAdmin
+      .from('decision_log')
+      .upsert(row, { onConflict: 'symbol,decision_date', ignoreDuplicates: true });
+    if (error) console.warn('decision_log write skipped:', error.message);
+  } catch (err) {
+    console.warn('decision_log write failed:', err.message);
+  }
+}
+
 const runDailySummary = async (req, res) => {
   const secret = process.env.CRON_SECRET;
   const header = req.headers.authorization ?? '';
@@ -232,6 +266,8 @@ const runDailySummary = async (req, res) => {
           await persistNewSignals(symbol, history, signals, lastCommitted);
           // Re-read after potential new writes — DB is always the source of truth.
           const latest_committed = await getLastCommittedSignal(symbol);
+          // Persist daily rating — non-blocking, best-effort.
+          await writeDecisionLog(symbol, context.conviction, latest_committed);
           const lastSignal = formatLastSignal(latest_committed);
           return {
             symbol,
