@@ -1042,7 +1042,6 @@ export default function Dashboard({ user, session, onSignOut }) {
                   onLineDelete={handleLineDelete}
                   scalesRef={scalesRef}
                   onDragStart={handleDragStart}
-                  onChartMouseUp={handleChartMouseUp}
                   isDragging={draggingHandle != null}
                 />
               </div>
