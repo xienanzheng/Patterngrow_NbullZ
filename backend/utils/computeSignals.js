@@ -60,7 +60,7 @@ export function computeConvictionScore(history, customWeights) {
   const label = score >= STRONG_BUY  ? 'Strong Buy'
     : score >= MEDIUM_BUY  ? 'Medium Buy'
     : score >= BUY         ? 'Buy'
-    : score > NEUTRAL_LOW  ? 'Neutral'
+    : score >= NEUTRAL_LOW ? 'Neutral'
     : score > SELL         ? 'Sell'
     : score > MEDIUM_SELL  ? 'Medium Sell'
     : 'Strong Sell';
