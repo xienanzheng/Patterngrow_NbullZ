@@ -698,14 +698,17 @@ export default function Dashboard({ user, session, onSignOut }) {
                     <input
                       type="checkbox"
                       checked={active}
+                      disabled={!active && selectedIndicators.length >= 4}
                       onChange={(event) => {
-                        if (event.target.checked) {
+                        const { checked } = event.target;
+                        if (checked && selectedIndicators.length >= 4) return; // already at cap
+                        if (checked) {
                           setSelectedIndicators((prev) => [...new Set([...prev, indicator.value])]);
                         } else {
                           setSelectedIndicators((prev) => prev.filter((item) => item !== indicator.value));
                         }
                       }}
-                      className="h-4 w-4 accent-amber-400"
+                      className="h-4 w-4 accent-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
                     />
                   </label>
                 );
