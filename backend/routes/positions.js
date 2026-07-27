@@ -1,6 +1,7 @@
 import express from 'express';
 import { requireAuth } from '../utils/authMiddleware.js';
 import { fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
+import { portfolioLimiter } from '../utils/rateLimits.js';
 import { supabaseAdmin } from '../utils/supabaseClient.js';
 
 const router = express.Router();
@@ -17,7 +18,7 @@ function pickSpyRange(earliestOpenedAt) {
   return ageDays <= 1700 ? '5y' : 'max';
 }
 
-router.get('/', async (req, res) => {
+router.get('/', portfolioLimiter, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('positions')

@@ -3,6 +3,7 @@ import { requireAuth } from '../utils/authMiddleware.js';
 import { directionalForecast } from '../utils/classifier.js';
 import { computeConvictionScore } from '../utils/computeSignals.js';
 import { fetchYahooHistory } from '../utils/marketData.js';
+import { scanLimiter } from '../utils/rateLimits.js';
 import { supabaseAdmin } from '../utils/supabaseClient.js';
 
 const router = express.Router();
@@ -11,7 +12,7 @@ router.use(requireAuth);
 
 const SCAN_SYMBOL_CAP = 20;
 
-router.get('/scan', async (req, res) => {
+router.get('/scan', scanLimiter, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('watchlists')
