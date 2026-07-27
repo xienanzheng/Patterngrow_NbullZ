@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CartesianGrid,
   Line,
@@ -10,8 +10,7 @@ import {
   Legend,
   Brush,
 } from 'recharts';
-import { getEvaluation, getHistory } from '../services/api';
-import { backtestStrategy } from '../lib/backtesting';
+import { getEvaluation, runBacktest } from '../services/api';
 
 const PERIOD_OPTIONS = [
   { label: '1 Year', value: '1y' },
@@ -28,41 +27,13 @@ const BENCHMARKS = [
 ];
 
 const INDICATORS = [
-  { label: 'Simple Moving Average', value: 'sma' },
-  { label: 'MACD Momentum', value: 'macd' },
+  { label: 'SMA Crossover', value: 'sma' },
   { label: 'RSI Swings', value: 'rsi' },
+  { label: 'MACD Momentum', value: 'macd' },
+  { label: 'Bollinger Bands', value: 'bollinger' },
+  { label: 'Stochastic', value: 'stochastic' },
+  { label: 'Ensemble (all signals)', value: 'ensemble' },
 ];
-
-function toPoints(history = []) {
-  const toNum = (value) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-  return history.map((row) => ({
-    date: row.date,
-    open: toNum(row.open),
-    high: toNum(row.high),
-    low: toNum(row.low),
-    close: toNum(row.close),
-    volume: toNum(row.volume),
-  }));
-}
-
-function maxDrawdown(series = []) {
-  let peak = -Infinity;
-  let maxDd = 0;
-  series.forEach((row) => {
-    if (row.value > peak) {
-      peak = row.value;
-    }
-    if (!Number.isFinite(peak) || peak === 0) return;
-    const drawdown = (row.value - peak) / peak;
-    if (drawdown < maxDd) {
-      maxDd = drawdown;
-    }
-  });
-  return maxDd;
-}
 
 function formatCurrency(value) {
   if (value == null || Number.isNaN(value)) return '—';
@@ -74,64 +45,8 @@ function formatPercent(value) {
   return `${value.toFixed(2)}%`;
 }
 
-function runSimulation(points, signals, initialCapital, { stopLossPct, takeProfitPct }) {
-  const trades = [];
-  const equity = [];
-  let cash = initialCapital;
-  let shares = 0;
-  let entryPrice = null;
-
-  points.forEach((row, idx) => {
-    const price = Number(row.close ?? 0);
-    const signal = signals[idx]?.numericSignal ?? 0;
-
-    if (shares > 0 && entryPrice) {
-      const changePct = ((price - entryPrice) / entryPrice) * 100;
-      if (stopLossPct && changePct <= -stopLossPct) {
-        cash += shares * price;
-        trades.push({ type: 'STOP', date: row.date, price, changePct });
-        shares = 0;
-        entryPrice = null;
-      } else if (takeProfitPct && changePct >= takeProfitPct) {
-        cash += shares * price;
-        trades.push({ type: 'TARGET', date: row.date, price, changePct });
-        shares = 0;
-        entryPrice = null;
-      }
-    }
-
-    if (signal > 0 && shares === 0 && price > 0) {
-      const qty = cash / price;
-      if (qty > 0) {
-        shares = qty;
-        cash -= qty * price;
-        entryPrice = price;
-        trades.push({ type: 'BUY', date: row.date, price });
-      }
-    } else if (signal < 0 && shares > 0) {
-      cash += shares * price;
-      const changePct = entryPrice ? ((price - entryPrice) / entryPrice) * 100 : null;
-      trades.push({ type: 'SELL', date: row.date, price, changePct });
-      shares = 0;
-      entryPrice = null;
-    }
-
-    equity.push({ date: row.date, value: cash + shares * price });
-  });
-
-  if (shares > 0) {
-    const last = points.at(-1);
-    if (last?.close) {
-      cash += shares * last.close;
-      trades.push({ type: 'LIQUIDATE', date: last.date, price: last.close });
-    }
-  }
-
-  return { equity, trades };
-}
-
-export default function AdvancedBacktest() {
-  const [ticker, setTicker] = useState('AAPL');
+export default function AdvancedBacktest({ symbol = 'AAPL', accessToken = null }) {
+  const [ticker, setTicker] = useState(symbol);
   const [benchmark, setBenchmark] = useState('SPY');
   const [period, setPeriod] = useState('1y');
   const [indicator, setIndicator] = useState('sma');
@@ -144,6 +59,10 @@ export default function AdvancedBacktest() {
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalError, setEvalError] = useState(null);
   const [evaluation, setEvaluation] = useState(null);
+
+  useEffect(() => {
+    if (symbol) setTicker(symbol.toUpperCase());
+  }, [symbol]);
 
   const handleEvaluate = async () => {
     setEvalLoading(true);
@@ -163,49 +82,33 @@ export default function AdvancedBacktest() {
     setResult(null);
     try {
       const capital = Math.max(Number(initialCapital) || 0, 0);
-      if (capital <= 0) {
-        throw new Error('Initial capital must be greater than zero.');
-      }
+      if (capital <= 0) throw new Error('Initial capital must be greater than zero.');
 
-      const [{ history: targetHistory }, { history: benchHistory }] = await Promise.all([
-        getHistory(ticker, { range: period, interval: '1d' }),
-        getHistory(benchmark, { range: period, interval: '1d' }),
-      ]);
-
-      const targetPoints = toPoints(targetHistory);
-      const benchmarkPoints = toPoints(benchHistory);
-      if (targetPoints.length === 0) {
-        throw new Error('No price history returned for the selected symbol.');
-      }
-
-      const { signals } = backtestStrategy(targetPoints, indicator);
-      const benchmarkSignals = backtestStrategy(benchmarkPoints, 'sma').signals;
-
-      const { equity, trades } = runSimulation(targetPoints, signals, capital, {
+      const data = await runBacktest({
+        symbol: ticker,
+        benchmark,
+        period,
+        strategy: indicator,
+        initialCapital: capital,
         stopLossPct: Number(stopLoss) || 0,
         takeProfitPct: Number(takeProfit) || 0,
-      });
-      const benchmarkSim = runSimulation(benchmarkPoints, benchmarkSignals, capital, {
-        stopLossPct: 0,
-        takeProfitPct: 0,
-      });
+      }, accessToken);
 
-      const finalValue = equity.at(-1)?.value ?? 0;
-      const benchmarkFinal = benchmarkSim.equity.at(-1)?.value ?? 0;
-
+      const toDateKey = (d) => (d ? String(d).slice(0, 10) : '');
+      const benchEquityMap = new Map(data.benchmark.equity.map((r) => [toDateKey(r.date), r.value]));
       setResult({
-        trades,
+        trades: data.target.trades,
         metrics: {
-          finalValue,
-          benchmarkFinal,
-          totalReturn: ((finalValue / capital) - 1) * 100,
-          benchmarkReturn: ((benchmarkFinal / capital) - 1) * 100,
-          maxDrawdown: maxDrawdown(equity) * 100,
+          finalValue: data.target.metrics.finalValue,
+          benchmarkFinal: data.benchmark.metrics.finalValue,
+          totalReturn: data.target.metrics.totalReturn,
+          benchmarkReturn: data.benchmark.metrics.totalReturn,
+          maxDrawdown: data.target.metrics.maxDrawdown,
         },
-        chart: equity.map((row) => ({
+        chart: data.target.equity.map((row) => ({
           date: row.date,
           strategy: row.value,
-          benchmark: benchmarkSim.equity.find((b) => b.date === row.date)?.value ?? null,
+          benchmark: benchEquityMap.get(toDateKey(row.date)) ?? null,
         })),
       });
     } catch (err) {
@@ -237,9 +140,7 @@ export default function AdvancedBacktest() {
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             >
               {BENCHMARKS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>
@@ -251,9 +152,7 @@ export default function AdvancedBacktest() {
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             >
               {PERIOD_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>
@@ -265,9 +164,7 @@ export default function AdvancedBacktest() {
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
             >
               {INDICATORS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>
@@ -439,7 +336,11 @@ export default function AdvancedBacktest() {
             </div>
 
             <div className="mt-6">
-              <h3 className="text-sm font-semibold text-zinc-400">Recent Trades</h3>
+              <h3 className="text-sm font-semibold text-zinc-400">
+                {result.trades.length > 25
+                  ? `Recent 25 of ${result.trades.length} Trades`
+                  : `All Trades (${result.trades.length})`}
+              </h3>
               {result.trades.length === 0 ? (
                 <p className="mt-2 text-sm text-zinc-500">No trades were generated for the chosen configuration.</p>
               ) : (
@@ -464,9 +365,7 @@ export default function AdvancedBacktest() {
                               <span className={trade.changePct >= 0 ? 'text-emerald-400' : 'text-red-400'}>
                                 {trade.changePct.toFixed(2)}%
                               </span>
-                            ) : (
-                              '—'
-                            )}
+                            ) : '—'}
                           </td>
                         </tr>
                       ))}

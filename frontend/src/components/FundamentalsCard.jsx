@@ -138,11 +138,19 @@ export default function FundamentalsCard({ symbol }) {
                 {company.sic ? <span>Sector: <span className="text-zinc-300">{company.sic}</span></span> : null}
                 {company.employees ? <span>Employees: <span className="text-zinc-300">{Number(company.employees).toLocaleString()}</span></span> : null}
                 {company.listDate ? <span>Listed: <span className="text-zinc-300">{company.listDate}</span></span> : null}
-                {company.homepage ? (
-                  <a href={company.homepage} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">
-                    {new URL(company.homepage).hostname}
-                  </a>
-                ) : null}
+                {company.homepage ? (() => {
+                  let hostname;
+                  try {
+                    hostname = new URL(company.homepage).hostname;
+                  } catch {
+                    return null;
+                  }
+                  return (
+                    <a href={company.homepage} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">
+                      {hostname}
+                    </a>
+                  );
+                })() : null}
               </div>
             </div>
           ) : null}

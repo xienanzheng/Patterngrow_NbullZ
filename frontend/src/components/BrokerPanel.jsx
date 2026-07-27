@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { connectBroker, disconnectBroker, getBrokerPortfolio, placeBrokerOrder } from '../services/api';
 
 const money = (v) =>
@@ -41,9 +41,18 @@ export default function BrokerPanel({ accessToken, defaultSymbol }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Keep the quick-trade symbol in sync when the active chart symbol changes.
+  // Keep the quick-trade symbol in sync when the active chart symbol changes,
+  // but never clobber a symbol the user has manually typed.
+  const prevDefaultSymbol = useRef(defaultSymbol);
   useEffect(() => {
-    setOrderForm((prev) => ({ ...prev, symbol: defaultSymbol ?? '' }));
+    if (!defaultSymbol) return;
+    // Only auto-fill if field is empty OR user hasn't deviated from the last auto-filled value.
+    setOrderForm((prev) =>
+      !prev.symbol || prev.symbol === prevDefaultSymbol.current
+        ? { ...prev, symbol: defaultSymbol }
+        : prev,
+    );
+    prevDefaultSymbol.current = defaultSymbol;
   }, [defaultSymbol]);
 
   const handleConnect = async (e) => {
@@ -157,7 +166,16 @@ export default function BrokerPanel({ accessToken, defaultSymbol }) {
               <input
                 type="checkbox"
                 checked={connectForm.isPaper}
-                onChange={(e) => setConnectForm((prev) => ({ ...prev, isPaper: e.target.checked }))}
+                onChange={(e) => {
+                  const nextIsPaper = e.target.checked;
+                  if (!nextIsPaper) {
+                    const confirmed = window.confirm(
+                      'Warning: You are about to connect a LIVE trading account with real money. Paper trading mode will be disabled. Are you sure?',
+                    );
+                    if (!confirmed) return;
+                  }
+                  setConnectForm((prev) => ({ ...prev, isPaper: nextIsPaper }));
+                }}
                 className="h-4 w-4 accent-amber-400"
               />
               Paper trading account (recommended for testing)

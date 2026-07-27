@@ -1,14 +1,10 @@
 import express from 'express';
-import { getUserFromRequest, supabaseAdmin } from '../utils/supabaseClient.js';
+import { supabaseAdmin } from '../utils/supabaseClient.js';
+import { requireAuth } from '../utils/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(async (req, res, next) => {
-  const { user, error } = await getUserFromRequest(req);
-  if (!user) return res.status(401).json({ error: error ?? 'Unauthorized' });
-  req.user = user;
-  next();
-});
+router.use(requireAuth);
 
 router.get('/', async (req, res) => {
   try {
@@ -43,7 +39,7 @@ router.put('/', async (req, res) => {
     if (Array.isArray(selectedIndicators)) {
       payload.selected_indicators = selectedIndicators;
     }
-    const VALID_MODELS = ['drift', 'ar', 'holt', 'montecarlo'];
+    const VALID_MODELS = ['simple', 'drift', 'ar', 'holt', 'montecarlo'];
     if (typeof forecastModel === 'string' && VALID_MODELS.includes(forecastModel.trim())) {
       payload.forecast_model = forecastModel.trim();
     }

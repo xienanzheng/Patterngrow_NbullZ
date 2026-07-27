@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { runTradingSimulation, runTradingSimulationDetailed } from '../utils/backtesting.js';
+import {
+  runTradingSimulation,
+  runTradingSimulationDetailed,
+  CONVICTION_THRESHOLDS,
+  ENSEMBLE_SIGNAL_THRESHOLDS,
+  SIGNAL_POSITION_FRACS,
+} from '../utils/backtesting.js';
 
 const day = (i, close) => ({ date: `2025-01-${String(i + 1).padStart(2, '0')}`, close });
 const buy = { signal: 'buy_strong', numericSignal: 1 };
@@ -50,5 +56,88 @@ describe('runTradingSimulationDetailed', () => {
     const detailed = runTradingSimulationDetailed(points, signals, 5000, {});
     expect(detailed.portfolio).toHaveLength(3);
     expect(runTradingSimulation(points, signals, 5000)).toEqual(detailed.portfolio);
+  });
+});
+
+describe('threshold constants', () => {
+  it('CONVICTION_THRESHOLDS has required keys with correct values', () => {
+    expect(CONVICTION_THRESHOLDS.STRONG_BUY).toBe(0.60);
+    expect(CONVICTION_THRESHOLDS.MEDIUM_BUY).toBe(0.35);
+    expect(CONVICTION_THRESHOLDS.BUY).toBe(0.15);
+    expect(CONVICTION_THRESHOLDS.NEUTRAL_LOW).toBe(-0.15);
+    expect(CONVICTION_THRESHOLDS.SELL).toBe(-0.35);
+    expect(CONVICTION_THRESHOLDS.MEDIUM_SELL).toBe(-0.60);
+  });
+
+  it('ENSEMBLE_SIGNAL_THRESHOLDS has correct crossover and label thresholds', () => {
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.ENTRY).toBe(0.3);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.EXIT).toBe(-0.3);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.STRONG_BUY_SCORE).toBe(0.6);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.MEDIUM_BUY_SCORE).toBe(0.45);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.STRONG_SELL_SCORE).toBe(-0.6);
+    expect(ENSEMBLE_SIGNAL_THRESHOLDS.MEDIUM_SELL_SCORE).toBe(-0.45);
+  });
+
+  it('SIGNAL_POSITION_FRACS: strong=1.0, medium=0.5, weak=0.25', () => {
+    expect(SIGNAL_POSITION_FRACS.strong).toBe(1.0);
+    expect(SIGNAL_POSITION_FRACS.medium).toBe(0.5);
+    expect(SIGNAL_POSITION_FRACS.weak).toBe(0.25);
+  });
+});
+
+describe('signal position sizing', () => {
+  const day = (i, close) => ({ date: `2025-02-${String(i + 1).padStart(2, '0')}`, close });
+
+  it('buy_strong invests the full available cash (fraction=1.0)', () => {
+    const points = [100, 100, 120].map((c, i) => day(i, c));
+    const signals = [
+      { signal: 'hold', numericSignal: 0 },
+      { signal: 'buy_strong', numericSignal: 1 },
+      { signal: 'hold', numericSignal: 0 },
+    ];
+    const { portfolio } = runTradingSimulationDetailed(points, signals, 10000, {
+      transactionCostPct: 0, slippagePct: 0,
+    });
+    // At bar 2 price=120, all $10000 was invested at bar1 price=100 → 100 shares → value=12000
+    expect(portfolio.at(-1).value).toBeCloseTo(12000, 0);
+  });
+
+  it('buy_weak invests 25% of available cash', () => {
+    const points = [100, 100, 100].map((c, i) => day(i, c));
+    const signals = [
+      { signal: 'hold', numericSignal: 0 },
+      { signal: 'buy_weak', numericSignal: 1 },
+      { signal: 'hold', numericSignal: 0 },
+    ];
+    const { trades } = runTradingSimulationDetailed(points, signals, 10000, {
+      transactionCostPct: 0, slippagePct: 0,
+    });
+    const buy = trades.find((t) => t.type === 'buy');
+    // 25% of 10000 = 2500 invested at price 100 → ~25 shares
+    expect(buy).toBeDefined();
+    // cash remaining = 7500; shares = 25; portfolio still ~10000
+  });
+
+  it('sell_strong liquidates full position', () => {
+    const points = [100, 100, 100, 100].map((c, i) => day(i, c));
+    const signals = [
+      { signal: 'hold', numericSignal: 0 },
+      { signal: 'buy_strong', numericSignal: 1 },
+      { signal: 'hold', numericSignal: 0 },
+      { signal: 'sell_strong', numericSignal: -1 },
+    ];
+    const { portfolio, trades } = runTradingSimulationDetailed(points, signals, 10000, {
+      transactionCostPct: 0, slippagePct: 0,
+    });
+    // After sell_strong at price=100 with no fees, all shares sold → back to ~10000 cash
+    expect(portfolio.at(-1).value).toBeCloseTo(10000, 0);
+    const sell = trades.find((t) => t.type === 'sell');
+    expect(sell).toBeDefined();
+  });
+
+  it('SIGNAL_POSITION_FRACS values match what simulation uses', () => {
+    expect(SIGNAL_POSITION_FRACS.strong).toBe(1.0);
+    expect(SIGNAL_POSITION_FRACS.medium).toBe(0.5);
+    expect(SIGNAL_POSITION_FRACS.weak).toBe(0.25);
   });
 });

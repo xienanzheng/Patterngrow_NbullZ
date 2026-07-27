@@ -18,6 +18,7 @@ async function fetchJson(url, params) {
   }
   const response = await fetch(target, {
     headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(8000),
   });
   if (!response.ok) {
     const body = await response.text();
@@ -259,6 +260,7 @@ async function fetchGoogleHistory(symbol, range = '1y', interval = '1d') {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
       Accept: 'text/plain',
     },
+    signal: AbortSignal.timeout(8000),
   });
   if (!response.ok) {
     return [];
@@ -331,11 +333,11 @@ async function fetchTwelveData(symbol, range, interval) {
     if (data.status === 'error' || !Array.isArray(data.values)) return [];
     return data.values.map((bar) => ({
       date: new Date(bar.datetime).toISOString(),
-      open: Number(bar.open) || null,
-      high: Number(bar.high) || null,
-      low: Number(bar.low) || null,
-      close: Number(bar.close) || null,
-      volume: Number(bar.volume) || null,
+      open: Number.isFinite(Number(bar.open)) ? Number(bar.open) : null,
+      high: Number.isFinite(Number(bar.high)) ? Number(bar.high) : null,
+      low: Number.isFinite(Number(bar.low)) ? Number(bar.low) : null,
+      close: Number.isFinite(Number(bar.close)) ? Number(bar.close) : null,
+      volume: Number.isFinite(Number(bar.volume)) ? Number(bar.volume) : null,
       source: 'twelvedata',
     })).filter((row) => row.date != null);
   } catch {

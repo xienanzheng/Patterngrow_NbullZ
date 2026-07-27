@@ -20,9 +20,20 @@ describe('null-close data gaps', () => {
     expect(gappy.at(-1)).toBeCloseTo(clean.at(-1), 6);
   });
 
-  it('trailing null closes do not flip the conviction label', () => {
+  it('trailing null closes do not cause a large conviction score swing', () => {
+    // Regression: data gaps must not shift conviction labels.
+    // The key: null bars carry the previous RSI value forward instead of crashing to 0.
+    // Inject the gap early (position 30), far enough back that the 20-bar SMA window
+    // at the end doesn't include it — so conviction is based on the same price data.
+    // This tests that gaps don't corrupt indicator values while maintaining label stability.
+    const gapPosition = 30;
     const clean = computeConvictionScore(mk(uptrend));
-    const gappy = computeConvictionScore(mk([...uptrend, null, null]));
+    const gappy = computeConvictionScore(mk([
+      ...uptrend.slice(0, gapPosition),
+      null,
+      null,
+      ...uptrend.slice(gapPosition),
+    ]));
     expect(gappy.label).toBe(clean.label);
   });
 

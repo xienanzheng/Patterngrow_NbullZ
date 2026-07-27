@@ -101,8 +101,3 @@ export async function fetchSnapshots(symbol, limit = 120) {
   if (error) throw error;
   return data ?? [];
 }
-
-// NOTE: The forecast_log table in Supabase must have its unique constraint updated to
-// cover (symbol, snapshot_date, forecast_model). Run this in the SQL Editor:
-// ALTER TABLE forecast_log DROP CONSTRAINT IF EXISTS forecast_log_symbol_snapshot_date_key;
-// ALTER TABLE forecast_log ADD CONSTRAINT forecast_log_symbol_date_model_key UNIQUE (symbol, snapshot_date, forecast_model);

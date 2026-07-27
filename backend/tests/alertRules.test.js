@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../index.js';
 import { evaluateAlertRule } from '../utils/alertRules.js';
+import { filterNewSignalRows, recommendedAction } from '../routes/alerts.js';
 
 const ctx = (overrides = {}) => ({
   close: 100,
@@ -79,5 +80,76 @@ describe('alerts routes', () => {
     const res = await request(app).get('/api/alerts/run').set('Authorization', 'Bearer anything');
     expect(res.status).toBe(401);
     if (prev) process.env.CRON_SECRET = prev;
+  });
+});
+
+// recommendedAction — pure function, maps 7-tier conviction labels to 4-state actions.
+// Direction-aware: requires lastDir ('buy', 'sell', or null) to make position-aware recommendations.
+describe('recommendedAction', () => {
+  it('Strong Buy + no position → consider_buy', () => {
+    expect(recommendedAction('Strong Buy', null)).toBe('consider_buy');
+  });
+  it('Strong Buy + in long → hold_long', () => {
+    expect(recommendedAction('Strong Buy', 'buy')).toBe('hold_long');
+  });
+  it('Strong Sell + in long → consider_sell', () => {
+    expect(recommendedAction('Strong Sell', 'buy')).toBe('consider_sell');
+  });
+  it('Strong Sell + no position → hold_flat', () => {
+    expect(recommendedAction('Strong Sell', null)).toBe('hold_flat');
+  });
+  it('Neutral + in long → hold_long', () => {
+    expect(recommendedAction('Neutral', 'buy')).toBe('hold_long');
+  });
+  it('null label + any position → hold_flat or hold_long depending on position', () => {
+    expect(recommendedAction(null, null)).toBe('hold_flat');
+    expect(recommendedAction(null, 'buy')).toBe('hold_long');
+  });
+});
+
+// Direction-aware dedup — pure logic tests, no DB needed.
+describe('filterNewSignalRows — direction-aware dedup', () => {
+  const makeHistory = (dates) => dates.map((date) => ({ date, close: 100 }));
+  const makeSig = (signal) => ({ signal, numericSignal: signal.startsWith('buy') ? 1 : signal.startsWith('sell') ? -1 : 0 });
+
+  it('a buy signal after a sell is persisted', () => {
+    const history = makeHistory(['2025-01-11']);
+    const signals = [makeSig('buy_strong')];
+    const lastCommitted = { signal_date: '2025-01-10', signal: 'sell_medium', price: 95 };
+    const rows = filterNewSignalRows(history, signals, lastCommitted);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].signal).toBe('buy_strong');
+  });
+
+  it('a buy signal after a buy is skipped (same direction)', () => {
+    const history = makeHistory(['2025-01-11']);
+    const signals = [makeSig('buy_weak')];
+    const lastCommitted = { signal_date: '2025-01-10', signal: 'buy_medium', price: 95 };
+    const rows = filterNewSignalRows(history, signals, lastCommitted);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('a sell signal after a buy is persisted', () => {
+    const history = makeHistory(['2025-01-11']);
+    const signals = [makeSig('sell_strong')];
+    const lastCommitted = { signal_date: '2025-01-10', signal: 'buy_strong', price: 95 };
+    const rows = filterNewSignalRows(history, signals, lastCommitted);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].signal).toBe('sell_strong');
+  });
+
+  it('a sell signal when no prior position (lastCommitted=null) is skipped', () => {
+    const history = makeHistory(['2025-01-11']);
+    const signals = [makeSig('sell_weak')];
+    const rows = filterNewSignalRows(history, signals, null);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('a sell signal after a sell is skipped (same direction + no open position)', () => {
+    const history = makeHistory(['2025-01-11']);
+    const signals = [makeSig('sell_medium')];
+    const lastCommitted = { signal_date: '2025-01-10', signal: 'sell_strong', price: 95 };
+    const rows = filterNewSignalRows(history, signals, lastCommitted);
+    expect(rows).toHaveLength(0);
   });
 });

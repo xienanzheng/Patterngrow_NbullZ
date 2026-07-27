@@ -148,6 +148,14 @@ export function createPosition({ symbol, shares, costBasis, openedAt }, token) {
   return request('/api/positions', { method: 'POST', body: { symbol, shares, costBasis, openedAt }, token });
 }
 
+export function updatePosition(id, { shares, costBasis }, token) {
+  return request(`/api/positions/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: { shares, costBasis },
+    token,
+  });
+}
+
 export function deletePosition(id, token) {
   return request(`/api/positions/${encodeURIComponent(id)}`, { method: 'DELETE', token });
 }
@@ -208,4 +216,12 @@ export function placeBrokerOrder({ symbol, side, qty }, token) {
 
 export function disconnectBroker(token) {
   return request('/api/broker/connect', { method: 'DELETE', token });
+}
+
+export function runBacktest({ symbol, benchmark, period, strategy, initialCapital, stopLossPct, takeProfitPct }, token) {
+  return request('/api/backtests/run', {
+    method: 'POST',
+    token,
+    body: { symbol, benchmark, period, strategy, initialCapital, stopLossPct, takeProfitPct },
+  });
 }

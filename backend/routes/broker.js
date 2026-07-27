@@ -1,5 +1,6 @@
 import express from 'express';
 import { requireAuth } from '../utils/authMiddleware.js';
+import { orderLimiter } from '../utils/rateLimits.js';
 import { supabaseAdmin } from '../utils/supabaseClient.js';
 
 const router = express.Router();
@@ -26,6 +27,17 @@ async function getConnection(userId) {
     .single();
   return data ?? null;
 }
+
+// Lightweight connection status check — avoids the 404 + full portfolio fetch.
+router.get('/connect', async (req, res) => {
+  try {
+    const conn = await getConnection(req.user.id);
+    if (!conn) return res.json({ connected: false });
+    res.json({ connected: true, isPaper: conn.is_paper });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Connect or update Alpaca credentials
 router.put('/connect', async (req, res) => {
@@ -96,7 +108,7 @@ router.get('/portfolio', async (req, res) => {
 });
 
 // Place a paper market order
-router.post('/order', async (req, res) => {
+router.post('/order', orderLimiter, async (req, res) => {
   const { symbol, side, qty } = req.body ?? {};
   if (!symbol?.trim()) return res.status(400).json({ error: 'symbol is required.' });
   if (!['buy', 'sell'].includes(side)) return res.status(400).json({ error: "side must be 'buy' or 'sell'." });

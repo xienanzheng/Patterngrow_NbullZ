@@ -14,6 +14,34 @@ const getClose = (row) => Number(row.close);
 
 export const DEFAULT_ENSEMBLE_WEIGHTS = { sma: 0.2, rsi: 0.2, macd: 0.2, bollinger: 0.15, stochastic: 0.15, adx: 0.1 };
 
+// Conviction label boundaries — the thresholds that map a [-1,+1] ensemble
+// score to a human-readable rating. Changing these shifts how aggressively
+// the system calls Strong Buy vs Buy vs Neutral.
+export const CONVICTION_THRESHOLDS = {
+  STRONG_BUY:   0.60,
+  MEDIUM_BUY:   0.35,
+  BUY:          0.15,
+  NEUTRAL_LOW: -0.15,
+  SELL:        -0.35,
+  MEDIUM_SELL: -0.60,
+};
+
+// Ensemble strategy: score must cross these levels to fire entry/exit signals.
+export const ENSEMBLE_SIGNAL_THRESHOLDS = {
+  ENTRY:             0.3,    // prev < ENTRY && curr >= ENTRY → buy signal
+  EXIT:             -0.3,    // prev > EXIT  && curr <= EXIT  → sell signal
+  STRONG_BUY_SCORE:  0.6,
+  MEDIUM_BUY_SCORE:  0.45,
+  STRONG_SELL_SCORE: -0.6,
+  MEDIUM_SELL_SCORE: -0.45,
+};
+
+export const SIGNAL_POSITION_FRACS = {
+  strong: 1.0,
+  medium: 0.5,
+  weak:   0.25,
+};
+
 export function normalizeEnsembleWeights(weights) {
   if (!weights || typeof weights !== 'object') return { ...DEFAULT_ENSEMBLE_WEIGHTS };
   const merged = {};
@@ -74,14 +102,15 @@ export function backtestStrategy(points, indicator, options = {}) {
 
   if (indicator === 'ensemble') {
     const score = computeEnsembleScoreSeries(points, options.weights);
+    const { ENTRY, EXIT, STRONG_BUY_SCORE, MEDIUM_BUY_SCORE, STRONG_SELL_SCORE, MEDIUM_SELL_SCORE } = ENSEMBLE_SIGNAL_THRESHOLDS;
     for (let i = 1; i < points.length; i += 1) {
       const prev = score[i - 1];
       const curr = score[i];
-      if (prev < 0.3 && curr >= 0.3) {
-        const label = curr >= 0.6 ? 'buy_strong' : curr >= 0.45 ? 'buy_medium' : 'buy_weak';
+      if (prev < ENTRY && curr >= ENTRY) {
+        const label = curr >= STRONG_BUY_SCORE ? 'buy_strong' : curr >= MEDIUM_BUY_SCORE ? 'buy_medium' : 'buy_weak';
         signals[i] = { signal: label, numericSignal: 1 };
-      } else if (prev > -0.3 && curr <= -0.3) {
-        const label = curr <= -0.6 ? 'sell_strong' : curr <= -0.45 ? 'sell_medium' : 'sell_weak';
+      } else if (prev > EXIT && curr <= EXIT) {
+        const label = curr <= STRONG_SELL_SCORE ? 'sell_strong' : curr <= MEDIUM_SELL_SCORE ? 'sell_medium' : 'sell_weak';
         signals[i] = { signal: label, numericSignal: -1 };
       }
     }
@@ -139,14 +168,14 @@ export function backtestStrategy(points, indicator, options = {}) {
       if (macd[i - 1] < signal[i - 1] && macd[i] >= signal[i]) {
         const diff = macd[i] - signal[i];
         let label = 'buy_weak';
-        if (diff > 0.5) label = 'buy_strong';
-        else if (diff > 0.1) label = 'buy_medium';
+        if (diff > closes[i] * 0.001) label = 'buy_strong';
+        else if (diff > closes[i] * 0.0002) label = 'buy_medium';
         signals[i] = { signal: label, numericSignal: 1 };
       } else if (macd[i - 1] > signal[i - 1] && macd[i] <= signal[i]) {
         const diff = signal[i] - macd[i];
         let label = 'sell_weak';
-        if (diff > 0.5) label = 'sell_strong';
-        else if (diff > 0.1) label = 'sell_medium';
+        if (diff > closes[i] * 0.001) label = 'sell_strong';
+        else if (diff > closes[i] * 0.0002) label = 'sell_medium';
         signals[i] = { signal: label, numericSignal: -1 };
       }
     }
@@ -207,14 +236,14 @@ export function backtestStrategy(points, indicator, options = {}) {
 }
 
 function signalWeight(signal) {
-  if (signal.endsWith('strong')) return 0.5;
-  if (signal.endsWith('medium')) return 0.3;
-  if (signal.endsWith('weak')) return 0.1;
+  if (signal.endsWith('strong')) return SIGNAL_POSITION_FRACS.strong;
+  if (signal.endsWith('medium')) return SIGNAL_POSITION_FRACS.medium;
+  if (signal.endsWith('weak')) return SIGNAL_POSITION_FRACS.weak;
   return 1;
 }
 
 export function runTradingSimulationDetailed(points, signals, initialCapital, options = {}) {
-  const { transactionCostPct = 0.001, slippagePct = 0.0005, stopLossPct = null } = options;
+  const { transactionCostPct = 0.001, slippagePct = 0.0005, stopLossPct = null, takeProfitPct = null } = options;
   const portfolio = [];
   const trades = [];
   let cash = initialCapital;
@@ -253,6 +282,20 @@ export function runTradingSimulationDetailed(points, signals, initialCapital, op
       cash += proceeds - fee;
       costsPaid += fee;
       trades.push({ type: 'stop', date: row.date, price: execPrice, pnlPct: netPnlPct(execPrice) });
+      shares = 0;
+      position = 0;
+      entryPrice = null;
+    }
+
+    // Take-profit exit — checked before new signals so it fires on the same bar.
+    if (takeProfitPct != null && position === 1 && entryPrice != null
+        && price >= entryPrice * (1 + takeProfitPct)) {
+      const execPrice = price * (1 - slippagePct);
+      const proceeds = shares * execPrice;
+      const fee = proceeds * transactionCostPct;
+      cash += proceeds - fee;
+      costsPaid += fee;
+      trades.push({ type: 'target', date: row.date, price: execPrice, pnlPct: netPnlPct(execPrice) });
       shares = 0;
       position = 0;
       entryPrice = null;

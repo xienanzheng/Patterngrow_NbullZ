@@ -11,6 +11,7 @@ import PortfolioPanel from './PortfolioPanel';
 import BrokerPanel from './BrokerPanel';
 import FundamentalsCard from './FundamentalsCard';
 import { getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
+import AlgoExplainer from './AlgoExplainer';
 
 const formatCurrency = (value) => {
   if (value == null) return 'N/A';
@@ -67,6 +68,16 @@ const TABS = [
   { id: 'assistant', label: 'AI Assistant' },
 ];
 
+function snapPrice(price) {
+  if (price == null || !Number.isFinite(price)) return price;
+  const abs = Math.abs(price);
+  if (abs >= 1000) return Math.round(price / 5) * 5;
+  if (abs >= 100)  return Math.round(price);
+  if (abs >= 10)   return Math.round(price * 4) / 4;       // nearest 0.25
+  if (abs >= 1)    return Math.round(price * 20) / 20;     // nearest 0.05
+  return Math.round(price * 100) / 100;                    // nearest 0.01
+}
+
 const SIGNAL_STRENGTH = {
   buy_strong: 3,
   buy_medium: 2,
@@ -76,9 +87,6 @@ const SIGNAL_STRENGTH = {
   sell_medium: -2,
   sell_strong: -3,
 };
-
-const PLOT_TOP = 5;
-const PLOT_HEIGHT = 320;
 
 function signalColor(value) {
   if (value >= 3) return '#10b981'; // emerald-500 — strong buy
@@ -98,9 +106,11 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [forecastModel, setForecastModel] = useState('drift');
   const [showForecast, setShowForecast] = useState(true);
   const [drawingMode, setDrawingMode] = useState(false);
+  const [drawingTool, setDrawingTool] = useState('trend-line'); // 'trend-line' | 'horizontal' | 'extended-line'
   const [drawnLines, setDrawnLines] = useState([]);
   const [pendingPoint, setPendingPoint] = useState(null);
   const [hoverPoint, setHoverPoint] = useState(null);
+  const [draggingHandle, setDraggingHandle] = useState(null); // { lineId: string, endpoint: 'start'|'end' } | null
   const [initialCapital, setInitialCapital] = useState(10000);
   const [draftWeights, setDraftWeights] = useState(DEFAULT_WEIGHTS);
   const [appliedWeights, setAppliedWeights] = useState(DEFAULT_WEIGHTS);
@@ -383,62 +393,82 @@ export default function Dashboard({ user, session, onSignOut }) {
     return base;
   }, [stockData, predictionSeries, forecastCloud]);
 
-  const chartPriceDomain = useMemo(() => {
-    const closes = chartData
-      .filter((row) => !row.isForecast && row.close != null)
-      .map((row) => row.close);
-    if (!closes.length) return null;
-    const mn = Math.min(...closes);
-    const mx = Math.max(...closes);
-    const pad = Math.max((mx - mn) * 0.08, mx * 0.015);
-    return [mn - pad, mx + pad];
-  }, [chartData]);
+  const handleDrawingClick = useCallback(
+    (date, price) => {
+      if (!drawingMode) return;
+      const snappedPrice = snapPrice(price);
 
-  const pixelToPrice = useCallback(
-    (chartY) => {
-      if (!chartPriceDomain) return null;
-      const [yMin, yMax] = chartPriceDomain;
-      const price = yMax - ((chartY - PLOT_TOP) / PLOT_HEIGHT) * (yMax - yMin);
-      return Number.isFinite(price) ? price : null;
-    },
-    [chartPriceDomain],
-  );
+      if (drawingTool === 'horizontal') {
+        setDrawnLines((prev) => [
+          ...prev,
+          { id: Date.now().toString(), type: 'horizontal', x1: null, y1: snappedPrice, x2: null, y2: snappedPrice },
+        ]);
+        return;
+      }
 
-  const handleChartClick = useCallback(
-    (data) => {
-      if (!drawingMode || !data?.activeLabel) return;
-      const price = pixelToPrice(data.chartY);
-      if (price == null) return;
-      const point = { x: data.activeLabel, y: price };
+      const point = { x: date, y: snappedPrice };
       if (!pendingPoint) {
         setPendingPoint(point);
       } else {
         setDrawnLines((prev) => [
           ...prev,
-          { id: Date.now().toString(), x1: pendingPoint.x, y1: pendingPoint.y, x2: point.x, y2: point.y },
+          {
+            id: Date.now().toString(),
+            type: drawingTool,
+            x1: pendingPoint.x, y1: pendingPoint.y,
+            x2: point.x, y2: point.y,
+          },
         ]);
         setPendingPoint(null);
         setHoverPoint(null);
       }
     },
-    [drawingMode, pendingPoint, pixelToPrice],
+    [drawingMode, drawingTool, pendingPoint],
   );
 
-  const handleChartMouseMove = useCallback(
-    (data) => {
-      if (!drawingMode || !pendingPoint || !data?.activeLabel) {
+  const handleDrawingMove = useCallback(
+    (date, price) => {
+      if (draggingHandle) {
+        if (!date || price == null) return;
+        const newPrice = snapPrice(price);
+        setDrawnLines((prev) => prev.map((l) => {
+          if (l.id !== draggingHandle.lineId) return l;
+          if (l.type === 'horizontal') return { ...l, y1: newPrice, y2: newPrice };
+          if (draggingHandle.endpoint === 'start') return { ...l, x1: date, y1: newPrice };
+          return { ...l, x2: date, y2: newPrice };
+        }));
+        return;
+      }
+      if (!drawingMode || drawingTool === 'horizontal') {
         if (hoverPoint) setHoverPoint(null);
         return;
       }
-      const price = pixelToPrice(data.chartY);
-      if (price == null) return;
-      setHoverPoint({ x: data.activeLabel, y: price });
+      if (!pendingPoint || !date || price == null) {
+        if (hoverPoint) setHoverPoint(null);
+        return;
+      }
+      setHoverPoint({ x: date, y: snapPrice(price) });
     },
-    [drawingMode, pendingPoint, hoverPoint, pixelToPrice],
+    [draggingHandle, drawingMode, drawingTool, pendingPoint, hoverPoint],
   );
 
   const handleLineDelete = useCallback((id) => {
     setDrawnLines((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
+  const handleChartMouseUp = useCallback(() => {
+    if (draggingHandle) setDraggingHandle(null);
+  }, [draggingHandle]);
+
+  useEffect(() => {
+    if (!draggingHandle) return;
+    window.addEventListener('mouseup', handleChartMouseUp);
+    return () => { window.removeEventListener('mouseup', handleChartMouseUp); };
+  }, [draggingHandle, handleChartMouseUp]);
+
+  const handleDragStart = useCallback((lineId, endpoint) => {
+    setDraggingHandle({ lineId, endpoint });
+    setPendingPoint(null); // cancel any in-progress drawing
   }, []);
 
   useEffect(() => {
@@ -446,6 +476,7 @@ export default function Dashboard({ user, session, onSignOut }) {
     setPendingPoint(null);
     setHoverPoint(null);
     setDrawingMode(false);
+    setDrawingTool('trend-line');
   }, [symbol]);
 
   useEffect(() => {
@@ -667,14 +698,17 @@ export default function Dashboard({ user, session, onSignOut }) {
                     <input
                       type="checkbox"
                       checked={active}
+                      disabled={!active && selectedIndicators.length >= 4}
                       onChange={(event) => {
-                        if (event.target.checked) {
+                        const { checked } = event.target;
+                        if (checked && selectedIndicators.length >= 4) return; // already at cap
+                        if (checked) {
                           setSelectedIndicators((prev) => [...new Set([...prev, indicator.value])]);
                         } else {
                           setSelectedIndicators((prev) => prev.filter((item) => item !== indicator.value));
                         }
                       }}
-                      className="h-4 w-4 accent-amber-400"
+                      className="h-4 w-4 accent-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
                     />
                   </label>
                 );
@@ -785,6 +819,8 @@ export default function Dashboard({ user, session, onSignOut }) {
               {insightsError}
             </div>
           ) : null}
+
+          <AlgoExplainer />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
@@ -906,6 +942,31 @@ export default function Dashboard({ user, session, onSignOut }) {
 
               {/* Drawing toolbar */}
               <div className="flex flex-wrap items-center gap-2">
+                {/* Tool type selector — only visible in draw mode */}
+                {drawingMode ? (
+                  <div className="flex items-center rounded-md border border-zinc-700 overflow-hidden">
+                    {[
+                      { key: 'trend-line',    label: 'Trend' },
+                      { key: 'horizontal',    label: 'H-Line' },
+                      { key: 'extended-line', label: 'Extended' },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setDrawingTool(key)}
+                        className={`px-2.5 py-1 text-xs font-semibold transition ${
+                          drawingTool === key
+                            ? 'bg-amber-400 text-zinc-900'
+                            : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* Draw / Stop button */}
                 <button
                   type="button"
                   onClick={() => {
@@ -919,8 +980,9 @@ export default function Dashboard({ user, session, onSignOut }) {
                       : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                   }`}
                 >
-                  ✏ Draw Line
+                  {drawingMode ? '✓ Done' : '✏ Draw'}
                 </button>
+
                 {drawnLines.length > 0 ? (
                   <button
                     type="button"
@@ -930,6 +992,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                     Clear ({drawnLines.length})
                   </button>
                 ) : null}
+
                 {(drawingMode || drawnLines.length > 0) && !showForecast ? (
                   <button
                     type="button"
@@ -939,10 +1002,13 @@ export default function Dashboard({ user, session, onSignOut }) {
                     Overlay Prediction
                   </button>
                 ) : null}
+
                 {pendingPoint ? (
-                  <span className="text-xs text-zinc-500">Click on the chart to set the endpoint</span>
+                  <span className="text-xs text-zinc-500">Click to set endpoint</span>
+                ) : drawingMode && drawingTool === 'horizontal' ? (
+                  <span className="text-xs text-zinc-500">Click anywhere to place a horizontal line</span>
                 ) : drawingMode ? (
-                  <span className="text-xs text-zinc-500">Click on the chart to start a trend line</span>
+                  <span className="text-xs text-zinc-500">Click to start drawing</span>
                 ) : null}
               </div>
             </div>
@@ -959,9 +1025,11 @@ export default function Dashboard({ user, session, onSignOut }) {
                   drawnLines={drawnLines}
                   pendingPoint={pendingPoint}
                   hoverPoint={hoverPoint}
-                  onChartClick={handleChartClick}
-                  onChartMouseMove={handleChartMouseMove}
+                  onDrawingClick={handleDrawingClick}
+                  onDrawingMove={handleDrawingMove}
                   onLineDelete={handleLineDelete}
+                  onDragStart={handleDragStart}
+                  isDragging={draggingHandle != null}
                 />
               </div>
             ) : insightsLoading ? (
@@ -1258,6 +1326,19 @@ export default function Dashboard({ user, session, onSignOut }) {
                     </select>
                   </label>
                   <label className="text-xs uppercase tracking-wide text-zinc-400">
+                    Market Cap
+                    <select
+                      value={facetFilters.marketCapBucket ?? ''}
+                      onChange={(event) => setFacetFilters((prev) => ({ ...prev, marketCapBucket: event.target.value || null }))}
+                      className="mt-1 w-44 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
+                    >
+                      <option value="">All Market Caps</option>
+                      <option value="large">Large Cap (&gt;$10B)</option>
+                      <option value="mid">Mid Cap ($2B–$10B)</option>
+                      <option value="small">Small Cap (&lt;$2B)</option>
+                    </select>
+                  </label>
+                  <label className="text-xs uppercase tracking-wide text-zinc-400">
                     Risk Bucket
                     <select
                       value={facetFilters.riskBucket}
@@ -1407,6 +1488,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       setMetadataActionStatus(null);
                       if (!newTicker.symbol.trim()) {
                         setMetadataActionStatus({ type: 'error', text: 'Symbol is required to add a ticker.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                         return;
                       }
                       try {
@@ -1418,12 +1500,14 @@ export default function Dashboard({ user, session, onSignOut }) {
                           ipo_year: newTicker.ipoYear ? Number(newTicker.ipoYear) : undefined,
                         }, session?.access_token);
                         setMetadataActionStatus({ type: 'success', text: `Saved ${newTicker.symbol.toUpperCase()}.` });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                         setNewTicker({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
                         const payload = await getMetadata();
                         setMetadataRows(payload?.rows ?? []);
                         setMetadataFacets(payload?.facets ?? null);
                       } catch (err) {
                         setMetadataActionStatus({ type: 'error', text: err instanceof Error ? err.message : 'Unable to add ticker.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                       }
                     }}
                     className="mt-3 rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300"
@@ -1446,8 +1530,10 @@ export default function Dashboard({ user, session, onSignOut }) {
                         const text = await file.text();
                         setCsvText(text);
                         setMetadataActionStatus({ type: 'success', text: `Loaded ${file.name}. Review and click Upload CSV to save.` });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                       } catch {
                         setMetadataActionStatus({ type: 'error', text: 'Unable to read CSV file. Try again or paste the contents.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                       } finally {
                         event.target.value = '';
                       }
@@ -1476,6 +1562,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       setMetadataActionStatus(null);
                       if (!csvText.trim()) {
                         setMetadataActionStatus({ type: 'error', text: 'Choose a CSV file or paste CSV text before uploading.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                         return;
                       }
                       setMetadataUploading(true);
@@ -1483,12 +1570,14 @@ export default function Dashboard({ user, session, onSignOut }) {
                       try {
                         await uploadMetadataCsv(csvText, session?.access_token);
                         setMetadataActionStatus({ type: 'success', text: 'CSV uploaded and saved.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                         setCsvText('');
                         const payload = await getMetadata();
                         setMetadataRows(payload?.rows ?? []);
                         setMetadataFacets(payload?.facets ?? null);
                       } catch (err) {
                         setMetadataActionStatus({ type: 'error', text: err instanceof Error ? err.message : 'Unable to upload CSV.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                       } finally {
                         setMetadataUploading(false);
                       }
@@ -1609,7 +1698,7 @@ export default function Dashboard({ user, session, onSignOut }) {
           </div>
         ) : null}
 
-        {activeTab === 'advanced' ? <AdvancedBacktest /> : null}
+        {activeTab === 'advanced' ? <AdvancedBacktest symbol={symbol} accessToken={session?.access_token} /> : null}
 
         {activeTab === 'alerts' ? <AlertsPanel accessToken={session?.access_token} defaultSymbol={symbol} /> : null}
 
