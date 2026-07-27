@@ -1,14 +1,10 @@
 import express from 'express';
-import { getUserFromRequest, supabaseAdmin } from '../utils/supabaseClient.js';
+import { supabaseAdmin } from '../utils/supabaseClient.js';
+import { requireAuth } from '../utils/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(async (req, res, next) => {
-  const { user, error } = await getUserFromRequest(req);
-  if (!user) return res.status(401).json({ error: error ?? 'Unauthorized' });
-  req.user = user;
-  next();
-});
+router.use(requireAuth);
 
 router.get('/', async (req, res) => {
   try {

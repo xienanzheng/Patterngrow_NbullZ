@@ -155,25 +155,27 @@ export const calculateStochasticOscillator = (points, kWindow = 14, dWindow = 3)
   return { percentK, percentD };
 };
 
-export const calculateVWAP = (points) => {
+export const calculateVWAP = (points, window = 14) => {
+  // True VWAP resets each trading session, which cumulative-since-history VWAP
+  // does not respect for multi-day daily data. Use a rolling window (default 14
+  // bars) as the standard substitute for single-session VWAP on daily charts.
   const result = new Array(points.length).fill(null);
-  let cumulativeVolume = 0;
-  let cumulativeTpv = 0;
 
-  points.forEach((row, index) => {
-    const volume = getVolume(row);
-    const high = getHigh(row);
-    const low = getLow(row);
-    const close = getClose(row);
-    if (!volume || high == null || low == null || close == null) {
-      // Carry the running VWAP through data gaps rather than dropping to null.
-      result[index] = cumulativeVolume > 0 ? cumulativeTpv / cumulativeVolume : null;
-      return;
-    }
-    const typicalPrice = (high + low + close) / 3;
-    cumulativeVolume += volume;
-    cumulativeTpv += typicalPrice * volume;
-    result[index] = cumulativeVolume > 0 ? cumulativeTpv / cumulativeVolume : null;
+  points.forEach((_, index) => {
+    const slice = points.slice(Math.max(0, index - (window - 1)), index + 1);
+    let sumPV = 0;
+    let sumV = 0;
+    slice.forEach((row) => {
+      const volume = getVolume(row);
+      const high = getHigh(row);
+      const low = getLow(row);
+      const close = getClose(row);
+      if (!volume || high == null || low == null || close == null) return;
+      const typicalPrice = (high + low + close) / 3;
+      sumPV += typicalPrice * volume;
+      sumV += volume;
+    });
+    result[index] = sumV > 0 ? sumPV / sumV : null;
   });
 
   return result;
