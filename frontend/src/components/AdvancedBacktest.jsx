@@ -336,7 +336,11 @@ export default function AdvancedBacktest({ symbol = 'AAPL', accessToken = null }
             </div>
 
             <div className="mt-6">
-              <h3 className="text-sm font-semibold text-zinc-400">Recent Trades</h3>
+              <h3 className="text-sm font-semibold text-zinc-400">
+                {result.trades.length > 25
+                  ? `Recent 25 of ${result.trades.length} Trades`
+                  : `All Trades (${result.trades.length})`}
+              </h3>
               {result.trades.length === 0 ? (
                 <p className="mt-2 text-sm text-zinc-500">No trades were generated for the chosen configuration.</p>
               ) : (
