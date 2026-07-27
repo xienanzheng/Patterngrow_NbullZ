@@ -139,6 +139,33 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.put('/:id', async (req, res) => {
+  try {
+    const { shares, costBasis } = req.body ?? {};
+    const parsedShares = Number(shares);
+    const parsedCost = Number(costBasis);
+    if (!Number.isFinite(parsedShares) || parsedShares <= 0) {
+      return res.status(400).json({ error: 'Shares must be a positive number.' });
+    }
+    if (!Number.isFinite(parsedCost) || parsedCost <= 0) {
+      return res.status(400).json({ error: 'Cost basis must be a positive price per share.' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('positions')
+      .update({ shares: parsedShares, cost_basis: parsedCost })
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .select()
+      .single();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Position not found.' });
+    res.json({ position: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     const { error } = await supabaseAdmin
