@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CartesianGrid,
   Line,
@@ -45,8 +45,8 @@ function formatPercent(value) {
   return `${value.toFixed(2)}%`;
 }
 
-export default function AdvancedBacktest() {
-  const [ticker, setTicker] = useState('AAPL');
+export default function AdvancedBacktest({ symbol = 'AAPL', accessToken = null }) {
+  const [ticker, setTicker] = useState(symbol);
   const [benchmark, setBenchmark] = useState('SPY');
   const [period, setPeriod] = useState('1y');
   const [indicator, setIndicator] = useState('sma');
@@ -59,6 +59,10 @@ export default function AdvancedBacktest() {
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalError, setEvalError] = useState(null);
   const [evaluation, setEvaluation] = useState(null);
+
+  useEffect(() => {
+    if (symbol) setTicker(symbol.toUpperCase());
+  }, [symbol]);
 
   const handleEvaluate = async () => {
     setEvalLoading(true);
@@ -88,7 +92,7 @@ export default function AdvancedBacktest() {
         initialCapital: capital,
         stopLossPct: Number(stopLoss) || 0,
         takeProfitPct: Number(takeProfit) || 0,
-      });
+      }, accessToken);
 
       const toDateKey = (d) => (d ? String(d).slice(0, 10) : '');
       const benchEquityMap = new Map(data.benchmark.equity.map((r) => [toDateKey(r.date), r.value]));
