@@ -43,7 +43,7 @@ router.put('/', async (req, res) => {
     if (Array.isArray(selectedIndicators)) {
       payload.selected_indicators = selectedIndicators;
     }
-    const VALID_MODELS = ['drift', 'ar', 'holt', 'montecarlo'];
+    const VALID_MODELS = ['simple', 'drift', 'ar', 'holt', 'montecarlo'];
     if (typeof forecastModel === 'string' && VALID_MODELS.includes(forecastModel.trim())) {
       payload.forecast_model = forecastModel.trim();
     }
