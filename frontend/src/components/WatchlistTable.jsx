@@ -91,6 +91,10 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
       setFeedback('Enter a ticker symbol before adding.');
       return;
     }
+    if (!/^[A-Z]{1,6}(\.[A-Z]{1,2})?$/.test(symbol)) {
+      setFeedback('Enter a valid ticker symbol (e.g. AAPL, BRK.B)');
+      return;
+    }
     if (!canManageWatchlist) {
       setFeedback('Sign in to manage your watchlist.');
       return;

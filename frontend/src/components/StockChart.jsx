@@ -417,7 +417,7 @@ export default function StockChart({
         <svg
           className="absolute inset-0 w-full h-full"
           style={{
-            overflow: 'visible',
+            overflow: 'hidden',
             pointerEvents: (drawingMode || isDragging) ? 'all' : 'none',
             cursor: drawingMode ? 'crosshair' : isDragging ? 'grabbing' : 'default',
           }}
@@ -437,6 +437,11 @@ export default function StockChart({
             };
             return (
               <>
+                <defs>
+                  <clipPath id="chartClip">
+                    <rect x={b.left} y={b.top} width={b.width} height={b.height} />
+                  </clipPath>
+                </defs>
                 {drawnLines.map((line) => {
                   const y1px = toY(line.y1);
                   const y2px = line.type === 'horizontal' ? y1px : toY(line.y2);
@@ -473,13 +478,15 @@ export default function StockChart({
                       onMouseEnter={() => setHoveredLineId(line.id)}
                       onMouseLeave={() => setHoveredLineId(null)}
                     >
-                      <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
-                        stroke="#fbbf24" strokeWidth={isHov ? 2.5 : 2} strokeLinecap="round"
-                        style={{ pointerEvents: 'none' }} />
-                      <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
-                        stroke="transparent" strokeWidth={14}
-                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
-                        onClick={(ev) => { ev.stopPropagation(); onLineDelete?.(line.id); }} />
+                      <g clipPath="url(#chartClip)">
+                        <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
+                          stroke="#fbbf24" strokeWidth={isHov ? 2.5 : 2} strokeLinecap="round"
+                          style={{ pointerEvents: 'none' }} />
+                        <line x1={rx1} y1={ry1} x2={rx2} y2={ry2}
+                          stroke="transparent" strokeWidth={14}
+                          style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                          onClick={(ev) => { ev.stopPropagation(); onLineDelete?.(line.id); }} />
+                      </g>
                       <text x={b.right - 4} y={labelY - 4} fontSize={10} fill="#fbbf24"
                         fontFamily="monospace" textAnchor="end" style={{ pointerEvents: 'none' }}>
                         ${lp}
@@ -502,20 +509,24 @@ export default function StockChart({
                   const hx = toX(hoverPoint.x); const hy = toY(hoverPoint.y);
                   if (px == null || py == null || hx == null || hy == null) return null;
                   return (
-                    <>
+                    <g clipPath="url(#chartClip)">
                       <circle cx={px} cy={py} r={4} fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
                         style={{ pointerEvents: 'none' }} />
                       <line x1={px} y1={py} x2={hx} y2={hy}
                         stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="6 3" strokeLinecap="round"
                         style={{ pointerEvents: 'none' }} />
-                    </>
+                    </g>
                   );
                 })() : null}
                 {pendingPoint && !hoverPoint ? (() => {
                   const x = toX(pendingPoint.x); const y = toY(pendingPoint.y);
                   if (x == null || y == null) return null;
-                  return <circle cx={x} cy={y} r={4} fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
-                    style={{ pointerEvents: 'none' }} />;
+                  return (
+                    <g clipPath="url(#chartClip)">
+                      <circle cx={x} cy={y} r={4} fill="#fbbf24" stroke="#18181b" strokeWidth={1.5}
+                        style={{ pointerEvents: 'none' }} />
+                    </g>
+                  );
                 })() : null}
               </>
             );
