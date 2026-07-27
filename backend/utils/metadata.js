@@ -126,8 +126,6 @@ function loadFallbackMetadata() {
 
 const staticMetadata = loadFallbackMetadata();
 
-const allowedFacets = ['sector', 'industry_group', 'region', 'market_cap_bucket', 'risk_bucket', 'style_factors', 'dividend_profile'];
-
 function normalizeSymbol(symbol) {
   return typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
 }
@@ -349,8 +347,4 @@ export async function listFacetOptions() {
 
   const serialize = (set) => Array.from(set).sort();
   return Object.fromEntries(Object.entries(sets).map(([key, set]) => [key, serialize(set)]));
-}
-
-export function getAllowedFacetKeys() {
-  return allowedFacets;
 }
