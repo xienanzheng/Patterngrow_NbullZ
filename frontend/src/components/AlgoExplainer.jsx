@@ -28,13 +28,13 @@ const INDICATORS = [
 ];
 
 const RATINGS = [
-  { dot: '●●', color: 'text-emerald-400', label: 'Strong Buy',   threshold: 'score ≥ +4' },
-  { dot: '●',  color: 'text-emerald-400', label: 'Medium Buy',   threshold: 'score ≥ +2' },
-  { dot: '●',  color: 'text-emerald-300', label: 'Buy',          threshold: 'score ≥ +1' },
-  { dot: '●',  color: 'text-zinc-400',    label: 'Neutral',      threshold: '−1 to +1' },
-  { dot: '●',  color: 'text-red-300',     label: 'Sell',         threshold: 'score ≤ −1' },
-  { dot: '●',  color: 'text-red-400',     label: 'Medium Sell',  threshold: 'score ≤ −2' },
-  { dot: '●●', color: 'text-red-500',     label: 'Strong Sell',  threshold: 'score ≤ −4' },
+  { dot: '●●', color: 'text-emerald-400', label: 'Strong Buy',   threshold: 'score ≥ +0.60' },
+  { dot: '●',  color: 'text-emerald-400', label: 'Medium Buy',   threshold: 'score ≥ +0.35' },
+  { dot: '●',  color: 'text-emerald-300', label: 'Buy',          threshold: 'score ≥ +0.15' },
+  { dot: '●',  color: 'text-zinc-400',    label: 'Neutral',      threshold: '−0.15 to +0.15' },
+  { dot: '●',  color: 'text-red-300',     label: 'Sell',         threshold: 'score ≤ −0.15' },
+  { dot: '●',  color: 'text-red-400',     label: 'Medium Sell',  threshold: 'score ≤ −0.35' },
+  { dot: '●●', color: 'text-red-500',     label: 'Strong Sell',  threshold: 'score ≤ −0.60' },
 ];
 
 export default function AlgoExplainer() {
@@ -113,7 +113,7 @@ export default function AlgoExplainer() {
                 Conviction Ratings
               </h4>
               <p className="mb-2.5 text-xs text-zinc-500">
-                Weighted vote across 6 indicators, from −6 (strong sell) to +6 (strong buy)
+                Weighted vote across 6 indicators — score ranges from −1.0 (full sell) to +1.0 (full buy)
               </p>
               <div className="overflow-hidden rounded-lg border border-zinc-800">
                 <table className="w-full text-xs">
