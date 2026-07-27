@@ -148,6 +148,14 @@ export function createPosition({ symbol, shares, costBasis, openedAt }, token) {
   return request('/api/positions', { method: 'POST', body: { symbol, shares, costBasis, openedAt }, token });
 }
 
+export function updatePosition(id, { shares, costBasis }, token) {
+  return request(`/api/positions/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: { shares, costBasis },
+    token,
+  });
+}
+
 export function deletePosition(id, token) {
   return request(`/api/positions/${encodeURIComponent(id)}`, { method: 'DELETE', token });
 }
