@@ -1674,7 +1674,7 @@ export default function Dashboard({ user, session, onSignOut }) {
           </div>
         ) : null}
 
-        {activeTab === 'advanced' ? <AdvancedBacktest /> : null}
+        {activeTab === 'advanced' ? <AdvancedBacktest symbol={symbol} accessToken={session?.access_token} /> : null}
 
         {activeTab === 'alerts' ? <AlertsPanel accessToken={session?.access_token} defaultSymbol={symbol} /> : null}
 
