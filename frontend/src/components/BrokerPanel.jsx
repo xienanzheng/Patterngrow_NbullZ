@@ -157,7 +157,16 @@ export default function BrokerPanel({ accessToken, defaultSymbol }) {
               <input
                 type="checkbox"
                 checked={connectForm.isPaper}
-                onChange={(e) => setConnectForm((prev) => ({ ...prev, isPaper: e.target.checked }))}
+                onChange={(e) => {
+                  const nextIsPaper = e.target.checked;
+                  if (!nextIsPaper) {
+                    const confirmed = window.confirm(
+                      'Warning: You are about to connect a LIVE trading account with real money. Paper trading mode will be disabled. Are you sure?',
+                    );
+                    if (!confirmed) return;
+                  }
+                  setConnectForm((prev) => ({ ...prev, isPaper: nextIsPaper }));
+                }}
                 className="h-4 w-4 accent-amber-400"
               />
               Paper trading account (recommended for testing)
