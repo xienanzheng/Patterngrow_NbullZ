@@ -61,7 +61,7 @@ export default function RegimePanel({ indicatorSnapshots, stockData }) {
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-3">
           <p className="text-xs font-medium text-zinc-500">ADX Strength</p>
           <p className="mt-1 text-base font-semibold text-zinc-200">
-            {adx != null ? adx.toFixed(1) : '--'}
+            {adx != null ? (adx > 50 ? `${adx.toFixed(1)}+` : adx.toFixed(1)) : '--'}
           </p>
           <div className="mt-2 h-1.5 w-full rounded-full bg-zinc-800">
             <div

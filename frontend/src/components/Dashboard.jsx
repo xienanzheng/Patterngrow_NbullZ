@@ -1326,6 +1326,19 @@ export default function Dashboard({ user, session, onSignOut }) {
                     </select>
                   </label>
                   <label className="text-xs uppercase tracking-wide text-zinc-400">
+                    Market Cap
+                    <select
+                      value={facetFilters.marketCapBucket ?? ''}
+                      onChange={(event) => setFacetFilters((prev) => ({ ...prev, marketCapBucket: event.target.value || null }))}
+                      className="mt-1 w-44 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
+                    >
+                      <option value="">All Market Caps</option>
+                      <option value="large">Large Cap (&gt;$10B)</option>
+                      <option value="mid">Mid Cap ($2B–$10B)</option>
+                      <option value="small">Small Cap (&lt;$2B)</option>
+                    </select>
+                  </label>
+                  <label className="text-xs uppercase tracking-wide text-zinc-400">
                     Risk Bucket
                     <select
                       value={facetFilters.riskBucket}
@@ -1475,6 +1488,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       setMetadataActionStatus(null);
                       if (!newTicker.symbol.trim()) {
                         setMetadataActionStatus({ type: 'error', text: 'Symbol is required to add a ticker.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                         return;
                       }
                       try {
@@ -1486,12 +1500,14 @@ export default function Dashboard({ user, session, onSignOut }) {
                           ipo_year: newTicker.ipoYear ? Number(newTicker.ipoYear) : undefined,
                         }, session?.access_token);
                         setMetadataActionStatus({ type: 'success', text: `Saved ${newTicker.symbol.toUpperCase()}.` });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                         setNewTicker({ symbol: '', name: '', sector: '', region: '', ipoYear: '' });
                         const payload = await getMetadata();
                         setMetadataRows(payload?.rows ?? []);
                         setMetadataFacets(payload?.facets ?? null);
                       } catch (err) {
                         setMetadataActionStatus({ type: 'error', text: err instanceof Error ? err.message : 'Unable to add ticker.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                       }
                     }}
                     className="mt-3 rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300"
@@ -1514,8 +1530,10 @@ export default function Dashboard({ user, session, onSignOut }) {
                         const text = await file.text();
                         setCsvText(text);
                         setMetadataActionStatus({ type: 'success', text: `Loaded ${file.name}. Review and click Upload CSV to save.` });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                       } catch {
                         setMetadataActionStatus({ type: 'error', text: 'Unable to read CSV file. Try again or paste the contents.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                       } finally {
                         event.target.value = '';
                       }
@@ -1544,6 +1562,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                       setMetadataActionStatus(null);
                       if (!csvText.trim()) {
                         setMetadataActionStatus({ type: 'error', text: 'Choose a CSV file or paste CSV text before uploading.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                         return;
                       }
                       setMetadataUploading(true);
@@ -1551,12 +1570,14 @@ export default function Dashboard({ user, session, onSignOut }) {
                       try {
                         await uploadMetadataCsv(csvText, session?.access_token);
                         setMetadataActionStatus({ type: 'success', text: 'CSV uploaded and saved.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                         setCsvText('');
                         const payload = await getMetadata();
                         setMetadataRows(payload?.rows ?? []);
                         setMetadataFacets(payload?.facets ?? null);
                       } catch (err) {
                         setMetadataActionStatus({ type: 'error', text: err instanceof Error ? err.message : 'Unable to upload CSV.' });
+                        setTimeout(() => setMetadataActionStatus(null), 4000);
                       } finally {
                         setMetadataUploading(false);
                       }
