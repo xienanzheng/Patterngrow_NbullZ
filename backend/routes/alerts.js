@@ -10,6 +10,15 @@ const router = express.Router();
 
 const RUN_SYMBOL_CAP = 40;
 
+function verifyCronSecret(req) {
+  const secret = process.env.CRON_SECRET;
+  const header = req.headers.authorization ?? '';
+  const expected = `Bearer ${secret}`;
+  const headerBuf = Buffer.from(header);
+  const expectedBuf = Buffer.from(expected);
+  return secret && headerBuf.length === expectedBuf.length && crypto.timingSafeEqual(headerBuf, expectedBuf);
+}
+
 async function sendTelegram(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -29,14 +38,7 @@ async function sendTelegram(text) {
 // Vercel cron sends `Authorization: Bearer ${CRON_SECRET}` automatically
 // and invokes with GET; POST kept for manual triggering.
 const runAlerts = async (req, res) => {
-  const secret = process.env.CRON_SECRET;
-  const header = req.headers.authorization ?? '';
-  const expected = `Bearer ${secret}`;
-  const headerBuf = Buffer.from(header);
-  const expectedBuf = Buffer.from(expected);
-  if (!secret || headerBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(headerBuf, expectedBuf)) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!verifyCronSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const { data: alerts, error } = await supabaseAdmin
@@ -239,14 +241,7 @@ async function writeDecisionLog(symbol, conviction, lastCommitted) {
 }
 
 const runDailySummary = async (req, res) => {
-  const secret = process.env.CRON_SECRET;
-  const header = req.headers.authorization ?? '';
-  const expected = `Bearer ${secret}`;
-  const headerBuf = Buffer.from(header);
-  const expectedBuf = Buffer.from(expected);
-  if (!secret || headerBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(headerBuf, expectedBuf)) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!verifyCronSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const { data: wl, error: wlError } = await supabaseAdmin.from('watchlists').select('symbol');

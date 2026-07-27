@@ -49,3 +49,14 @@ export const portfolioLimiter = rateLimit({
   keyGenerator: (req) => req.user?.id ?? req.ip,
   message: { error: 'Portfolio rate limit reached (10/minute). Try again later.' },
 });
+
+// POST /order places paper trades against Alpaca — throttle per-user so a runaway
+// client loop can't spam order submissions.
+export const orderLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? req.ip,
+  message: { error: 'Order rate limit reached (20/minute). Try again later.' },
+});
