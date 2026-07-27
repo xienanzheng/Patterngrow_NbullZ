@@ -168,14 +168,14 @@ export function backtestStrategy(points, indicator, options = {}) {
       if (macd[i - 1] < signal[i - 1] && macd[i] >= signal[i]) {
         const diff = macd[i] - signal[i];
         let label = 'buy_weak';
-        if (diff > 0.5) label = 'buy_strong';
-        else if (diff > 0.1) label = 'buy_medium';
+        if (diff > closes[i] * 0.001) label = 'buy_strong';
+        else if (diff > closes[i] * 0.0002) label = 'buy_medium';
         signals[i] = { signal: label, numericSignal: 1 };
       } else if (macd[i - 1] > signal[i - 1] && macd[i] <= signal[i]) {
         const diff = signal[i] - macd[i];
         let label = 'sell_weak';
-        if (diff > 0.5) label = 'sell_strong';
-        else if (diff > 0.1) label = 'sell_medium';
+        if (diff > closes[i] * 0.001) label = 'sell_strong';
+        else if (diff > closes[i] * 0.0002) label = 'sell_medium';
         signals[i] = { signal: label, numericSignal: -1 };
       }
     }
