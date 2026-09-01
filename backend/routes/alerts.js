@@ -78,8 +78,6 @@ const runAlerts = async (req, res) => {
         if (outcome.newState !== undefined) updates.last_state = outcome.newState;
 
         if (outcome.triggered) {
-          triggered += 1;
-          updates.last_triggered_at = new Date().toISOString();
           const { error: eventError } = await supabaseAdmin.from('alert_events').insert({
             alert_id: alert.id,
             user_id: alert.user_id,
@@ -87,7 +85,13 @@ const runAlerts = async (req, res) => {
             rule_type: alert.rule_type,
             message: outcome.message,
           });
-          if (eventError) console.warn('alert_events insert failed:', eventError.message);
+          if (eventError) {
+            // Do not advance state: the next run must be able to retry the lost event.
+            console.warn('alert_events insert failed:', eventError.message);
+            continue;
+          }
+          triggered += 1;
+          updates.last_triggered_at = new Date().toISOString();
           await sendTelegram(`<b>${alert.symbol} Alert</b>\n${outcome.message}`);
         }
 
