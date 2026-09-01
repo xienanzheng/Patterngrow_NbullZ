@@ -17,11 +17,15 @@ function buildUrl(path) {
   return `${apiBase}${normalizedPath}`;
 }
 
-async function parseJson(response) {
+async function parseBody(response) {
   if (response.status === 204) return null;
   const text = await response.text();
   if (!text) return null;
-  return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 async function request(path, { method = 'GET', body, token, headers, signal } = {}) {
@@ -38,12 +42,18 @@ async function request(path, { method = 'GET', body, token, headers, signal } = 
   });
 
   if (!response.ok) {
-    const errorBody = await parseJson(response);
-    const message = errorBody?.error ?? `Request failed with status ${response.status}`;
-    throw new Error(message);
+    const errorBody = await parseBody(response);
+    const plainTextError = typeof errorBody === 'string' && !/^\s*</.test(errorBody)
+      ? errorBody.trim().slice(0, 300)
+      : null;
+    const message = errorBody?.error ?? plainTextError ?? `Request failed with status ${response.status}`;
+    const error = new Error(message);
+    error.status = response.status;
+    error.body = errorBody;
+    throw error;
   }
 
-  return parseJson(response);
+  return parseBody(response);
 }
 
 export function getQuote(symbol) {

@@ -46,7 +46,7 @@ export default function AuthForm({ user, loading }) {
           <p className="text-sm text-zinc-400">
             Forecast prices with AI models, backtest strategies, track your portfolio, and get alerts — all in one place.
           </p>
-          <p className="text-xs text-zinc-500">Sign in with Google to get started.</p>
+          <p className="text-xs text-zinc-400">Sign in with Google to get started.</p>
         </div>
         <button
           type="button"
@@ -67,7 +67,7 @@ export default function AuthForm({ user, loading }) {
             {error}
           </p>
         ) : null}
-        <p className="mt-8 text-center text-xs text-zinc-500">
+        <p className="mt-8 text-center text-xs text-zinc-400">
           By signing in you agree to our Terms of Use and acknowledge the market risk disclosures.
         </p>
       </div>

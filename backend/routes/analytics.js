@@ -4,6 +4,7 @@ import { buildAssistantContext } from '../utils/assistantContext.js';
 import { requireAuth } from '../utils/authMiddleware.js';
 import { directionalForecast } from '../utils/classifier.js';
 import { computeSignals } from '../utils/computeSignals.js';
+import { parseCsvRecords } from '../utils/csv.js';
 import { evaluateForecastModel, evaluateNaiveBaseline, evaluateStrategy } from '../utils/evaluation.js';
 import { FORECAST_MODEL_IDS } from '../utils/predictions.js';
 import { fetchFundamentals, fetchNews, fetchPolygonDetails, fetchQuote, fetchYahooHistory } from '../utils/marketData.js';
@@ -96,19 +97,10 @@ router.post('/metadata/csv', requireAuth, async (req, res) => {
     if (!csv || typeof csv !== 'string') {
       return res.status(400).json({ error: 'Provide csv text in request body.' });
     }
-    const lines = csv.trim().split(/\r?\n/).filter(Boolean);
-    if (lines.length < 2) {
+    const rows = parseCsvRecords(csv);
+    if (!rows.length) {
       return res.status(400).json({ error: 'CSV must include header and at least one row.' });
     }
-    const headers = lines[0].split(',').map((h) => h.trim());
-    const rows = lines.slice(1).map((line) => {
-      const cols = line.split(',');
-      const obj = {};
-      headers.forEach((key, idx) => {
-        obj[key] = cols[idx]?.trim();
-      });
-      return obj;
-    });
     const inserted = await upsertMetadataRows(rows);
     res.status(201).json({ insertedCount: inserted.length });
   } catch (error) {
