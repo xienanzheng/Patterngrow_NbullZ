@@ -6,6 +6,13 @@ import { calculateRSI, ema } from './indicators.js';
 
 export const RULE_TYPES = ['price_above', 'price_below', 'rsi_overbought', 'rsi_oversold', 'conviction_flip'];
 
+function convictionPolarity(label) {
+  const normalized = String(label ?? '').toLowerCase();
+  if (normalized.includes('buy') || normalized === 'bullish') return 'bullish';
+  if (normalized.includes('sell') || normalized === 'bearish') return 'bearish';
+  return 'neutral';
+}
+
 export function buildAlertContext(history) {
   const closes = history.map((r) => Number(r.close)).filter((v) => Number.isFinite(v) && v > 0);
   return {
@@ -58,12 +65,14 @@ export function evaluateAlertRule(alert, context) {
     }
     case 'conviction_flip': {
       if (!conviction || conviction.insufficientData) return { triggered: false };
-      const previous = alert.last_state ?? null;
-      const flipped = previous != null && previous !== conviction.label;
+      const previous = alert.last_state == null ? null : convictionPolarity(alert.last_state);
+      const current = convictionPolarity(conviction.label);
+      const flipped = (previous === 'bullish' && current === 'bearish')
+        || (previous === 'bearish' && current === 'bullish');
       return {
         triggered: flipped,
-        message: `${alert.symbol} ensemble conviction flipped ${previous} → ${conviction.label} (score ${conviction.score}).`,
-        newState: conviction.label,
+        message: `${alert.symbol} ensemble conviction flipped ${previous} → ${current} (${conviction.label}, score ${conviction.score}).`,
+        newState: current,
       };
     }
     default:

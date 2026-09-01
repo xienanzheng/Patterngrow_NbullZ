@@ -81,12 +81,28 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Symbol is required.' });
     }
     const symbol = symbolRaw.trim().toUpperCase();
+
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from('watchlists')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .eq('symbol', symbol)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
+    if (existing) {
+      return res.status(409).json({ error: `${symbol} is already on your watchlist.` });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('watchlists')
       .insert({ symbol, user_id: req.user.id })
       .select('id, symbol, inserted_at')
       .single();
 
+    if (error?.code === '23505') {
+      return res.status(409).json({ error: `${symbol} is already on your watchlist.` });
+    }
     if (error) throw error;
     res.status(201).json({ row: data });
   } catch (error) {

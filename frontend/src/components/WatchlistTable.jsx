@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { addWatchlistSymbol, getWatchlist, removeWatchlistSymbol, scanWatchlist } from '../services/api';
 
 export default function WatchlistTable({ user, accessToken, activeSymbol, onSelectSymbol }) {
@@ -9,6 +9,8 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
   const [scanRows, setScanRows] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [confirmId, setConfirmId] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const addInFlightRef = useRef(false);
 
   const handleScan = async () => {
     if (!canManageWatchlist) return;
@@ -86,6 +88,8 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
 
   const handleAdd = async (event) => {
     event.preventDefault();
+    if (addInFlightRef.current) return;
+
     const symbol = formSymbol.trim().toUpperCase();
     if (!symbol) {
       setFeedback('Enter a ticker symbol before adding.');
@@ -108,6 +112,8 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
       return;
     }
 
+    addInFlightRef.current = true;
+    setAdding(true);
     try {
       await addWatchlistSymbol(symbol, accessToken);
       setFormSymbol('');
@@ -116,6 +122,9 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
     } catch (err) {
       console.error('Failed to add symbol', err);
       setFeedback(err instanceof Error ? err.message : 'Could not add symbol.');
+    } finally {
+      addInFlightRef.current = false;
+      setAdding(false);
     }
   };
 
@@ -167,14 +176,14 @@ export default function WatchlistTable({ user, accessToken, activeSymbol, onSele
           onChange={(event) => setFormSymbol(event.target.value)}
           placeholder="Add ticker (e.g. AAPL)"
           className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
-          disabled={!canManageWatchlist}
+          disabled={!canManageWatchlist || adding}
         />
         <button
           type="submit"
-          disabled={!canManageWatchlist}
+          disabled={!canManageWatchlist || adding}
           className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Add
+          {adding ? 'Adding…' : 'Add'}
         </button>
       </form>
 

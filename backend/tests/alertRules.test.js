@@ -45,15 +45,26 @@ describe('evaluateAlertRule', () => {
     expect(evaluateAlertRule(alert, ctx({ rsiSeries: [65, 68, 74] })).triggered).toBe(false);
   });
 
-  it('conviction_flip triggers on label change and carries newState', () => {
+  it('conviction_flip triggers only when conviction crosses bullish to bearish or vice versa', () => {
     const alert = { symbol: 'AAPL', rule_type: 'conviction_flip', last_state: 'Neutral' };
     const outcome = evaluateAlertRule(alert, ctx());
-    expect(outcome.triggered).toBe(true);
-    expect(outcome.newState).toBe('Buy');
+    expect(outcome.triggered).toBe(false);
+    expect(outcome.newState).toBe('bullish');
+    const sameSide = evaluateAlertRule(
+      { ...alert, last_state: 'Buy' },
+      ctx({ conviction: { score: 0.7, label: 'Strong Buy', votes: {} } }),
+    );
+    expect(sameSide.triggered).toBe(false);
+    const flipped = evaluateAlertRule(
+      { ...alert, last_state: 'Medium Buy' },
+      ctx({ conviction: { score: -0.7, label: 'Strong Sell', votes: {} } }),
+    );
+    expect(flipped.triggered).toBe(true);
+    expect(flipped.newState).toBe('bearish');
     // first run (no stored state) primes but does not trigger
     const primed = evaluateAlertRule({ ...alert, last_state: null }, ctx());
     expect(primed.triggered).toBe(false);
-    expect(primed.newState).toBe('Buy');
+    expect(primed.newState).toBe('bullish');
   });
 });
 
