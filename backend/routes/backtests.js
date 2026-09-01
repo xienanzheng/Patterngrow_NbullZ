@@ -1,5 +1,9 @@
 import express from 'express';
-import { backtestStrategy, runTradingSimulationDetailed } from '../utils/backtesting.js';
+import {
+  backtestStrategy,
+  runBuyAndHoldSimulationDetailed,
+  runTradingSimulationDetailed,
+} from '../utils/backtesting.js';
 import { fetchYahooHistory } from '../utils/marketData.js';
 import { evaluateLimiter } from '../utils/rateLimits.js';
 
@@ -84,12 +88,14 @@ router.post('/run', evaluateLimiter, async (req, res) => {
     if (!targetHistory.length) {
       return res.status(422).json({ error: `No price data found for ${symbol}` });
     }
+    if (!benchHistory.length) {
+      return res.status(422).json({ error: `No price data found for benchmark ${benchmark}` });
+    }
 
     const { signals: targetSignals } = backtestStrategy(targetHistory, strategy);
-    const { signals: benchSignals } = backtestStrategy(benchHistory, 'sma');
 
     const targetSim = runTradingSimulationDetailed(targetHistory, targetSignals, capital, simOpts);
-    const benchSim = runTradingSimulationDetailed(benchHistory, benchSignals, capital, {});
+    const benchSim = runBuyAndHoldSimulationDetailed(benchHistory, capital);
 
     res.json({
       target: buildResult(targetSim, capital),

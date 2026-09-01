@@ -90,7 +90,7 @@ const tooltipFormatter = (value, name) => {
 };
 
 export default function StockChart({
-  data, interval, selectedIndicators, forecastModel, hasForecastCloud,
+  data, interval, selectedIndicators, hasForecastCloud,
   showForecast = true,
   drawingMode = false,
   drawnLines = [],
@@ -151,15 +151,29 @@ export default function StockChart({
   }, [data, indicatorData]);
 
   const priceDomain = useMemo(() => {
-    const nonForecast = chartData.filter((row) => !row.isForecast);
-    const lows  = nonForecast.map((row) => row.low  ?? row.close).filter((v) => v != null);
-    const highs = nonForecast.map((row) => row.high ?? row.close).filter((v) => v != null);
+    const visibleRows = chartData.filter((row) => !row.isForecast || showForecast);
+    const lows = visibleRows.flatMap((row) => [
+      row.low,
+      row.close,
+      row.forecastLower95,
+      row.mcP5,
+      row.forecastLower,
+      row.forecast,
+    ]).filter((value) => Number.isFinite(Number(value))).map(Number);
+    const highs = visibleRows.flatMap((row) => [
+      row.high,
+      row.close,
+      row.forecastUpper95,
+      row.mcP95,
+      row.forecastUpper,
+      row.forecast,
+    ]).filter((value) => Number.isFinite(Number(value))).map(Number);
     if (!lows.length) return ['auto', 'auto'];
     const mn = Math.min(...lows);
     const mx = Math.max(...highs);
     const pad = Math.max((mx - mn) * 0.06, mx * 0.01);
     return [mn - pad, mx + pad];
-  }, [chartData]);
+  }, [chartData, showForecast]);
 
   const xTickFormatter = useCallback(
     (value) => formatAxisTick(value, interval),

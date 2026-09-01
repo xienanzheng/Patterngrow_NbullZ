@@ -1,7 +1,7 @@
 // Forecast models operating on daily closes. No model here sees future data;
 // bands are volatility-derived, not fixed percentages.
 
-import { addDays, formatISO } from 'date-fns';
+import { addTradingDays } from './tradingDays.js';
 
 const LEGACY_MODEL_MAP = { simple: 'drift', arima: 'ar', prophet: 'holt' };
 // Deterministic models used for walk-forward evaluation / accountability.
@@ -121,9 +121,7 @@ function boxMullerNormal() {
 }
 
 function buildDates(lastDate, days) {
-  return Array.from({ length: days }, (_, i) =>
-    formatISO(addDays(lastDate, i + 1), { representation: 'date' })
-  );
+  return Array.from({ length: days }, (_, i) => addTradingDays(lastDate, i + 1));
 }
 
 function percentileAt(sorted, p) {
@@ -184,26 +182,41 @@ export function predictFuturePrices(points, _indicator = 'sma', model = 'drift',
       return path;
     });
 
-    const p5 = [], p25 = [], p50 = [], p75 = [], p95 = [];
+    const p2_5 = [], p5 = [], p10 = [], p16 = [], p25 = [];
+    const p50 = [];
+    const p75 = [], p84 = [], p90 = [], p95 = [], p97_5 = [];
     for (let d = 0; d < horizon; d += 1) {
       const dayVals = allPaths.map((p) => p[d]).sort((a, b) => a - b);
+      p2_5.push(percentileAt(dayVals, 0.025));
       p5.push(percentileAt(dayVals, 0.05));
+      p10.push(percentileAt(dayVals, 0.10));
+      p16.push(percentileAt(dayVals, 0.16));
       p25.push(percentileAt(dayVals, 0.25));
       p50.push(percentileAt(dayVals, 0.50));
       p75.push(percentileAt(dayVals, 0.75));
+      p84.push(percentileAt(dayVals, 0.84));
+      p90.push(percentileAt(dayVals, 0.90));
       p95.push(percentileAt(dayVals, 0.95));
+      p97_5.push(percentileAt(dayVals, 0.975));
     }
 
-    const forecastCloud = { dates, p5, p25, p50, p75, p95 };
+    const forecastCloud = {
+      dates,
+      p2_5, p5, p10, p16, p25,
+      p50,
+      p75, p84, p90, p95, p97_5,
+    };
     const forecast = dates.map((date, i) => ({
       date,
       value: p50[i],
-      lower: p25[i],
-      upper: p75[i],
-      lower68: p25[i],
-      upper68: p75[i],
-      lower95: p5[i],
-      upper95: p95[i],
+      // Central quantile intervals. `lower`/`upper` are the 80% band used by
+      // price targets and forecast accountability throughout the product.
+      lower: p10[i],
+      upper: p90[i],
+      lower68: p16[i],
+      upper68: p84[i],
+      lower95: p2_5[i],
+      upper95: p97_5[i],
     }));
 
     return withMeta(forecast, forecastCloud, dailyVol);
@@ -251,7 +264,7 @@ export function predictFuturePrices(points, _indicator = 'sma', model = 'drift',
     const h = idx + 1;
     const band = Math.exp(Z80 * sigma * Math.sqrt(h));
     return {
-      date: formatISO(addDays(lastDate, h), { representation: 'date' }),
+      date: addTradingDays(lastDate, h),
       value,
       lower: value / band,
       upper: value * band,

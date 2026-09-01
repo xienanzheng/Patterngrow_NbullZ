@@ -305,7 +305,7 @@ export default function AdvancedBacktest({ symbol = 'AAPL', accessToken = null }
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-zinc-400">Benchmark Return</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-400">Benchmark Buy &amp; Hold</p>
                 <p className={`mt-1 text-lg font-semibold ${result.metrics.benchmarkReturn >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {formatPercent(result.metrics.benchmarkReturn)}
                 </p>
@@ -330,7 +330,7 @@ export default function AdvancedBacktest({ symbol = 'AAPL', accessToken = null }
                   <Legend verticalAlign="top" />
                   <Brush dataKey="date" travellerWidth={12} stroke="#52525b" height={24} />
                   <Line type="monotone" dataKey="strategy" stroke="#fbbf24" strokeWidth={2} dot={false} name="Strategy" />
-                  <Line type="monotone" dataKey="benchmark" stroke="#a1a1aa" strokeWidth={2} dot={false} name="Benchmark" />
+                  <Line type="monotone" dataKey="benchmark" stroke="#a1a1aa" strokeWidth={2} dot={false} name="Benchmark (buy & hold)" />
                 </LineChart>
               </ResponsiveContainer>
             </div>

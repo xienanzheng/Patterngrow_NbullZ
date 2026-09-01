@@ -1,28 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import { addCalendarDays, gradeSnapshots } from '../utils/accountability.js';
+import { gradeSnapshots } from '../utils/accountability.js';
+import { addTradingDays } from '../utils/tradingDays.js';
 
-describe('addCalendarDays', () => {
-  it('adds days across month boundaries', () => {
-    expect(addCalendarDays('2026-01-30', 5)).toBe('2026-02-04');
+describe('addTradingDays', () => {
+  it('adds weekdays across weekends and month boundaries', () => {
+    expect(addTradingDays('2026-01-30', 5)).toBe('2026-02-06');
+  });
+
+  it('does not count a weekend toward the horizon', () => {
+    expect(addTradingDays('2026-01-31', 1)).toBe('2026-02-02');
   });
 });
 
 describe('gradeSnapshots', () => {
   const closes = {
     '2026-01-01': 100,
-    '2026-01-10': 108,
-    '2026-01-20': 92,
+    '2026-01-12': 108,
+    '2026-01-19': 92,
   };
 
   it('grades in-band and direction hits once the horizon is reached', () => {
     const { rows, summary } = gradeSnapshots([
-      // predicted up to 110 (band 100-120), actual 108 on target → in band, direction hit
+      // Five trading days after Jan 5 is Jan 12: in band and direction hit.
       { snapshot_date: '2026-01-05', horizon: 5, last_close: 101, base: 110, lower: 100, upper: 120, forecast_model: 'drift' },
-      // predicted up to 105 (band 100-110), actual 92 → out of band, direction miss
+      // Five trading days after Jan 12 is Jan 19: out of band and direction miss.
       { snapshot_date: '2026-01-12', horizon: 5, last_close: 100, base: 105, lower: 100, upper: 110, forecast_model: 'holt' },
     ], closes);
 
     expect(rows).toHaveLength(2);
+    expect(rows[0].targetDate).toBe('2026-01-12');
+    expect(rows[1].targetDate).toBe('2026-01-19');
     expect(rows[0].inBand).toBe(true);
     expect(rows[0].directionHit).toBe(true);
     expect(rows[1].inBand).toBe(false);
