@@ -17,21 +17,41 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
   : ['http://localhost:5173'];
 
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin) {
-      // Allow server-to-server requests or same-origin requests.
-      return callback(null, true);
-    }
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-      return callback(null, true);
-    }
-    return callback(new Error(`Origin ${origin} not allowed by CORS`));
-  },
-  credentials: true,
-};
+function firstForwardedValue(value) {
+  return value?.split(',')[0]?.trim();
+}
 
-app.use(cors(corsOptions));
+function isSameOriginRequest(req, origin) {
+  try {
+    const parsedOrigin = new URL(origin);
+    const requestProtocol = firstForwardedValue(req.get('x-forwarded-proto')) ?? req.protocol;
+    const requestHosts = [
+      firstForwardedValue(req.get('x-forwarded-host')),
+      req.get('host'),
+    ].filter(Boolean);
+
+    return parsedOrigin.protocol === `${requestProtocol}:`
+      && requestHosts.some((host) => parsedOrigin.host.toLowerCase() === host.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+  const originAllowed = !origin
+    || allowedOrigins.includes('*')
+    || allowedOrigins.includes(origin)
+    || isSameOriginRequest(req, origin);
+
+  if (!originAllowed) {
+    const error = new Error(`Origin ${origin} not allowed by CORS`);
+    error.code = 'CORS_ORIGIN_DENIED';
+    return next(error);
+  }
+
+  return cors({ origin: true, credentials: true })(req, res, next);
+});
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
@@ -47,6 +67,9 @@ app.use('/api/broker', brokerRouter);
 app.use('/api/backtests', backtestsRouter);
 
 app.use((err, _req, res, _next) => {
+  if (err.code === 'CORS_ORIGIN_DENIED') {
+    return res.status(403).json({ error: err.message });
+  }
   console.error('Unhandled API error', err);
   res.status(500).json({ error: 'Internal server error' });
 });
