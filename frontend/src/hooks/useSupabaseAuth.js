@@ -10,9 +10,10 @@ export function useSupabaseAuth() {
   const [loading, setLoading] = useState(true);
 
   // Ensure PKCE redirects are resolved before we attempt to read the session.
-  useSupabasePkceRedirect();
+  const pkceLoading = useSupabasePkceRedirect();
 
   useEffect(() => {
+    if (pkceLoading) return undefined;
     let mounted = true;
 
     const bootstrap = async () => {
@@ -52,7 +53,7 @@ export function useSupabaseAuth() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [pkceLoading]);
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();

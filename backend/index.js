@@ -62,7 +62,7 @@ app.use('/api/alerts', alertsRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/positions', positionsRouter);
 app.use('/api/watchlist', watchlistRouter);
-app.use('/api/user', preferencesRouter);
+app.use('/api/user/preferences', preferencesRouter);
 app.use('/api/broker', brokerRouter);
 app.use('/api/backtests', backtestsRouter);
 
