@@ -125,13 +125,18 @@ export function evaluateStrategy(history, indicator, {
   // held-out window is simulated.
   const { signals } = backtestStrategy(history, indicator, { weights });
   const testHistory = history.slice(splitIdx);
-  const testSignals = signals.slice(splitIdx);
-  const { portfolio, trades, costsPaid } = runTradingSimulationDetailed(
-    testHistory,
-    testSignals,
+  // Include the final training bar so its close-derived signal can execute at
+  // the first held-out bar. Drop that seed bar from the returned equity curve.
+  const simulationHistory = history.slice(splitIdx - 1);
+  const simulationSignals = signals.slice(splitIdx - 1);
+  const simulation = runTradingSimulationDetailed(
+    simulationHistory,
+    simulationSignals,
     initialCapital,
     { transactionCostPct, slippagePct, stopLossPct },
   );
+  const portfolio = simulation.portfolio.slice(1);
+  const { trades, costsPaid } = simulation;
   const finalValue = portfolio.at(-1)?.value ?? initialCapital;
   const firstClose = Number(testHistory[0].close);
   const lastClose = Number(testHistory.at(-1).close);

@@ -11,7 +11,7 @@ function makeHistory(prices) {
 
 describe('runTradingSimulationDetailed — takeProfitPct', () => {
   it('exits with type "target" when price rises above entry by takeProfitPct', () => {
-    // Buy on bar 1, price rises 12% by bar 8, takeProfitPct = 10 (fraction 0.10)
+    // Signal on bar 1 executes on bar 2; price subsequently reaches the target.
     const prices = [100, 100, 102, 105, 108, 110, 112, 115, 115, 115];
     const history = makeHistory(prices);
     const signals = history.map((_, i) => ({
@@ -40,7 +40,7 @@ describe('runTradingSimulationDetailed — takeProfitPct', () => {
   });
 
   it('stop-loss still fires even when takeProfitPct is set', () => {
-    const prices = [100, 100, 90, 90, 90, 90, 90, 90, 90, 90];
+    const prices = [100, 100, 100, 90, 90, 90, 90, 90, 90, 90];
     const history = makeHistory(prices);
     const signals = history.map((_, i) => ({
       signal: i === 1 ? 'buy_strong' : 'hold',

@@ -57,6 +57,40 @@ describe('predictFuturePrices', () => {
     });
   });
 
+  it('uses trading weekdays for every forecast horizon', () => {
+    const fridayPoints = points.map((point) => ({ ...point }));
+    fridayPoints.at(-1).date = '2025-05-02T00:00:00.000Z';
+    const out = predictFuturePrices(fridayPoints, 'sma', 'drift', 3);
+
+    expect(out.map((point) => point.date)).toEqual([
+      '2025-05-05',
+      '2025-05-06',
+      '2025-05-07',
+    ]);
+    expect(out.every((point) => ![0, 6].includes(new Date(`${point.date}T00:00:00Z`).getUTCDay()))).toBe(true);
+  });
+
+  it('uses true central 68%, 80%, and 95% Monte Carlo quantile bands', () => {
+    const out = predictFuturePrices(points, 'sma', 'montecarlo', 5);
+    const cloud = out.forecastCloud;
+
+    expect(cloud).not.toBeNull();
+    out.forEach((point, index) => {
+      expect(point.lower68).toBe(cloud.p16[index]);
+      expect(point.upper68).toBe(cloud.p84[index]);
+      expect(point.lower).toBe(cloud.p10[index]);
+      expect(point.upper).toBe(cloud.p90[index]);
+      expect(point.lower95).toBe(cloud.p2_5[index]);
+      expect(point.upper95).toBe(cloud.p97_5[index]);
+      expect(point.lower95).toBeLessThanOrEqual(point.lower);
+      expect(point.lower).toBeLessThanOrEqual(point.lower68);
+      expect(point.lower68).toBeLessThanOrEqual(point.value);
+      expect(point.value).toBeLessThanOrEqual(point.upper68);
+      expect(point.upper68).toBeLessThanOrEqual(point.upper);
+      expect(point.upper).toBeLessThanOrEqual(point.upper95);
+    });
+  });
+
   it('maps legacy model names', () => {
     expect(predictFuturePrices(points, 'sma', 'arima', 5)).toEqual(
       predictFuturePrices(points, 'sma', 'ar', 5),

@@ -2,6 +2,7 @@
 // snapshots against what actually happened once the horizon has passed.
 
 import { supabaseAdmin } from './supabaseClient.js';
+import { addTradingDays } from './tradingDays.js';
 
 export async function logForecastSnapshot({
   symbol, lastClose, forecastModel, horizon, base, lower, upper, convictionScore, convictionLabel, probUp,
@@ -39,7 +40,7 @@ export function gradeSnapshots(snapshots, closesByDate) {
   const rows = [];
 
   snapshots.forEach((snap) => {
-    const target = addCalendarDays(snap.snapshot_date, snap.horizon);
+    const target = addTradingDays(snap.snapshot_date, Number(snap.horizon));
     // A target before the fetched history window would otherwise "match" the
     // window's first bar and grade the forecast against a far-later close.
     if (firstDate && target < firstDate) return;
@@ -83,12 +84,6 @@ export function gradeSnapshots(snapshots, closesByDate) {
       directionHitRate: dirGraded.length ? dirGraded.filter((r) => r.directionHit).length / dirGraded.length : null,
     },
   };
-}
-
-export function addCalendarDays(dateStr, days) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + Number(days));
-  return d.toISOString().slice(0, 10);
 }
 
 export async function fetchSnapshots(symbol, limit = 120) {

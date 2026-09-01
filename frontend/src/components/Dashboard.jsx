@@ -846,7 +846,7 @@ export default function Dashboard({ user, session, onSignOut }) {
               <p className="text-xs text-zinc-400">Avg Volume: {quote?.averageDailyVolume10Day?.toLocaleString() ?? 'N/A'}</p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-              <p className="text-xs font-medium text-zinc-500">30-Day Change</p>
+              <p className="text-xs font-medium text-zinc-500">Latest Bar Change</p>
               <p className="mt-1 text-2xl font-semibold text-white">
                 {momentum?.change != null ? formatCurrency(momentum.change) : '--'}
               </p>
@@ -1018,7 +1018,6 @@ export default function Dashboard({ user, session, onSignOut }) {
                   data={chartData}
                   interval={chartInterval}
                   selectedIndicators={selectedIndicators}
-                  forecastModel={forecastModel}
                   hasForecastCloud={Boolean(forecastCloud)}
                   showForecast={showForecast}
                   drawingMode={drawingMode}
