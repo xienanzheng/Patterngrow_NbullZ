@@ -2,6 +2,7 @@
 // snapshots against what actually happened once the horizon has passed.
 
 import { supabaseAdmin } from './supabaseClient.js';
+import { addTradingDays } from './tradingDays.js';
 
 export async function logForecastSnapshot({
   symbol, lastClose, forecastModel, horizon, base, lower, upper, convictionScore, convictionLabel, probUp,
@@ -39,7 +40,7 @@ export function gradeSnapshots(snapshots, closesByDate) {
   const rows = [];
 
   snapshots.forEach((snap) => {
-    const target = addCalendarDays(snap.snapshot_date, snap.horizon);
+    const target = addTradingDays(snap.snapshot_date, Number(snap.horizon));
     // A target before the fetched history window would otherwise "match" the
     // window's first bar and grade the forecast against a far-later close.
     if (firstDate && target < firstDate) return;
@@ -85,12 +86,6 @@ export function gradeSnapshots(snapshots, closesByDate) {
   };
 }
 
-export function addCalendarDays(dateStr, days) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + Number(days));
-  return d.toISOString().slice(0, 10);
-}
-
 export async function fetchSnapshots(symbol, limit = 120) {
   const { data, error } = await supabaseAdmin
     .from('forecast_log')
@@ -101,8 +96,3 @@ export async function fetchSnapshots(symbol, limit = 120) {
   if (error) throw error;
   return data ?? [];
 }
-
-// NOTE: The forecast_log table in Supabase must have its unique constraint updated to
-// cover (symbol, snapshot_date, forecast_model). Run this in the SQL Editor:
-// ALTER TABLE forecast_log DROP CONSTRAINT IF EXISTS forecast_log_symbol_snapshot_date_key;
-// ALTER TABLE forecast_log ADD CONSTRAINT forecast_log_symbol_date_model_key UNIQUE (symbol, snapshot_date, forecast_model);

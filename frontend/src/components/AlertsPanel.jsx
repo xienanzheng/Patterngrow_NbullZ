@@ -41,6 +41,12 @@ export default function AlertsPanel({ accessToken, defaultSymbol }) {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (defaultSymbol) {
+      setForm((prev) => ({ ...prev, symbol: defaultSymbol }));
+    }
+  }, [defaultSymbol]);
+
   const handleCreate = async (event) => {
     event.preventDefault();
     setStatus('');

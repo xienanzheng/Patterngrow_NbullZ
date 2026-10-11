@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { createPosition, deletePosition, getPositions } from '../services/api';
+import { createPosition, deletePosition, getPositions, updatePosition } from '../services/api';
 
 const money = (value) => (value == null ? '—' : `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 const pct = (value) => (value == null ? '—' : `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`);
@@ -11,6 +11,8 @@ export default function PortfolioPanel({ accessToken }) {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [form, setForm] = useState({ symbol: '', shares: '', costBasis: '', openedAt: '' });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ shares: '', costBasis: '' });
 
   const refresh = useCallback(async () => {
     if (!accessToken) {
@@ -51,6 +53,35 @@ export default function PortfolioPanel({ accessToken }) {
       await refresh();
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Could not add position.');
+    }
+  };
+
+  const startEdit = (row) => {
+    setStatus('');
+    setEditingId(row.id);
+    setEditForm({ shares: String(row.shares ?? ''), costBasis: String(row.costBasis ?? '') });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ shares: '', costBasis: '' });
+  };
+
+  const handleUpdate = async (id) => {
+    setStatus('');
+    if (!(Number(editForm.shares) > 0) || !(Number(editForm.costBasis) > 0)) {
+      setStatus('Positive shares and positive cost basis are required.');
+      return;
+    }
+    try {
+      await updatePosition(id, {
+        shares: Number(editForm.shares),
+        costBasis: Number(editForm.costBasis),
+      }, accessToken);
+      cancelEdit();
+      await refresh();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Could not update position.');
     }
   };
 
@@ -159,27 +190,84 @@ export default function PortfolioPanel({ accessToken }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">
-                {rows.map((row) => (
+                {rows.map((row) => {
+                  const isEditing = editingId === row.id;
+                  return (
                   <tr key={row.id}>
                     <td className="px-4 py-2 font-semibold text-white">{row.symbol}</td>
-                    <td className="px-4 py-2 text-right">{row.shares}</td>
-                    <td className="px-4 py-2 text-right">{money(row.costBasis)}</td>
+                    <td className="px-4 py-2 text-right">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={editForm.shares}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, shares: e.target.value }))}
+                          className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-right text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
+                        />
+                      ) : (
+                        row.shares
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editForm.costBasis}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, costBasis: e.target.value }))}
+                          className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-right text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/25"
+                        />
+                      ) : (
+                        money(row.costBasis)
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-right">{money(row.price)}</td>
                     <td className="px-4 py-2 text-right">{money(row.value)}</td>
                     <td className={`px-4 py-2 text-right ${pnlColor(row.pnl)}`}>
                       {money(row.pnl)} {row.pnlPct != null ? `(${pct(row.pnlPct)})` : ''}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(row.id)}
-                        className="text-xs font-medium text-zinc-400 transition hover:text-red-400"
-                      >
-                        Remove
-                      </button>
+                      {isEditing ? (
+                        <span className="flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdate(row.id)}
+                            className="text-xs font-medium text-emerald-300 transition hover:text-emerald-200"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="text-xs font-medium text-zinc-400 transition hover:text-zinc-200"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(row)}
+                            className="text-xs font-medium text-zinc-400 transition hover:text-amber-300"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(row.id)}
+                            className="text-xs font-medium text-zinc-400 transition hover:text-red-400"
+                          >
+                            Remove
+                          </button>
+                        </span>
+                      )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

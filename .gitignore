@@ -51,3 +51,8 @@ out/
 .next/
 .vercel/
 .superpowers/
+.vercel
+.env*
+/.claude
+/.claude
+/.claude

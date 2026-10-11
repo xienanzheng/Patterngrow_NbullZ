@@ -1,5 +1,6 @@
 import express from 'express';
 import { requireAuth } from '../utils/authMiddleware.js';
+import { orderLimiter } from '../utils/rateLimits.js';
 import { supabaseAdmin } from '../utils/supabaseClient.js';
 
 const router = express.Router();
@@ -18,14 +19,26 @@ function alpacaHeaders(keyId, secretKey) {
 }
 
 async function getConnection(userId) {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('broker_connections')
     .select('key_id, secret_key, is_paper, broker')
     .eq('user_id', userId)
     .eq('broker', 'alpaca')
     .single();
+  if (error && error.code !== 'PGRST116') throw error;
   return data ?? null;
 }
+
+// Lightweight connection status check — avoids the 404 + full portfolio fetch.
+router.get('/connect', async (req, res) => {
+  try {
+    const conn = await getConnection(req.user.id);
+    if (!conn) return res.json({ connected: false });
+    res.json({ connected: true, isPaper: conn.is_paper });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Connect or update Alpaca credentials
 router.put('/connect', async (req, res) => {
@@ -60,13 +73,12 @@ router.put('/connect', async (req, res) => {
 
 // Fetch Alpaca account, positions, and recent orders in parallel
 router.get('/portfolio', async (req, res) => {
-  const conn = await getConnection(req.user.id);
-  if (!conn) return res.status(404).json({ error: 'No Alpaca account connected.' });
-
-  const base = alpacaBase(conn.is_paper);
-  const hdrs = alpacaHeaders(conn.key_id, conn.secret_key);
-
   try {
+    const conn = await getConnection(req.user.id);
+    if (!conn) return res.status(404).json({ error: 'No Alpaca account connected.' });
+
+    const base = alpacaBase(conn.is_paper);
+    const hdrs = alpacaHeaders(conn.key_id, conn.secret_key);
     const [accountRes, positionsRes, ordersRes] = await Promise.all([
       fetch(`${base}/v2/account`, { headers: hdrs }),
       fetch(`${base}/v2/positions`, { headers: hdrs }),
@@ -96,7 +108,7 @@ router.get('/portfolio', async (req, res) => {
 });
 
 // Place a paper market order
-router.post('/order', async (req, res) => {
+router.post('/order', orderLimiter, async (req, res) => {
   const { symbol, side, qty } = req.body ?? {};
   if (!symbol?.trim()) return res.status(400).json({ error: 'symbol is required.' });
   if (!['buy', 'sell'].includes(side)) return res.status(400).json({ error: "side must be 'buy' or 'sell'." });
@@ -105,14 +117,13 @@ router.post('/order', async (req, res) => {
     return res.status(400).json({ error: 'qty must be a positive number.' });
   }
 
-  const conn = await getConnection(req.user.id);
-  if (!conn) return res.status(404).json({ error: 'No Alpaca account connected.' });
-  if (!conn.is_paper) return res.status(403).json({ error: 'Live trading is not enabled in this version. Use a paper account.' });
-
-  const base = alpacaBase(conn.is_paper);
-  const hdrs = alpacaHeaders(conn.key_id, conn.secret_key);
-
   try {
+    const conn = await getConnection(req.user.id);
+    if (!conn) return res.status(404).json({ error: 'No Alpaca account connected.' });
+    if (!conn.is_paper) return res.status(403).json({ error: 'Live trading is not enabled in this version. Use a paper account.' });
+
+    const base = alpacaBase(conn.is_paper);
+    const hdrs = alpacaHeaders(conn.key_id, conn.secret_key);
     const orderRes = await fetch(`${base}/v2/orders`, {
       method: 'POST',
       headers: hdrs,
@@ -134,12 +145,17 @@ router.post('/order', async (req, res) => {
 
 // Disconnect (delete stored credentials)
 router.delete('/connect', async (req, res) => {
-  await supabaseAdmin
-    .from('broker_connections')
-    .delete()
-    .eq('user_id', req.user.id)
-    .eq('broker', 'alpaca');
-  res.json({ disconnected: true });
+  try {
+    const { error } = await supabaseAdmin
+      .from('broker_connections')
+      .delete()
+      .eq('user_id', req.user.id)
+      .eq('broker', 'alpaca');
+    if (error) throw error;
+    res.json({ disconnected: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 export default router;

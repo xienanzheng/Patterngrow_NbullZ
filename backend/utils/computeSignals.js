@@ -1,4 +1,4 @@
-import { backtestStrategy, normalizeEnsembleWeights, runTradingSimulationDetailed } from './backtesting.js';
+import { backtestStrategy, normalizeEnsembleWeights, runTradingSimulationDetailed, CONVICTION_THRESHOLDS } from './backtesting.js';
 import {
   calculateADX,
   calculateBollingerBands,
@@ -56,10 +56,14 @@ export function computeConvictionScore(history, customWeights) {
   };
   const weights = normalizeEnsembleWeights(customWeights);
   const score = Object.entries(votes).reduce((acc, [key, vote]) => acc + weights[key] * vote, 0);
-  const label = score >= 0.5 ? 'Strong Buy'
-    : score >= 0.2 ? 'Buy'
-      : score > -0.2 ? 'Neutral'
-        : score > -0.5 ? 'Sell' : 'Strong Sell';
+  const { STRONG_BUY, MEDIUM_BUY, BUY, NEUTRAL_LOW, SELL, MEDIUM_SELL } = CONVICTION_THRESHOLDS;
+  const label = score >= STRONG_BUY  ? 'Strong Buy'
+    : score >= MEDIUM_BUY  ? 'Medium Buy'
+    : score >= BUY         ? 'Buy'
+    : score >= NEUTRAL_LOW ? 'Neutral'
+    : score > SELL         ? 'Sell'
+    : score > MEDIUM_SELL  ? 'Medium Sell'
+    : 'Strong Sell';
   return { score: Number(score.toFixed(3)), label, votes };
 }
 

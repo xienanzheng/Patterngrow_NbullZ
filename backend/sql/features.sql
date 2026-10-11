@@ -2,7 +2,7 @@
 -- The backend uses the service-role key (bypasses RLS), but RLS is enabled
 -- anyway so anon/authenticated Postgrest access stays locked down.
 
--- F3: forecast accountability log (one snapshot per symbol per day)
+-- F3: forecast accountability log (one snapshot per symbol/model per day)
 create table if not exists public.forecast_log (
   id uuid default gen_random_uuid() primary key,
   symbol text not null,
@@ -17,7 +17,7 @@ create table if not exists public.forecast_log (
   conviction_label text,
   prob_up numeric,
   created_at timestamptz default timezone('utc', now()),
-  unique (symbol, snapshot_date)
+  unique (symbol, snapshot_date, forecast_model)
 );
 alter table public.forecast_log enable row level security;
 

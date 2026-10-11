@@ -3,6 +3,7 @@ import { requireAuth } from '../utils/authMiddleware.js';
 import { directionalForecast } from '../utils/classifier.js';
 import { computeConvictionScore } from '../utils/computeSignals.js';
 import { fetchYahooHistory } from '../utils/marketData.js';
+import { scanLimiter } from '../utils/rateLimits.js';
 import { supabaseAdmin } from '../utils/supabaseClient.js';
 
 const router = express.Router();
@@ -11,7 +12,7 @@ router.use(requireAuth);
 
 const SCAN_SYMBOL_CAP = 20;
 
-router.get('/scan', async (req, res) => {
+router.get('/scan', scanLimiter, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('watchlists')
@@ -80,12 +81,28 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Symbol is required.' });
     }
     const symbol = symbolRaw.trim().toUpperCase();
+
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from('watchlists')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .eq('symbol', symbol)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
+    if (existing) {
+      return res.status(409).json({ error: `${symbol} is already on your watchlist.` });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('watchlists')
       .insert({ symbol, user_id: req.user.id })
       .select('id, symbol, inserted_at')
       .single();
 
+    if (error?.code === '23505') {
+      return res.status(409).json({ error: `${symbol} is already on your watchlist.` });
+    }
     if (error) throw error;
     res.status(201).json({ row: data });
   } catch (error) {

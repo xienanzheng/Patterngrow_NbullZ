@@ -38,7 +38,7 @@ export async function buildAssistantContext(symbol) {
         ? `Ensemble conviction: ${conviction.label} (score ${conviction.score}; votes ${Object.entries(conviction.votes).map(([k, v]) => `${k}:${v}`).join(' ')}).`
         : null,
       directional
-        ? `Direction model: P(up over ${directional.horizon} days) = ${(directional.probUp * 100).toFixed(0)}% — holdout accuracy ${(directional.accuracy * 100).toFixed(0)}% on ${directional.testSamples} samples (treat sub-55% as noise).`
+        ? `Direction model: P(up over ${directional.horizon} days) = ${directional.probUp != null ? `${(directional.probUp * 100).toFixed(0)}%` : 'N/A'} — holdout accuracy ${(directional.accuracy * 100).toFixed(0)}% on ${directional.testSamples} samples (treat sub-55% as noise).`
         : 'Direction model: insufficient history.',
       lastForecast
         ? `Forecast (${insights.forecastModel}): 60-day base ${fmt(lastForecast.value)}, 80% band ${fmt(lastForecast.lower)}-${fmt(lastForecast.upper)}.`

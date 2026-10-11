@@ -18,6 +18,7 @@ async function fetchJson(url, params) {
   }
   const response = await fetch(target, {
     headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(8000),
   });
   if (!response.ok) {
     const body = await response.text();
@@ -85,7 +86,7 @@ export async function fetchQuote(symbol) {
     }
     return quote;
   } catch (error) {
-    const history = await fetchGoogleHistory(symbol, '1mo', '1d');
+    const history = await fetchYahooHistory(symbol, '1mo', '1d');
     if (!history.length) throw error;
     const latest = history.at(-1);
     const previous = history.at(-2);
@@ -100,6 +101,47 @@ export async function fetchQuote(symbol) {
         history.slice(-10).reduce((acc, row) => acc + (row.volume ?? 0), 0) / Math.max(history.slice(-10).length, 1),
     };
   }
+}
+
+function chartDerivedFundamentals(history) {
+  const finiteNumber = (value) => {
+    if (value == null || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const valid = history.filter((row) => finiteNumber(row.close) != null);
+  const latest = valid.at(-1);
+  const recent = valid.slice(-30);
+  const highs = valid.map((row) => finiteNumber(row.high)).filter((value) => value != null);
+  const lows = valid.map((row) => finiteNumber(row.low)).filter((value) => value != null);
+  const volumes = recent.map((row) => finiteNumber(row.volume)).filter((value) => value != null);
+
+  return {
+    currency: 'USD',
+    marketCap: null,
+    trailingPE: null,
+    forwardPE: null,
+    trailingEps: null,
+    forwardEps: null,
+    volume: finiteNumber(latest?.volume),
+    averageVolume: volumes.length
+      ? volumes.reduce((sum, volume) => sum + volume, 0) / volumes.length
+      : null,
+    fiftyTwoWeekHigh: highs.length ? Math.max(...highs) : null,
+    fiftyTwoWeekLow: lows.length ? Math.min(...lows) : null,
+    beta: null,
+    dividendYield: null,
+    dividendRate: null,
+    profitMargins: null,
+    grossMargins: null,
+    revenueGrowth: null,
+    totalRevenue: null,
+    totalDebt: null,
+    targetMeanPrice: null,
+    quarterlyResults: [],
+    partial: true,
+    dataSource: latest?.source ?? 'chart',
+  };
 }
 
 export async function fetchNews(symbol) {
@@ -145,19 +187,30 @@ export async function fetchPolygonDetails(symbol) {
 }
 
 export async function fetchFundamentals(symbol) {
-  const data = await fetchJson(`${yahooBase}/v10/finance/quoteSummary/${encodeURIComponent(symbol)}`, {
-    modules: [
-      'price',
-      'summaryDetail',
-      'defaultKeyStatistics',
-      'financialData',
-      'incomeStatementHistoryQuarterly',
-      'cashflowStatementHistoryQuarterly',
-      'balanceSheetHistoryQuarterly',
-    ].join(','),
-  });
-  const result = data?.quoteSummary?.result?.[0];
-  if (!result) throw new Error('Fundamentals unavailable for this symbol.');
+  let result;
+  try {
+    const data = await fetchJson(`${yahooBase}/v10/finance/quoteSummary/${encodeURIComponent(symbol)}`, {
+      modules: [
+        'price',
+        'summaryDetail',
+        'defaultKeyStatistics',
+        'financialData',
+        'incomeStatementHistoryQuarterly',
+        'cashflowStatementHistoryQuarterly',
+        'balanceSheetHistoryQuarterly',
+      ].join(','),
+    });
+    result = data?.quoteSummary?.result?.[0];
+    if (!result) throw new Error('Fundamentals unavailable for this symbol.');
+  } catch (error) {
+    try {
+      const history = await fetchYahooHistory(symbol, '1y', '1d');
+      if (history.length) return chartDerivedFundamentals(history);
+    } catch {
+      // Preserve the more actionable quoteSummary error when both sources fail.
+    }
+    throw error;
+  }
 
   const price = result.price ?? {};
   const sd = result.summaryDetail ?? {};
@@ -259,6 +312,7 @@ async function fetchGoogleHistory(symbol, range = '1y', interval = '1d') {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
       Accept: 'text/plain',
     },
+    signal: AbortSignal.timeout(8000),
   });
   if (!response.ok) {
     return [];
@@ -331,11 +385,11 @@ async function fetchTwelveData(symbol, range, interval) {
     if (data.status === 'error' || !Array.isArray(data.values)) return [];
     return data.values.map((bar) => ({
       date: new Date(bar.datetime).toISOString(),
-      open: Number(bar.open) || null,
-      high: Number(bar.high) || null,
-      low: Number(bar.low) || null,
-      close: Number(bar.close) || null,
-      volume: Number(bar.volume) || null,
+      open: Number.isFinite(Number(bar.open)) ? Number(bar.open) : null,
+      high: Number.isFinite(Number(bar.high)) ? Number(bar.high) : null,
+      low: Number.isFinite(Number(bar.low)) ? Number(bar.low) : null,
+      close: Number.isFinite(Number(bar.close)) ? Number(bar.close) : null,
+      volume: Number.isFinite(Number(bar.volume)) ? Number(bar.volume) : null,
       source: 'twelvedata',
     })).filter((row) => row.date != null);
   } catch {
