@@ -589,7 +589,7 @@ After Vercel deploys (~2 min), trigger the daily summary endpoint:
 
 ```bash
 curl -X POST https://trading.night-zone.com/api/alerts/daily-summary \
-  -H "Authorization: Bearer dff3d656283bd7328f484d70843c2276fca18eb02c07cb5daa26ad6bd419b0f2"
+  -H "Authorization: Bearer $CRON_SECRET   # value lives in Vercel env — never commit it"
 ```
 
 Then verify in Supabase Table Editor → `decision_log`: you should see one row per watchlist symbol with `conviction_label`, `votes` JSON, `last_signal`, and `recommended_action`.
