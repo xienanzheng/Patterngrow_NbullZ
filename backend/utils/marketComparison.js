@@ -263,7 +263,7 @@ export function buildMarketComparison(symbolHistory, benchmarkHistory, {
   if (symbol.diagnostics.unknownTimezoneBars || benchmark.diagnostics.unknownTimezoneBars) warnings.push('Timestamped observations with unknown exchange timezones were excluded from session alignment; UTC dates were not substituted.');
   if (symbol.diagnostics.invalidTimezoneBars || benchmark.diagnostics.invalidTimezoneBars) warnings.push('Invalid exchange timezone values were supplied and were not used for session alignment.');
   if (symbol.diagnostics.unverifiedSessionDates || benchmark.diagnostics.unverifiedSessionDates) warnings.push('Explicit session-date labels were preserved, but their exchange timezone is unverified.');
-  if (invalidDateBarrier) warnings.push('Invalid dates prevent proving observation adjacency; daily comparison statistics are unavailable.');
+  if (invalidDateBarrier) warnings.push('Invalid or discarded timestamps prevent proving observation adjacency; daily comparison statistics are unavailable.');
   if (discardedUpstreamBarriers) warnings.push('Upstream normalization removed invalid or duplicate timestamps. Their positions cannot be reconstructed; daily pairing and rolling correlation are unavailable.');
   if (Object.values(upstream).some((input) => Object.values(input).some((value) => value > 0))) warnings.push('Source data-quality diagnostics are retained from the underlying research snapshots; normalization does not erase their limitations.');
   if (symbol.diagnostics.invalidCloseBars || benchmark.diagnostics.invalidCloseBars) warnings.push('Missing or invalid closes remain unavailable and break paired-return windows.');
