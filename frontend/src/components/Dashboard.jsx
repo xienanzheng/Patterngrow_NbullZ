@@ -10,15 +10,18 @@ import RegimePanel from './RegimePanel';
 import PortfolioPanel from './PortfolioPanel';
 import BrokerPanel from './BrokerPanel';
 import FundamentalsCard from './FundamentalsCard';
+import MarketResearchPanel from './MarketResearchPanel';
+import { Link } from 'react-router-dom';
 import { getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
 import AlgoExplainer from './AlgoExplainer';
 
-const formatCurrency = (value) => {
+const formatCurrency = (value, currency = 'USD') => {
   if (value == null) return 'N/A';
-  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(2)}K`;
-  return `$${value.toFixed(2)}`;
+  const unit = currency === 'USD' ? '$' : currency ? `${currency} ` : '';
+  if (value >= 1_000_000_000) return `${unit}${(value / 1_000_000_000).toFixed(2)}B`;
+  if (value >= 1_000_000) return `${unit}${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `${unit}${(value / 1_000).toFixed(2)}K`;
+  return `${unit}${value.toFixed(2)}`;
 };
 
 const formatPercent = (value) => {
@@ -214,7 +217,8 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [directional, setDirectional] = useState(null);
   const [accountability, setAccountability] = useState(null);
   const [technicalSummary, setTechnicalSummary] = useState(null);
-  const [dataSource, setDataSource] = useState('yahoo');
+  const [dataSource, setDataSource] = useState('unknown');
+  const [research, setResearch] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
 
@@ -235,6 +239,7 @@ export default function Dashboard({ user, session, onSignOut }) {
       setDirectional(null);
       setTechnicalSummary(null);
       setDataSource('unavailable');
+      setResearch(null);
       setMetadataEntry(null);
       setForecastCloud(null);
       setSignalSeries([]);
@@ -271,7 +276,8 @@ export default function Dashboard({ user, session, onSignOut }) {
     setPriceTargets(payload.priceTargets ?? null);
     setConviction(payload.conviction ?? null);
     setDirectional(payload.directional ?? null);
-    setDataSource(payload.dataSource ?? 'yahoo');
+    setDataSource(payload.dataSource ?? 'unknown');
+    setResearch(payload.research ?? null);
     setTechnicalSummary(payload.technicalSummary ?? null);
   }, []);
 
@@ -639,6 +645,7 @@ export default function Dashboard({ user, session, onSignOut }) {
         </div>
         <div className="border-t border-zinc-800 bg-zinc-900/60">
           <div className="mx-auto flex max-w-7xl items-center gap-3 overflow-x-auto px-6 py-2">
+            <Link to="/research" className="shrink-0 rounded-full border border-amber-400/30 px-4 py-1.5 text-xs font-semibold text-amber-200">Research workspace ↗</Link>
             {TABS.map((tab) => {
               const active = activeTab === tab.id;
               return (
@@ -820,13 +827,15 @@ export default function Dashboard({ user, session, onSignOut }) {
             </div>
           ) : null}
 
+          <MarketResearchPanel research={research} interval={chartInterval} compactView />
+
           <AlgoExplainer />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
               <p className="text-xs font-medium text-zinc-500">Last Price</p>
               <p className="mt-1 text-2xl font-semibold text-white">
-                {quote?.regularMarketPrice != null ? `$${quote.regularMarketPrice.toFixed(2)}` : '--'}
+                {quote?.regularMarketPrice != null ? formatCurrency(quote.regularMarketPrice, quote.currency ?? null) : '--'}
               </p>
               <p
                 className={`text-xs ${
@@ -841,14 +850,14 @@ export default function Dashboard({ user, session, onSignOut }) {
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
               <p className="text-xs font-medium text-zinc-500">Market Cap</p>
               <p className="mt-1 text-2xl font-semibold text-white">
-                {quote?.marketCap ? formatCurrency(quote.marketCap) : '--'}
+                {quote?.marketCap ? formatCurrency(quote.marketCap, quote.currency ?? null) : '--'}
               </p>
               <p className="text-xs text-zinc-400">Avg Volume: {quote?.averageDailyVolume10Day?.toLocaleString() ?? 'N/A'}</p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
               <p className="text-xs font-medium text-zinc-500">Latest Bar Change</p>
               <p className="mt-1 text-2xl font-semibold text-white">
-                {momentum?.change != null ? formatCurrency(momentum.change) : '--'}
+                {momentum?.change != null ? formatCurrency(momentum.change, research?.metadata?.currency ?? null) : '--'}
               </p>
               <p
                 className={`text-xs ${
@@ -903,7 +912,7 @@ export default function Dashboard({ user, session, onSignOut }) {
                 <div>
                   <h3 className="text-lg font-semibold text-white">Price Action</h3>
                   <p className="mt-0.5 text-xs text-zinc-500">
-                    {dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'google' ? 'Google Finance fallback' : 'Synthetic sample (offline)'}
+                    {{ yahoo: 'Yahoo Finance', twelvedata: 'Twelve Data', google: 'Google Finance', synthetic: 'Synthetic sample', unavailable: 'Data unavailable' }[dataSource] ?? 'Unknown source'} · Feed delay unverified
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

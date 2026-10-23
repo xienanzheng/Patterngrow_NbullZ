@@ -11,7 +11,8 @@ import {
 } from './indicators.js';
 import { directionalForecast } from './classifier.js';
 import { predictFuturePrices } from './predictions.js';
-import { fetchNews, fetchQuote, fetchYahooHistory, generateMockHistory } from './marketData.js';
+import { fetchNews, fetchQuote, fetchYahooHistory } from './marketData.js';
+import { buildMarketResearch } from './marketResearch.js';
 
 // A qualitative state only flips after the indicator confirms it for the
 // `n` most recent consecutive sessions — one noisy bar (or a data gap)
@@ -224,13 +225,18 @@ export async function computeSignals(symbol, options = {}) {
 
   try {
     history = await fetchYahooHistory(symbol, range, interval);
-  } catch (error) {
-    history = [];
+  } catch {
+    throw new Error('Market data is unavailable. Please try again later.');
   }
 
-  if (!history.length) {
-    history = generateMockHistory(symbol);
+  if (!history.length || history.some((bar) => bar.source === 'synthetic')) {
+    throw new Error('No verified historical data is available for this symbol.');
   }
+  const research = buildMarketResearch(history, { interval });
+  if (research.quality.status === 'unavailable') {
+    throw new Error('Historical observations have no valid prices.');
+  }
+  history = research.series;
 
   try {
     quote = await fetchQuote(symbol);
@@ -241,15 +247,20 @@ export async function computeSignals(symbol, options = {}) {
   if (!quote && history.length) {
     const latest = history.at(-1);
     const previous = history.at(-2);
+    const dailyVolumes = interval === '1d' ? history.slice(-10).map((row) => row.volume).filter(Number.isFinite) : [];
     quote = {
       symbol,
+      source: latest?.source ?? 'unknown',
+      currency: research.metadata.currency,
+      asOf: latest?.date ?? null,
+      asOfPrecision: latest?.datePrecision ?? null,
+      partial: true,
       regularMarketPrice: latest?.close ?? null,
       regularMarketPreviousClose: previous?.close ?? null,
       regularMarketChangePercent:
         latest?.close && previous?.close ? ((latest.close - previous.close) / previous.close) * 100 : null,
       marketCap: null,
-      averageDailyVolume10Day:
-        history.slice(-10).reduce((acc, row) => acc + (row.volume ?? 0), 0) / Math.max(history.slice(-10).length, 1),
+      averageDailyVolume10Day: dailyVolumes.length === 10 ? dailyVolumes.reduce((sum, value) => sum + value, 0) / 10 : null,
     };
   }
 
@@ -344,5 +355,6 @@ export async function computeSignals(symbol, options = {}) {
     directional,
     technicalSummary,
     dataSource,
+    research,
   };
 }

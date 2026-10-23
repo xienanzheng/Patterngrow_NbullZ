@@ -7,12 +7,18 @@ import { useSupabasePkceRedirect } from './useSupabasePkceRedirect';
 export function useSupabaseAuth() {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(supabase));
 
   // Ensure PKCE redirects are resolved before we attempt to read the session.
   const pkceLoading = useSupabasePkceRedirect();
 
   useEffect(() => {
+    if (!supabase) {
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      return undefined;
+    }
     if (pkceLoading) return undefined;
     let mounted = true;
 
@@ -56,9 +62,11 @@ export function useSupabaseAuth() {
   }, [pkceLoading]);
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Failed to sign out:', error);
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Failed to sign out:', error);
+      }
     }
     setSession(null);
     setUser(null);

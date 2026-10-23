@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   Area,
-  AreaChart,
+  Bar,
   CartesianGrid,
+  Cell,
   ComposedChart,
   Customized,
   Legend,
@@ -26,6 +27,15 @@ import {
 const CHART_MARGIN = { top: 5, right: 5, left: 5, bottom: 5 };
 const Y_AXIS_W = 62;
 const X_AXIS_H = 30;
+const volumeAxisFormatter = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+const volumeTooltipFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+
+function finiteNumber(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
 
 function CandlestickBars({ xAxisMap, yAxisMap, offset, chartData }) {
   const xScale = xAxisMap?.[0]?.scale;
@@ -133,21 +143,38 @@ export default function StockChart({
   }, [actualData, selectedIndicators]);
 
   const chartData = useMemo(() => {
-    return data.map((row, index) => ({
-      ...row,
-      // Inject precomputed indicator series so Recharts can consume them.
-      sma20: indicatorData.sma?.[index] ?? null,
-      bollingerUpper: indicatorData.bollinger?.upper?.[index] ?? null,
-      bollingerLower: indicatorData.bollinger?.lower?.[index] ?? null,
-      bollingerMiddle: indicatorData.bollinger?.middle?.[index] ?? null,
-      vwap: indicatorData.vwap?.[index] ?? null,
-      volume: row.volume ?? null,
-      rsi: indicatorData.rsi?.[index] ?? null,
-      macd: indicatorData.macd?.macd?.[index] ?? null,
-      macdSignal: indicatorData.macd?.signal?.[index] ?? null,
-      stochasticK: indicatorData.stochastic?.percentK?.[index] ?? null,
-      stochasticD: indicatorData.stochastic?.percentD?.[index] ?? null,
-    }));
+    const priorVolumes = [];
+    return data.map((row, index) => {
+      const rawVolume = finiteNumber(row.volume);
+      const volume = !row.isForecast && rawVolume != null && rawVolume >= 0 ? rawVolume : null;
+      const average = !row.isForecast && priorVolumes.length === 20 && priorVolumes.every((value) => value != null)
+        ? priorVolumes.reduce((sum, value) => sum + value / 20, 0) : null;
+      if (!row.isForecast) {
+        priorVolumes.push(volume);
+        if (priorVolumes.length > 20) priorVolumes.shift();
+      }
+      const open = finiteNumber(row.open);
+      const close = finiteNumber(row.close);
+      const volumeColor = open == null || close == null || open <= 0 || close <= 0 || close === open
+        ? '#71717a' : close > open ? '#10b981' : '#ef4444';
+      return {
+        ...row,
+        // Inject precomputed indicator series so Recharts can consume them.
+        sma20: indicatorData.sma?.[index] ?? null,
+        bollingerUpper: indicatorData.bollinger?.upper?.[index] ?? null,
+        bollingerLower: indicatorData.bollinger?.lower?.[index] ?? null,
+        bollingerMiddle: indicatorData.bollinger?.middle?.[index] ?? null,
+        vwap: indicatorData.vwap?.[index] ?? null,
+        volume,
+        volumeAverage20: average != null && Number.isFinite(average) ? average : null,
+        volumeColor,
+        rsi: indicatorData.rsi?.[index] ?? null,
+        macd: indicatorData.macd?.macd?.[index] ?? null,
+        macdSignal: indicatorData.macd?.signal?.[index] ?? null,
+        stochasticK: indicatorData.stochastic?.percentK?.[index] ?? null,
+        stochasticD: indicatorData.stochastic?.percentD?.[index] ?? null,
+      };
+    });
   }, [data, indicatorData]);
 
   const priceDomain = useMemo(() => {
@@ -159,7 +186,7 @@ export default function StockChart({
       row.mcP5,
       row.forecastLower,
       row.forecast,
-    ]).filter((value) => Number.isFinite(Number(value))).map(Number);
+    ]).map(finiteNumber).filter((value) => value != null);
     const highs = visibleRows.flatMap((row) => [
       row.high,
       row.close,
@@ -167,8 +194,8 @@ export default function StockChart({
       row.mcP95,
       row.forecastUpper,
       row.forecast,
-    ]).filter((value) => Number.isFinite(Number(value))).map(Number);
-    if (!lows.length) return ['auto', 'auto'];
+    ]).map(finiteNumber).filter((value) => value != null);
+    if (!lows.length || !highs.length) return ['auto', 'auto'];
     const mn = Math.min(...lows);
     const mx = Math.max(...highs);
     const pad = Math.max((mx - mn) * 0.06, mx * 0.01);
@@ -549,28 +576,46 @@ export default function StockChart({
         </div>
       </div>
 
-      <div className="h-40 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+      <div className="flex h-56 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+        <div className="min-h-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
+          <ComposedChart data={chartData} margin={CHART_MARGIN}>
             <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-            <XAxis dataKey="date" tickFormatter={xTickFormatter} minTickGap={24} />
-            <YAxis tickFormatter={(value) => `${(value / 1_000_000).toFixed(1)}M`} stroke="#52525b" />
+            <XAxis dataKey="date" height={X_AXIS_H} tickFormatter={xTickFormatter} minTickGap={24} />
+            <YAxis width={Y_AXIS_W} domain={[0, 'auto']} tickFormatter={(value) => volumeAxisFormatter.format(value)} stroke="#52525b" />
             <Tooltip
               contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.75rem' }}
               labelFormatter={(value) => `Date: ${formatAxisTick(value, interval)}`}
-              formatter={(value) => [`${(value / 1_000_000).toFixed(2)}M`, 'Volume']}
+              formatter={(value, name) => value == null ? null : [volumeTooltipFormatter.format(value), name]}
             />
             <Legend verticalAlign="top" height={28} />
-            <Area
-              type="monotone"
+            <Bar
               dataKey="volume"
-              stroke="#71717a"
-              fill="#3f3f46"
-              fillOpacity={0.35}
+              fill="#71717a"
+              fillOpacity={0.8}
+              maxBarSize={14}
+              isAnimationActive={false}
               name="Volume"
+            >
+              {chartData.map((row, index) => <Cell key={`${row.date}-${index}`} fill={row.volumeColor} />)}
+            </Bar>
+            <Line
+              type="linear"
+              dataKey="volumeAverage20"
+              stroke="#facc15"
+              strokeWidth={1.5}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+              name="Prior 20-bar average"
             />
-          </AreaChart>
+          </ComposedChart>
         </ResponsiveContainer>
+        </div>
+        <p className="mt-2 text-[10px] leading-relaxed text-zinc-500">
+          Volume in provider units. Green: close above open; red: below; gray: unchanged or unavailable.
+          {' '}The average excludes the current bar and needs 20 complete prior bars.
+        </p>
       </div>
 
       {selectedIndicators.includes('rsi') ? (

@@ -1,6 +1,32 @@
-# StockDashboard (Made using contents and knowledge learnt from INFO253A, INFO202 and other coding classes)
+# PatternGrow
 
 Modernised full-stack workspace for the StockDashboard project. The legacy Streamlit app has been replaced with a React + Vite frontend and a Node.js + Express analytics API that integrate with Supabase for authentication, database, and storage. The repository matches Vercel's hybrid deployment model so the same codebase can be deployed locally or on Vercel with minimal configuration changes.
+
+## Research workspace
+
+The public `/research` workspace combines historical prices, a volume histogram with a preceding-20-bar average, relative volume and volume percentile, approximate turnover, OBV change, historical returns, realized daily volatility, ATR and drawdown. CSV exports use the same normalized observations as the calculations. Source attribution, missing fields, timestamps, session-date precision and limitations are visible in the data-quality panel. Fundamentals explicitly identify chart-only fallback data.
+
+Provider outages return an unavailable state; generated sample prices are never silently substituted. Yahoo and Twelve Data failures are isolated, with `MARKET_DATA_PROVIDER` selecting the primary historical source. Public research runs without Supabase; authentication and account features remain unavailable until configured.
+
+Use **Node.js 24 LTS** (`.nvmrc`), or a Node version accepted by `backend/package.json`. The upgraded test runner requires Node 22.12+ on its supported release lines.
+
+```sh
+# Terminal 1
+cd backend
+npm ci
+npm run dev
+
+# Terminal 2, from the repository root
+cd frontend
+npm ci
+npm run dev
+```
+
+Open **http://localhost:5173/research**. Vite proxies `/api` to port 4000. Optional configuration templates are [backend/.env.example](backend/.env.example) and [frontend/.env.example](frontend/.env.example); copy them to `.env` in the corresponding directory when needed. Provider keys belong only on the backend.
+
+The new read endpoints are `GET /api/analytics/research?symbol=AAPL&range=1y&interval=1d` and `GET /api/analytics/providers`. Research responses use a bounded in-process 60-second cache with simultaneous-request deduplication; this is not a distributed provider quota system. A response contains at most 5,000 bars, with truncation disclosed.
+
+A local **read-only MCP server** provides historical observations, descriptive analytics and provider configuration. See [MCP setup](backend/mcp/README.md) and the [product review, provider comparison and next milestones](docs/market-research-roadmap.md). No remote MCP endpoint or global client configuration is installed automatically.
 
 ## Project Layout
 
@@ -26,7 +52,7 @@ stock_dashboard/
 
 ### 1. Environment variables
 
-Duplicate `.env.example` to `.env` at the repository root and fill in the values:
+For account features, copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `frontend/.env`, then fill in the corresponding values:
 
 ```
 SUPABASE_URL=https://your-project.supabase.co
@@ -38,7 +64,7 @@ VITE_API_BASE_URL=http://localhost:4000
 ALLOWED_ORIGINS=http://localhost:5173
 ```
 
-- `SUPABASE_SERVICE_KEY` is required only by the backend for secure watchlist CRUD.
+- `SUPABASE_SERVICE_KEY` is required only by the backend for authenticated account features.
 - `VITE_*` variables are consumed by the Vite dev server.
 - Optional keys: `ALPHA_VANTAGE_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY` if you want the backend to call external news feeds or LLM providers. Add them to `backend/.env` (server only). If you proxy LLM calls back to the browser, expose the proxy URL via `VITE_OPENAI_PROXY_URL`.
 
@@ -109,7 +135,8 @@ The React app proxies API requests to `http://localhost:4000/api/*` by default (
 
 ## API security
 
-- `POST /api/analytics/metadata/manual`, `POST /api/analytics/metadata/csv`, and `POST /api/analytics/chat` require a Supabase bearer token (any signed-in Google OAuth user). The frontend forwards the session token automatically.
+- `POST /api/analytics/chat` requires a verified Supabase bearer token. Shared metadata writes (`metadata/manual`, `metadata/csv`) additionally require a user ID in `METADATA_ADMIN_USER_IDS` or a trusted `app_metadata.role=admin`; user-editable `user_metadata` never authorizes these writes.
+- Assistant requests are limited to 8,000 prompt characters, 800 output tokens and a 25-second provider deadline. Summaries describe evidence and uncertainty rather than giving buy/sell instructions. Provider errors are sanitized.
 - All `/api/analytics/*` routes are rate-limited to 60 requests/min per IP; `/chat` is additionally capped at 20 requests/hour per user (limits are per serverless instance — best-effort cost bounds).
 - Read endpoints (`quote`, `history`, `news`, `insights`, `metadata` GET, `evaluate`) stay public.
 

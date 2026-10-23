@@ -2,6 +2,7 @@ import { Component } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
+import MarketResearchPage from './components/MarketResearchPage';
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 
 class ErrorBoundary extends Component {
@@ -62,6 +63,7 @@ function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
+        <Route path="/research" element={<MarketResearchPage />} />
         <Route path="/login" element={<AuthForm user={user} loading={loading} />} />
         <Route
           path="/dashboard"
@@ -73,7 +75,7 @@ function App() {
             )
           }
         />
-        <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+        <Route path="*" element={<Navigate to={user ? '/dashboard' : '/research'} replace />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

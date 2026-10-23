@@ -14,12 +14,18 @@ npm run dev   # start in watch mode on http://localhost:4000
 npm start     # production mode
 ```
 
-Set environment variables via `.env` (see `.env.example`). The backend expects:
+Use Node.js 24 LTS. Public research and the MCP server work without Supabase. Set optional environment variables via `backend/.env` (see `.env.example`). Account features require:
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_KEY`
 - `SUPABASE_ANON_KEY` (optional fallback)
 - `ALLOWED_ORIGINS` (comma separated list of allowed origins)
 - API keys for optional providers such as `ALPHA_VANTAGE_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY`.
+
+Historical data defaults to Yahoo Finance. Set `MARKET_DATA_PROVIDER=twelvedata` and `TWELVE_DATA_API_KEY` to select Twelve Data, with an isolated Yahoo fallback. The returned source always identifies the actual provider. Currency, feed latency, missingness and session completeness are not inferred from configuration.
+
+`METADATA_ADMIN_USER_IDS` is a comma-separated allowlist of verified user IDs allowed to edit shared ticker metadata. Trusted `app_metadata.role=admin` also grants this specific permission. Without either, metadata writes are denied even to signed-in users.
+
+Research endpoints: `GET /api/analytics/research` (symbol/range/interval) and `GET /api/analytics/providers`. The former uses a bounded 60-second process-local cache; the latter reports configuration only, never keys or verified health. See [MCP setup](mcp/README.md) for the three read-only stdio tools.
 
 When deployed on Vercel, the default export in `index.js` is used to mount the serverless function under `/api/*`.

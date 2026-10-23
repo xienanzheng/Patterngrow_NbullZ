@@ -23,7 +23,7 @@ function exchangeCodeOnce(code) {
  */
 export function useSupabasePkceRedirect() {
   const [loading, setLoading] = useState(() => {
-    if (typeof window === 'undefined') return false;
+    if (!supabase || typeof window === 'undefined') return false;
     const params = new URL(window.location.href).searchParams;
     return params.has('code') || params.has('error_description');
   });
@@ -44,7 +44,7 @@ export function useSupabasePkceRedirect() {
 
     const exchangeSession = async () => {
       try {
-        if (code) {
+        if (code && supabase) {
           const { error } = await exchangeCodeOnce(code);
           if (error) {
             console.error('Supabase PKCE exchange failed', error);

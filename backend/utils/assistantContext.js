@@ -31,7 +31,7 @@ export async function buildAssistantContext(symbol) {
     const news = (insights.news ?? []).slice(0, 3);
 
     const lines = [
-      `Live data for ${symbol} (source: ${insights.dataSource}, generated ${insights.generatedAt}):`,
+      `Research observations for ${symbol} (source: ${insights.dataSource}, generated ${insights.generatedAt}; bar as-of ${insights.research?.quality?.asOf ?? "unknown"}; feed delay unverified):`,
       `Quote: last ${fmt(q.regularMarketPrice)}, day change ${fmt(q.regularMarketChangePercent)}%, avg 10d volume ${q.averageDailyVolume10Day ? Math.round(q.averageDailyVolume10Day).toLocaleString() : 'n/a'}.`,
       `Indicators: RSI ${fmt(snap.rsi)}, MACD divergence ${fmt(snap.macd?.divergence)}, ADX ${fmt(snap.adx?.adx)} (+DI ${fmt(snap.adx?.plusDI)} / -DI ${fmt(snap.adx?.minusDI)}), Bollinger mid ${fmt(snap.bollinger?.middle)} [${fmt(snap.bollinger?.lower)}-${fmt(snap.bollinger?.upper)}], Stochastic K ${fmt(snap.stochastic?.percentK, 1)} / D ${fmt(snap.stochastic?.percentD, 1)}.`,
       conviction
@@ -51,7 +51,8 @@ export async function buildAssistantContext(symbol) {
           .map((n) => `⟦${sanitizeHeadline(n.title)}⟧ (sentiment ${fmt(n.overallSentimentScore, 2)})`)
           .join('; ')}.`
         : null,
-      'Ground your Technical View, Sentiment and Verdict in these numbers; say so explicitly when data is missing.',
+      `Volume research: prior-20 relative volume ${fmt(insights.research?.volume?.relative20)}x, prior-20 average ${fmt(insights.research?.volume?.average20)}, latest volume ${fmt(insights.research?.volume?.latest)}. Latest bar may be incomplete.`,
+      'Explain these observations and their limitations; do not turn indicator labels into recommendations. Say explicitly when evidence is missing.',
     ].filter(Boolean);
 
     return lines.join('\n');

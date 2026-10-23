@@ -235,3 +235,13 @@ export function runBacktest({ symbol, benchmark, period, strategy, initialCapita
     body: { symbol, benchmark, period, strategy, initialCapital, stopLossPct, takeProfitPct },
   });
 }
+
+// Read-only research endpoints; cancellation prevents stale symbol responses.
+export function getMarketResearch(symbol, { range = '1y', interval = '1d', signal } = {}) {
+  const params = new URLSearchParams({ symbol, range, interval });
+  return request(`/api/analytics/research?${params.toString()}`, { signal });
+}
+
+export function getProviderStatus(signal) {
+  return request('/api/analytics/providers', { signal });
+}

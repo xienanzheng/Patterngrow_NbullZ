@@ -54,5 +54,8 @@ out/
 .vercel
 .env*
 /.claude
+!/.env.example
+!/backend/.env.example
+!/frontend/.env.example
 /.claude
 /.claude

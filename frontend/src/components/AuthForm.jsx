@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 export default function AuthForm({ user, loading }) {
@@ -16,6 +16,10 @@ export default function AuthForm({ user, loading }) {
 
   // Initiate Supabase-hosted Google OAuth flow.
   const handleGoogleLogin = async () => {
+    if (!supabase) {
+      setError('Sign-in is unavailable on this instance. Market research is available without an account.');
+      return;
+    }
     setError(null);
     setSigningIn(true);
     try {
@@ -46,12 +50,14 @@ export default function AuthForm({ user, loading }) {
           <p className="text-sm text-zinc-400">
             Forecast prices with AI models, backtest strategies, track your portfolio, and get alerts — all in one place.
           </p>
-          <p className="text-xs text-zinc-400">Sign in with Google to get started.</p>
+          <p className="text-xs text-zinc-400">
+            {supabase ? 'Sign in with Google to get started.' : 'Sign-in is unavailable on this instance. Explore market research without an account.'}
+          </p>
         </div>
         <button
           type="button"
           onClick={handleGoogleLogin}
-          disabled={signingIn}
+          disabled={!supabase || signingIn}
           className="flex w-full items-center justify-center gap-3 rounded-lg bg-white px-4 py-3 font-medium text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70"
         >
           <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
@@ -60,16 +66,17 @@ export default function AuthForm({ user, loading }) {
             <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
           </svg>
-          {signingIn ? 'Redirecting…' : 'Continue with Google'}
+          {!supabase ? 'Sign-in unavailable' : signingIn ? 'Redirecting…' : 'Continue with Google'}
         </button>
+        <Link to="/research" className="mt-4 block rounded-lg border border-zinc-700 px-4 py-3 text-center text-sm text-amber-200 hover:border-amber-400">Explore market research</Link>
         {error ? (
           <p className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
             {error}
           </p>
         ) : null}
-        <p className="mt-8 text-center text-xs text-zinc-400">
+        {supabase ? <p className="mt-8 text-center text-xs text-zinc-400">
           By signing in you agree to our Terms of Use and acknowledge the market risk disclosures.
-        </p>
+        </p> : null}
       </div>
     </div>
   );

@@ -62,7 +62,7 @@ create table if not exists public.broker_connections (
   unique (user_id, broker)
 );
 create index if not exists broker_connections_user_idx on public.broker_connections (user_id);
-≤∆øalter table public.broker_connections enable row level security;
+alter table public.broker_connections enable row level security;
 
 -- F6: portfolio positions
 create table if not exists public.positions (

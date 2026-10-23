@@ -68,7 +68,7 @@ export default function FundamentalsCard({ symbol }) {
     );
   }
 
-  const cur = data.currency ?? 'USD';
+  const cur = data.currency ?? '';
 
   const keyMetrics = [
     { label: 'Market Cap', value: fmt.currency(data.marketCap, cur) },
@@ -106,6 +106,9 @@ export default function FundamentalsCard({ symbol }) {
           ▾
         </span>
       </button>
+
+      {data.partial ? <p className="mt-2 text-xs leading-relaxed text-amber-200/80">Partial dataset from price history. Financial statements and valuation ratios are unavailable.</p> : null}
+      {!data.currency ? <p className="mt-1 text-[11px] text-zinc-500">Currency unverified</p> : null}
 
       {/* Always-visible key metrics strip */}
       <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-3 md:grid-cols-6">

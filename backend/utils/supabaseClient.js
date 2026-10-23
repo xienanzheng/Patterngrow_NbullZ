@@ -3,16 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_KEY;
 
-if (!supabaseUrl || !serviceKey) {
-  throw new Error('Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.');
-}
-
-export const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
+// Public historical research does not require an account service. Private routes
+// still require verified authentication and fail closed when it is unconfigured.
+export const supabaseAdmin = supabaseUrl && serviceKey ? createClient(supabaseUrl, serviceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
   },
-});
+}) : null;
 
 export function extractBearerToken(req) {
   const header = req.headers?.authorization ?? '';
@@ -24,6 +22,9 @@ export async function getUserFromRequest(req) {
   const token = extractBearerToken(req);
   if (!token) {
     return { user: null, error: 'Missing bearer token' };
+  }
+  if (!supabaseAdmin) {
+    return { user: null, error: 'Sign-in is unavailable on this server.' };
   }
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data?.user) {
