@@ -291,6 +291,7 @@ export function buildMarketResearch(history, { interval = '1d', now = new Date()
       warnings,
     },
     metadata: {
+      calculationVersion: 'market-research.v1',
       interval,
       currency: quoteCurrency,
       volumeUnit: 'provider-reported volume units',

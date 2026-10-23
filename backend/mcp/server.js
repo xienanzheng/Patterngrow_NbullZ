@@ -14,7 +14,7 @@ const commonFields = {
 
 export function createResearchMcpServer(dependencies) {
   const handlers = createResearchTools(dependencies);
-  const server = new McpServer({ name: 'patterngrow-research', version: '1.0.0' });
+  const server = new McpServer({ name: 'patterngrow-research', version: '1.1.0' });
   const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
   const wrap = (handler) => async (input) => {
     try {
@@ -41,6 +41,20 @@ export function createResearchMcpServer(dependencies) {
     annotations: readOnly,
   }, wrap(handlers.getMarketResearch));
 
+  server.registerTool('get_market_comparison', {
+    title: 'Historical benchmark comparison',
+    description: 'Compare one symbol with one benchmark on common daily sessions: indexed prices, historical returns, correlation, beta and tracking error. No investment recommendations or account access.',
+    inputSchema: z.object({ ...commonFields, benchmark: symbolSchema.default('SPY') }).strict(),
+    annotations: readOnly,
+  }, wrap(handlers.getMarketComparison));
+
+  server.registerTool('get_market_overview', {
+    title: 'Historical market overview',
+    description: 'Describe six fixed market proxies using daily historical observations, source dates and coverage caveats. No custom symbol list or live quotes; unavailable rows remain explicitly unavailable.',
+    inputSchema: z.object({}).strict(),
+    annotations: readOnly,
+  }, wrap(handlers.getMarketOverview));
+
   server.registerTool('get_provider_status', {
     title: 'Data provider configuration',
     description: 'Report configured provider flags and known coverage caveats. Configuration does not prove health, credentials or data entitlement; no keys are returned.',
@@ -55,15 +69,19 @@ async function main() {
   // Resolve the project's optional environment file independently of the host's working directory.
   // Loading configuration before the dynamic imports is necessary for providers that read env at import time.
   dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
-  const [{ fetchYahooHistory }, { buildMarketResearch }, { getProviderStatus }] = await Promise.all([
-    import('../utils/marketData.js'),
+  const [{ getResearchSnapshot }, { buildMarketResearch }, { getProviderStatus }, { getComparisonSnapshot }, { getMarketOverview }] = await Promise.all([
+    import('../utils/researchService.js'),
     import('../utils/marketResearch.js'),
     import('../utils/providerStatus.js'),
+    import('../utils/comparisonService.js'),
+    import('../utils/marketOverview.js'),
   ]);
   serveStdio(() => createResearchMcpServer({
-    fetchHistory: fetchYahooHistory,
+    getResearchSnapshot,
     buildResearch: buildMarketResearch,
     providerStatus: getProviderStatus,
+    getComparisonSnapshot,
+    getMarketOverview,
   }), { transport: new StdioServerTransport(process.stdin, process.stdout, { maxBufferSize: 64_000 }) });
 }
 

@@ -1,6 +1,6 @@
 # PatternGrow market research review
 
-Reviewed against the repository and official provider documentation on **October 22, 2026**. This roadmap concerns educational, descriptive market research. It does not call for order execution, brokerage access or personalized investment recommendations.
+Reviewed against the repository and official provider documentation on **October 22, 2026**; terminal workspace progress updated **October 23, 2026**. This roadmap concerns educational, descriptive market research. It does not call for order execution, brokerage access or personalized investment recommendations.
 
 ## Assessment
 
@@ -18,7 +18,14 @@ The recommended product center is a research workspace with visible provenance, 
 - Admin-only shared metadata writes and bounded, descriptive assistant summaries with sanitized provider failures.
 - Compatible dependency security updates and migration from the old backend test/watch tooling to Vitest 5 and Node's built-in watcher. Use Node 24 LTS. Backend audit and frontend production dependency audit are clean; seven frontend development/build-tool advisories remain in the Tailwind 3/braces/PostCSS tree. A Tailwind 4 migration is separate work and was not applied automatically.
 
-The SEC and FRED adapters, corporate-action normalization, exchange calendars, durable cache, same-time intraday relative volume and benchmark comparisons remain future work below. Paid-provider credentials, entitlements and redistribution rights have not been verified.
+### Terminal workspace follow-up
+
+- Fixed-universe market context: six ETF proxies spanning US equities, long-duration US Treasuries, gold and oil futures exposure, with daily price changes, relative volume, session dates and per-row availability. USO is a futures fund, not spot oil. These rows are not a market-breadth measure or a recommendation list.
+- Benchmark research: common-session indexed prices, price-return differences in percentage points, Pearson daily-return correlation, historical beta, annualized tracking error and uninterrupted rolling 20-pair correlation. Missing or unmatched observations break daily return pairs; unknown exchange timezones are excluded from timestamp alignment. Native-currency comparisons never imply currency conversion.
+- Research workflow: saved browser-local navigation presets, shareable symbol/benchmark/range/view URLs, keyboard search, and versioned JSON exports containing the observations, metadata and definitions used by the view.
+- MCP now includes bounded `get_market_comparison` and `get_market_overview`; historical tools reuse the same cache as the API rather than introducing another provider-fetch path.
+
+The SEC and FRED adapters, corporate-action normalization, exchange calendars, durable cache and same-time intraday relative volume remain future work below. Paid-provider credentials, entitlements and redistribution rights have not been verified. This is progress toward a professional research workflow, not equivalence to a licensed institutional terminal.
 
 ## Prioritized implementation
 
@@ -32,8 +39,8 @@ The SEC and FRED adapters, corporate-action normalization, exchange calendars, d
 | P1 | Durable provider cache | Cache by symbol/exchange/interval/session/adjustment/provider. Deduplicate simultaneous requests, enforce provider-wide quotas, retry only transient failures with backoff, and return stale data only with an explicit stale flag. |
 | P2 | Company facts with evidence | Add SEC facts and filing links; show unit, period end, filed date, form and accession. Distinguish quarter-to-date, year-to-date and annual periods; preserve restatements and original vintages. |
 | P2 | Macro and event context | Add a small FRED series set and release dates with source, units and vintage. Add earnings/dividend/split events from a licensed feed with clear event-time precision. |
-| P2 | Comparative research | Normalize benchmark and sector histories onto common trading dates; support indexed-price comparisons and descriptive rolling correlations with sample counts. |
-| P3 | Research reproducibility | Version the calculation definitions; export a dataset manifest with as-of time and adjustment basis; record saved research snapshots with explicit sources. |
+| P2 · delivered | Comparative research | Common-session benchmark charts, daily relationships, rolling correlations and sample counts; calendar verification and action-adjusted total returns remain open. |
+| P3 · initial delivery | Research reproducibility | Versioned research/comparison snapshot exports include data, definitions, as-of times and limitations. Cross-device snapshot storage and historical methodology migrations remain open. |
 
 Intraday relative volume must compare accumulated volume at the same exchange-local time across prior sessions. A partial day's volume divided by full-day historical means is a different measure and must be labeled accordingly. True session VWAP requires qualifying intraday observations; typical-price-weighted daily bars are an approximation, not execution-level VWAP. A volume profile needs intrabar trade or appropriately granular data and should not be inferred precisely from daily OHLCV.
 
@@ -86,7 +93,7 @@ Market providers → normalized adapters → cache + quality checks
                                    REST / UI             local MCP
 ```
 
-The initial implementation is in [`backend/mcp`](../backend/mcp/README.md). It uses the official MCP TypeScript SDK v2 and provides three read-only tools: `get_market_history`, `get_market_research`, and `get_provider_status`. Daily history is bounded to two years and 520 rows; tool inputs cannot choose an arbitrary URL or query. Source labels, missingness and limitations accompany observations. Provider configuration is separate from verified health and entitlement. [SDK documentation](https://ts.sdk.modelcontextprotocol.io/v2/).
+The implementation is in [`backend/mcp`](../backend/mcp/README.md). It uses the official MCP TypeScript SDK v2 and provides five read-only tools: `get_market_history`, `get_market_research`, `get_market_comparison`, `get_market_overview`, and `get_provider_status`. Daily history is bounded to two years and 520 rows; tool inputs cannot choose an arbitrary URL or query. Source labels, missingness and limitations accompany observations. Provider configuration is separate from verified health and entitlement. [SDK documentation](https://ts.sdk.modelcontextprotocol.io/v2/).
 
 Keep analytics in ordinary service functions shared with the UI. MCP is an access layer; it should not implement a second version of indicators or bypass provider budgets. The local server does not expose account, portfolio, execution or write tools. It does not open a network listener or change a global client configuration.
 

@@ -1,8 +1,10 @@
 // Shared, bounded handlers for the local read-only MCP surface.
 export const HISTORY_RANGES = ['1mo', '3mo', '6mo', '1y', '2y'];
 export const MAX_HISTORY_ROWS = 520;
+export const MAX_OVERVIEW_ROWS = 6;
 export const MAX_RESPONSE_BYTES = 256_000;
 const PROVIDER_IDS = new Set(['yahoo', 'google', 'twelvedata', 'massive', 'polygon']);
+const OVERVIEW_SYMBOLS = new Set(['SPY', 'QQQ', 'IWM', 'TLT', 'GLD', 'USO']);
 
 function normalizeInput(input = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid input.');
@@ -19,9 +21,85 @@ function normalizeInput(input = {}) {
 }
 
 function finiteOrNull(value) {
-  if (value == null || value === '') return null;
+  if (!['number', 'string'].includes(typeof value) || String(value).trim() === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function noArguments(input = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).length) {
+    throw new Error('This tool takes no arguments.');
+  }
+}
+
+function pickFields(value, fields) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(fields.filter((field) => Object.hasOwn(value, field)).map((field) => [field, value[field]]));
+}
+
+function snapshotCache(snapshot) {
+  return {
+    fetchedAt: typeof snapshot?.fetchedAt === 'string' && Number.isFinite(Date.parse(snapshot.fetchedAt))
+      ? new Date(snapshot.fetchedAt).toISOString() : null,
+    cache: {
+      hit: snapshot?.cache?.hit === true,
+      ttlSeconds: finiteOrNull(snapshot?.cache?.ttlSeconds),
+    },
+  };
+}
+
+function publicResearch(research) {
+  const output = pickFields(research, ['volume', 'risk', 'quality', 'metadata', 'definitions', 'dataVersion', 'version']);
+  if (Array.isArray(research?.series)) output.series = publicRows(research.series);
+  return output;
+}
+
+function comparisonInput(input = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)
+    || Object.keys(input).some((key) => !['symbol', 'benchmark', 'range'].includes(key))) {
+    throw new Error('Invalid comparison input.');
+  }
+  const { symbol, range } = normalizeInput(pickFields(input, ['symbol', 'range']));
+  const { symbol: benchmark } = normalizeInput({ symbol: input.benchmark ?? 'SPY' });
+  return { symbol, benchmark, range, interval: '1d' };
+}
+
+function publicComparison(snapshot) {
+  const comparison = snapshot?.comparison;
+  if (!comparison || !Array.isArray(comparison.series) || comparison.series.length > MAX_HISTORY_ROWS) {
+    throw new Error('Invalid comparison response.');
+  }
+  return {
+    ...pickFields(comparison, ['metrics', 'sample', 'metadata', 'quality', 'definitions', 'dataVersion', 'version']),
+    series: comparison.series.map((row) => ({
+      date: typeof row?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.date) ? row.date : null,
+      ...Object.fromEntries(['symbolClose', 'benchmarkClose', 'symbolIndex', 'benchmarkIndex', 'relativePerformancePp', 'rollingCorrelation20']
+        .map((field) => [field, finiteOrNull(row?.[field])])),
+    })),
+  };
+}
+
+function publicOverview(snapshot) {
+  if (!Array.isArray(snapshot?.rows) || snapshot.rows.length !== MAX_OVERVIEW_ROWS
+    || new Set(snapshot.rows.map((row) => row?.symbol)).size !== MAX_OVERVIEW_ROWS
+    || snapshot.rows.some((row) => !OVERVIEW_SYMBOLS.has(row?.symbol))) {
+    throw new Error('Invalid overview response.');
+  }
+  return {
+    ...pickFields(snapshot, ['interval', 'range', 'generatedAt', 'status', 'coverage', 'warnings', 'cache', 'metadata', 'definitions', 'dataVersion', 'version']),
+    rows: snapshot.rows.map((row) => ({
+      ...pickFields(row, [
+        'symbol', 'name', 'description', 'currency', 'asOf', 'asOfPrecision', 'sessionDate', 'exchangeTimezone',
+        'fetchedAt', 'source', 'status', 'warnings',
+      ]),
+      ...Object.fromEntries(['latestClose', 'return1', 'return5', 'return20', 'relativeVolume20']
+        .map((field) => [field, finiteOrNull(row?.[field])])),
+      sparkline: Array.isArray(row?.sparkline) ? row.sparkline.slice(-20).map((point) => ({
+        date: typeof point?.date === 'string' && Number.isFinite(Date.parse(point.date)) ? new Date(point.date).toISOString() : null,
+        close: finiteOrNull(point?.close),
+      })) : [],
+    })),
+  };
 }
 
 function publicRows(history) {
@@ -64,41 +142,57 @@ export function toToolError() {
   };
 }
 
-export function createResearchTools({ fetchHistory, buildResearch, providerStatus, timeoutMs = 26_000, now = () => new Date() }) {
-  let activeFetches = 0;
+export function createResearchTools({
+  fetchHistory, buildResearch, providerStatus, getResearchSnapshot, getComparisonSnapshot, getMarketOverview,
+  timeoutMs = 26_000, now = () => new Date(),
+}) {
+  let activeOperations = 0;
 
-  async function load(input) {
-    const query = normalizeInput(input);
-    if (activeFetches >= 2) throw new Error('Market data requests are busy.');
-    activeFetches += 1;
+  async function bounded(operation) {
+    if (activeOperations >= 2) throw new Error('Market data requests are busy.');
+    activeOperations += 1;
     let timer;
     // Keep the slot occupied until the provider actually settles, including after a caller deadline.
     const work = Promise.resolve()
-      .then(() => fetchHistory(query.symbol, query.range, '1d'))
-      .then((rows) => ({ history: publicRows(rows), totalRows: rows.length }))
-      .finally(() => { activeFetches -= 1; });
+      .then(operation)
+      .finally(() => { activeOperations -= 1; });
     const deadline = new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error('Market data deadline exceeded.')), timeoutMs);
     });
     try {
-      const result = await Promise.race([work, deadline]);
-      return { query, ...result };
+      return await Promise.race([work, deadline]);
     } finally {
       clearTimeout(timer);
     }
   }
 
+  async function load(input) {
+    const query = normalizeInput(input);
+    return bounded(async () => {
+      const snapshot = getResearchSnapshot
+        ? await getResearchSnapshot({ symbol: query.symbol, range: query.range, interval: '1d' }) : null;
+      const rows = snapshot ? snapshot.history : await fetchHistory(query.symbol, query.range, '1d');
+      const history = publicRows(rows);
+      // Reuse the service's quality findings, including discarded-input counts.
+      // Recalculate only when its sample exceeds this surface's tighter 520-bar cap.
+      const research = rows.length <= MAX_HISTORY_ROWS && Array.isArray(snapshot?.research?.series)
+        && snapshot.research.series.length <= MAX_HISTORY_ROWS ? snapshot.research : null;
+      return { query, history, totalRows: rows.length, snapshot, research };
+    });
+  }
+
   return {
     async getMarketHistory(input) {
-      const { query, history, totalRows } = await load(input);
+      const { query, history, totalRows, snapshot } = await load(input);
       return {
         symbol: query.symbol,
         range: query.range,
         interval: '1d',
         generatedAt: now().toISOString(),
+        ...snapshotCache(snapshot),
         sources: [...new Set(history.map((row) => row.source))],
         returnedRows: Math.min(query.limit, history.length),
-        truncated: totalRows > query.limit,
+        truncated: totalRows > query.limit || history.some((row) => row.historyMayBeTruncated),
         history: history.slice(-query.limit),
         notes: [
           'Historical daily observations; the latest daily bar may be incomplete.',
@@ -107,20 +201,35 @@ export function createResearchTools({ fetchHistory, buildResearch, providerStatu
       };
     },
     async getMarketResearch(input) {
-      const { query, history, totalRows } = await load(input);
+      const { query, history, totalRows, snapshot, research } = await load(input);
       return {
         symbol: query.symbol,
         range: query.range,
         interval: '1d',
         generatedAt: now().toISOString(),
-        truncated: totalRows > history.length,
-        research: buildResearch(history, { interval: '1d', now: now(), currency: null }),
+        ...snapshotCache(snapshot),
+        truncated: totalRows > history.length || history.some((row) => row.historyMayBeTruncated),
+        research: publicResearch(research ?? buildResearch(history, { interval: '1d', now: now(), currency: null })),
       };
     },
+    async getMarketComparison(input) {
+      const query = comparisonInput(input);
+      return bounded(async () => {
+        const snapshot = await getComparisonSnapshot(query);
+        return {
+          ...query,
+          generatedAt: now().toISOString(),
+          fetchedAt: pickFields(snapshot?.fetchedAt, ['symbol', 'benchmark']),
+          comparison: publicComparison(snapshot),
+        };
+      });
+    },
+    async getMarketOverview(input = {}) {
+      noArguments(input);
+      return bounded(async () => publicOverview(await getMarketOverview()));
+    },
     getProviderStatus(input = {}) {
-      if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).length) {
-        throw new Error('Provider status takes no arguments.');
-      }
+      noArguments(input);
       return providerStatus();
     },
   };

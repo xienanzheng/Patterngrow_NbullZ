@@ -8,6 +8,8 @@ import watchlistRouter from './routes/watchlist.js';
 import preferencesRouter from './routes/preferences.js';
 import brokerRouter from './routes/broker.js';
 import backtestsRouter from './routes/backtests.js';
+import comparisonRouter from './routes/comparison.js';
+import marketOverviewRouter from './routes/marketOverview.js';
 
 const app = express();
 
@@ -59,6 +61,8 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/alerts', alertsRouter);
+app.use('/api/analytics/comparison', comparisonRouter);
+app.use('/api/analytics/overview', marketOverviewRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/positions', positionsRouter);
 app.use('/api/watchlist', watchlistRouter);

@@ -26,6 +26,6 @@ Historical data defaults to Yahoo Finance. Set `MARKET_DATA_PROVIDER=twelvedata`
 
 `METADATA_ADMIN_USER_IDS` is a comma-separated allowlist of verified user IDs allowed to edit shared ticker metadata. Trusted `app_metadata.role=admin` also grants this specific permission. Without either, metadata writes are denied even to signed-in users.
 
-Research endpoints: `GET /api/analytics/research` (symbol/range/interval) and `GET /api/analytics/providers`. The former uses a bounded 60-second process-local cache; the latter reports configuration only, never keys or verified health. See [MCP setup](mcp/README.md) for the three read-only stdio tools.
+Research endpoints: `GET /api/analytics/research` (symbol/range/interval), `GET /api/analytics/providers`, `GET /api/analytics/comparison` (symbol/benchmark/range; daily-only), and `GET /api/analytics/overview` (no arguments; fixed six-fund universe). All use public request rate limits. Research uses a bounded 60-second process-local cache; provider status reports configuration only, never keys or verified health. Comparison shares the research cache and limits each input to 520 daily observations and two years. Overview coalesces requests into one 60-second summary and caps concurrent history loads at three; individual failures are returned as unavailable rows. See [MCP setup](mcp/README.md) for the five read-only stdio tools.
 
 When deployed on Vercel, the default export in `index.js` is used to mount the serverless function under `/api/*`.

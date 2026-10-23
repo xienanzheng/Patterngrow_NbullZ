@@ -4,7 +4,13 @@ Modernised full-stack workspace for the StockDashboard project. The legacy Strea
 
 ## Research workspace
 
+Production: **https://trading.night-zone.com/research**. Cloudflare provides domain DNS; the frontend and API deploy through Vercel.
+
 The public `/research` workspace combines historical prices, a volume histogram with a preceding-20-bar average, relative volume and volume percentile, approximate turnover, OBV change, historical returns, realized daily volatility, ATR and drawdown. CSV exports use the same normalized observations as the calculations. Source attribution, missing fields, timestamps, session-date precision and limitations are visible in the data-quality panel. Fundamentals explicitly identify chart-only fallback data.
+
+The terminal workspace adds a fixed six-fund market overview, indexed benchmark comparisons, rolling correlation, historical beta and tracking error. Comparisons align exchange session dates and never bridge an intervening missing or unmatched observation when calculating daily return pairs. At least 20 pairs are required for relationship statistics. All returns are native-currency price returns; fund proxies are not spot markets or total-return indexes.
+
+Use `/` to focus symbol search. Save up to 12 research views in the current browser, or copy a URL that preserves the symbol, benchmark, period and active view. JSON research/comparison snapshots retain the actual returned data, source metadata, definitions and retrieval times; CSV exports retain currency and session-date provenance. Saved views are navigation presets, not frozen datasets or synced account data.
 
 Provider outages return an unavailable state; generated sample prices are never silently substituted. Yahoo and Twelve Data failures are isolated, with `MARKET_DATA_PROVIDER` selecting the primary historical source. Public research runs without Supabase; authentication and account features remain unavailable until configured.
 
@@ -24,9 +30,9 @@ npm run dev
 
 Open **http://localhost:5173/research**. Vite proxies `/api` to port 4000. Optional configuration templates are [backend/.env.example](backend/.env.example) and [frontend/.env.example](frontend/.env.example); copy them to `.env` in the corresponding directory when needed. Provider keys belong only on the backend.
 
-The new read endpoints are `GET /api/analytics/research?symbol=AAPL&range=1y&interval=1d` and `GET /api/analytics/providers`. Research responses use a bounded in-process 60-second cache with simultaneous-request deduplication; this is not a distributed provider quota system. A response contains at most 5,000 bars, with truncation disclosed.
+The research read endpoints are `GET /api/analytics/research?symbol=AAPL&range=1y&interval=1d`, `GET /api/analytics/providers`, `GET /api/analytics/comparison?symbol=AAPL&benchmark=SPY&range=1y`, and `GET /api/analytics/overview`. Research responses use a bounded in-process 60-second cache with simultaneous-request deduplication; this is not a distributed provider quota system. Research contains at most 5,000 bars; comparison is daily-only, up to two years and 520 bars per input, with truncation disclosed. Overview is a fixed universe with at most three concurrent history fetches and an independent 60-second summary cache.
 
-A local **read-only MCP server** provides historical observations, descriptive analytics and provider configuration. See [MCP setup](backend/mcp/README.md) and the [product review, provider comparison and next milestones](docs/market-research-roadmap.md). No remote MCP endpoint or global client configuration is installed automatically.
+A local **read-only MCP server** provides historical observations, descriptive analytics, comparisons, market overview and provider configuration through the same service layer. See [MCP setup](backend/mcp/README.md) and the [product review, provider comparison and next milestones](docs/market-research-roadmap.md). No remote MCP endpoint or global client configuration is installed automatically.
 
 ## Project Layout
 

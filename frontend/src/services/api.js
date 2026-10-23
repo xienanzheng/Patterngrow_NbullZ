@@ -242,6 +242,11 @@ export function getMarketResearch(symbol, { range = '1y', interval = '1d', signa
   return request(`/api/analytics/research?${params.toString()}`, { signal });
 }
 
+export function getMarketComparison(symbol, { benchmark = 'SPY', range = '1y', signal } = {}) {
+  const params = new URLSearchParams({ symbol, benchmark, range });
+  return request(`/api/analytics/comparison?${params.toString()}`, { signal });
+}
+
 export function getProviderStatus(signal) {
   return request('/api/analytics/providers', { signal });
 }
