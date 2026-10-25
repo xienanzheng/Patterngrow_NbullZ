@@ -14,6 +14,11 @@ const getClose = (row) => Number(row.close);
 
 export const DEFAULT_ENSEMBLE_WEIGHTS = { sma: 0.2, rsi: 0.2, macd: 0.2, bollinger: 0.15, stochastic: 0.15, adx: 0.1 };
 
+// Remove binary floating-point noise before evaluating score thresholds. This
+// precision is deliberately much finer than the presentation's usual 3 digits.
+export const ENSEMBLE_SCORE_PRECISION = 12;
+export const roundEnsembleScore = (score) => Number(score.toFixed(ENSEMBLE_SCORE_PRECISION));
+
 // Conviction label boundaries — the thresholds that map a [-1,+1] ensemble
 // score to a human-readable rating. Changing these shifts how aggressively
 // the system calls Strong Buy vs Buy vs Neutral.
@@ -43,18 +48,20 @@ export const SIGNAL_POSITION_FRACS = {
 };
 
 export function normalizeEnsembleWeights(weights) {
-  if (!weights || typeof weights !== 'object') return { ...DEFAULT_ENSEMBLE_WEIGHTS };
+  const supplied = weights && typeof weights === 'object' ? weights : {};
   const merged = {};
   let sum = 0;
   for (const key of Object.keys(DEFAULT_ENSEMBLE_WEIGHTS)) {
-    const raw = weights[key];
+    const raw = supplied[key];
     // Omitted keys keep their default weight — a partial override tweaks the
     // mix instead of silently zeroing the other five indicators.
     const value = Number(raw);
     merged[key] = raw == null ? DEFAULT_ENSEMBLE_WEIGHTS[key] : Number.isFinite(value) ? Math.max(0, value) : 0;
     sum += merged[key];
   }
-  if (sum <= 0) return { ...DEFAULT_ENSEMBLE_WEIGHTS };
+  // Defaults must follow the same arithmetic path whether supplied explicitly,
+  // omitted, or selected as the all-zero fallback.
+  if (sum <= 0) return normalizeEnsembleWeights(DEFAULT_ENSEMBLE_WEIGHTS);
   Object.keys(merged).forEach((key) => {
     merged[key] /= sum;
   });
@@ -77,8 +84,8 @@ export function computeEnsembleScoreSeries(points, weights) {
   const { adx, plusDI, minusDI } = calculateADX(points);
 
   return points.map((_, i) => {
-    // Warm-up guard mirrors computeConvictionScore's 30-bar minimum: scoring
-    // on 1-2 live indicators would fire signals the product refuses to display.
+    // Preserve the series' existing warm-up horizon. Its first scored index is
+    // 30; the latest-snapshot function separately requires 30 valid closes.
     if (i < ENSEMBLE_WARMUP_BARS) return 0;
     const close = closes[i];
     const validClose = close != null && close > 0;
@@ -92,7 +99,7 @@ export function computeEnsembleScoreSeries(points, weights) {
       stochastic: percentK[i] == null ? 0 : percentK[i] < 20 ? 1 : percentK[i] > 80 ? -1 : 0,
       adx: adx[i] == null || adx[i] < 25 ? 0 : (plusDI[i] ?? 0) > (minusDI[i] ?? 0) ? 1 : -1,
     };
-    return Object.entries(votes).reduce((acc, [key, vote]) => acc + w[key] * vote, 0);
+    return roundEnsembleScore(Object.entries(votes).reduce((acc, [key, vote]) => acc + w[key] * vote, 0));
   });
 }
 

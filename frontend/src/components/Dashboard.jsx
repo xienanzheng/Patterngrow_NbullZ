@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useUserPreferences } from '../hooks/useUserPreferences';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import WatchlistTable from './WatchlistTable';
@@ -11,8 +11,9 @@ import PortfolioPanel from './PortfolioPanel';
 import BrokerPanel from './BrokerPanel';
 import FundamentalsCard from './FundamentalsCard';
 import MarketResearchPanel from './MarketResearchPanel';
+import RatingAuditPanel from './RatingAuditPanel';
 import { Link } from 'react-router-dom';
-import { getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
+import { createLatestRequestGate, getAccountability, getInsights, getMetadata, getNews, upsertMetadataRow, uploadMetadataCsv } from '../services/api';
 import AlgoExplainer from './AlgoExplainer';
 
 const formatCurrency = (value, currency = 'USD') => {
@@ -219,12 +220,16 @@ export default function Dashboard({ user, session, onSignOut }) {
   const [technicalSummary, setTechnicalSummary] = useState(null);
   const [dataSource, setDataSource] = useState('unknown');
   const [research, setResearch] = useState(null);
+  const [auditSnapshot, setAuditSnapshot] = useState(null);
+  const insightsRequests = useRef(null);
+  if (insightsRequests.current == null) insightsRequests.current = createLatestRequestGate();
   const [activeTab, setActiveTab] = useState('overview');
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
 
   const primaryIndicator = selectedIndicators[0] ?? 'sma';
 
   const applyInsights = useCallback((payload) => {
+    setAuditSnapshot(payload);
     if (!payload) {
       setStockData([]);
       setQuote(null);
@@ -282,9 +287,11 @@ export default function Dashboard({ user, session, onSignOut }) {
   }, []);
 
   const loadInsights = useCallback(
-    async ({ silent = false, cancelRef } = {}) => {
-      if (!silent) setInsightsLoading(true);
+    async () => {
+      const currentRequest = insightsRequests.current.start();
+      setInsightsLoading(true);
       setInsightsError(null);
+      applyInsights(null);
 
       try {
         const payload = await getInsights(symbol, {
@@ -296,29 +303,45 @@ export default function Dashboard({ user, session, onSignOut }) {
           weights: JSON.stringify(
             Object.fromEntries(Object.entries(appliedWeights).map(([key, value]) => [key, value / 100])),
           ),
+          signal: currentRequest.signal,
         });
 
-        if (cancelRef?.current) return;
+        if (!currentRequest.isCurrent()) return;
+        if (payload?.symbol !== symbol.trim().toUpperCase() || payload.range !== range || payload.interval !== chartInterval) {
+          throw new Error('The returned analytics do not match the selected symbol and period. Please retry.');
+        }
         applyInsights(payload);
       } catch (err) {
-        if (cancelRef?.current) return;
-        console.error('Failed to load analytics', err);
+        if (!currentRequest.isCurrent()) return;
         setInsightsError(err instanceof Error ? err.message : 'Unable to load analytics right now.');
         applyInsights(null);
       } finally {
-        if (!silent && !cancelRef?.current) setInsightsLoading(false);
+        if (currentRequest.isCurrent()) setInsightsLoading(false);
       }
     },
     [applyInsights, symbol, range, chartInterval, primaryIndicator, forecastModel, initialCapital, appliedWeights],
   );
 
-  useEffect(() => {
-    const cancelRef = { current: false };
-    loadInsights({ cancelRef });
+  // Clear the prior configuration before paint, including manual requests that
+  // were started outside the effect. The network request itself remains passive.
+  useLayoutEffect(() => {
+    insightsRequests.current.cancel();
+    applyInsights(null);
+    setInsightsError(null);
+    setInsightsLoading(true);
     return () => {
-      cancelRef.current = true;
+      insightsRequests.current.cancel();
     };
+  }, [loadInsights, applyInsights]);
+
+  useEffect(() => {
+    loadInsights();
   }, [loadInsights]);
+
+  useLayoutEffect(() => {
+    setAccountability(null);
+    setNewsItems([]);
+  }, [symbol]);
 
   useEffect(() => {
     let cancelled = false;
@@ -883,12 +906,12 @@ export default function Dashboard({ user, session, onSignOut }) {
           {conviction ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-                <p className="text-xs text-zinc-500">Ensemble Conviction<Tip text="A weighted vote across 6 indicators (SMA, RSI, MACD, Bollinger, Stochastic, ADX). Score ranges from −6 (strong sell) to +6 (strong buy)." /></p>
+                <p className="text-xs text-zinc-500">Historical Indicator State<Tip text="A normalized weighted vote across 6 historical indicators (SMA, RSI, MACD, Bollinger, Stochastic, ADX). The score ranges from −1 to +1 and describes the supplied price observations; it is not a probability." /></p>
                 <p className={`mt-1 text-2xl font-semibold ${conviction.score >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
                   {conviction.label}
                 </p>
                 <p className="text-xs text-zinc-400">
-                  Score {conviction.score >= 0 ? '+' : ''}{conviction.score} · weighted vote across 6 indicators
+                  Score {conviction.score >= 0 ? '+' : ''}{conviction.score} · historical calculation label
                 </p>
               </div>
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
@@ -904,6 +927,8 @@ export default function Dashboard({ user, session, onSignOut }) {
               </div>
             </div>
           ) : null}
+
+          {auditSnapshot && <RatingAuditPanel key={symbol} snapshot={auditSnapshot} token={session?.access_token} />}
 
           <FundamentalsCard symbol={symbol} />
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">

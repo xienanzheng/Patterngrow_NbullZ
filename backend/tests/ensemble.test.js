@@ -21,7 +21,11 @@ describe('normalizeEnsembleWeights', () => {
   });
 
   it('falls back to defaults on null input', () => {
-    expect(normalizeEnsembleWeights(null)).toEqual(DEFAULT_ENSEMBLE_WEIGHTS);
+    const expected = normalizeEnsembleWeights(DEFAULT_ENSEMBLE_WEIGHTS);
+    expect(normalizeEnsembleWeights(null)).toEqual(expected);
+    expect(normalizeEnsembleWeights()).toEqual(expected);
+    expect(normalizeEnsembleWeights({})).toEqual(expected);
+    expect(normalizeEnsembleWeights({ sma: 0, rsi: 0, macd: 0, bollinger: 0, stochastic: 0, adx: 0 })).toEqual(expected);
   });
 
   it('partial overrides keep the other indicators at default weight', () => {
@@ -79,6 +83,27 @@ describe('ensemble strategy', () => {
     const points = mk(Array.from({ length: 100 }, (_, i) => 100 + Math.sin(i / 7) * 10 + i * 0.2));
     const series = computeEnsembleScoreSeries(points);
     const conviction = computeConvictionScore(points);
-    expect(series.at(-1)).toBeCloseTo(conviction.score, 2);
+    expect(series.at(-1)).toBe(conviction.score);
+  });
+
+  it('uses identical normalized defaults and arithmetic precision across both calculation paths', () => {
+    const points = mk(Array.from({ length: 40 }, (_, i) => 100 + i));
+    const omitted = computeEnsembleScoreSeries(points);
+    const explicit = computeEnsembleScoreSeries(points, { ...DEFAULT_ENSEMBLE_WEIGHTS });
+    expect(explicit).toEqual(omitted);
+    expect(omitted.at(-1)).toBe(0.15);
+    expect(omitted.at(-1)).toBe(computeConvictionScore(points).score);
+    expect(backtestStrategy(points, 'ensemble')).toEqual(backtestStrategy(points, 'ensemble', { weights: DEFAULT_ENSEMBLE_WEIGHTS }));
+  });
+
+  it.each([0.6, 0.35, 0.15, -0.15, -0.35, -0.6, 0.3499])('returns the same precise latest score at %s with custom weights', (target) => {
+    const points = mk(Array.from({ length: 40 }, (_, i) => 100 + i));
+    const weights = {
+      sma: Math.max(target, 0), rsi: Math.max(-target, 0),
+      bollinger: 1 - Math.abs(target), macd: 0, stochastic: 0, adx: 0,
+    };
+    const score = computeEnsembleScoreSeries(points, weights).at(-1);
+    expect(score).toBe(target);
+    expect(score).toBe(computeConvictionScore(points, weights).score);
   });
 });

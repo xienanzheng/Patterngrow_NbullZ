@@ -1,6 +1,6 @@
 # PatternGrow market research review
 
-Reviewed against the repository and official provider documentation on **October 22, 2026**; terminal workspace progress updated **October 23, 2026**. This roadmap concerns educational, descriptive market research. It does not call for order execution, brokerage access or personalized investment recommendations.
+Reviewed against the repository and official provider documentation on **October 22, 2026**; terminal workspace progress updated **October 23, 2026**, classification audit updated **October 24, 2026**. This roadmap concerns educational, descriptive market research. It does not call for order execution, brokerage access or personalized investment recommendations.
 
 ## Assessment
 
@@ -34,6 +34,7 @@ The SEC and FRED adapters, corporate-action normalization, exchange calendars, d
 | P0 | Provider integrity | Every response states provider, fetched time, data-as-of time, exchange timezone, currency, delay, adjustment basis and session completeness. Unknown properties are explicitly unknown. Fallbacks preserve provenance and never introduce synthetic data silently. |
 | P0 | Canonical candles | Sort and deduplicate timestamps; validate OHLC ordering and nonnegative volume; retain missingness. Compare price and volume only across matching sessions and adjustment bases. Use exchange calendars for holidays and daylight-saving transitions. |
 | P0 | Operational safety | Restrict shared metadata writes to an explicit admin role; sanitize upstream errors; bound AI requests and responses; review runtime dependency advisories and deployment proxy trust. |
+| P0 | Reproducible classification observations | Store append-only observations with configuration, version, input snapshot, provider/as-of metadata and per-indicator contributions. Distinguish new observations from provider revisions and settings changes; never fabricate missing earlier records. The current legacy archive reader is an interim step. |
 | P1 | Volume research | Display latest volume, prior-20-session mean, relative volume, approximate close-times-volume turnover, OBV, MFI, and data-quality limitations. Exclude the current session from the comparison baseline. |
 | P1 | Historical risk | Display realized volatility, ATR, drawdown over the selected sample and historical returns. Require sufficient observations; distinguish annualized daily statistics from intraday values. |
 | P1 | Durable provider cache | Cache by symbol/exchange/interval/session/adjustment/provider. Deduplicate simultaneous requests, enforce provider-wide quotas, retry only transient failures with backoff, and return stale data only with an explicit stale flag. |
@@ -55,6 +56,26 @@ These observations describe the reviewed baseline; consult the current diff and 
 - Several API catch paths returned upstream error messages verbatim. The assistant proxy lacked a fetch deadline and a firm output budget; the original prompt requested decisive positional labels even when supporting fields were missing. Descriptive summaries should cite available evidence and explain missing inputs.
 - Forecast uncertainty labels differed between parts of the UI. Historical estimates need one shared definition, a stated horizon and out-of-sample calibration evidence. A model interval is not a guaranteed range.
 - The dependency audit identified runtime issues in the Express/proxy/query-parser/WebSocket dependency trees, plus separate development-tool issues in Vitest/Vite/Tinypool and file watchers. Recheck `npm audit --omit=dev` after compatible upgrades. Development-server advisories are not proof of production exploitability, and an audit suggestion to downgrade Nodemon should not be applied blindly.
+
+### Classification consistency and recording audit
+
+The displayed ensemble label is a stateless weighted classification of the current input history. It does not consume earlier recorded labels. Selected narrative states have a two-observation confirmation check, but the conviction label does not. A large one-bar change can be explained by several discrete indicator votes crossing their thresholds together; a label change alone does not distinguish new market observations from changed settings, revised data or a defect.
+
+The October 24 fixes address reproduced software defects: omitted versus explicit default weights could produce different labels at a floating-point boundary; a superseded manual dashboard request could overwrite a newer result; and the historical signal logger could omit intermediate reversals in a catch-up batch because it never advanced its deduplication state. Weight normalization is now consistent, threshold comparison and returned score use the same 12-decimal precision, all dashboard analysis requests share a latest-request gate, and accepted historical events advance the logger's state. Signal-history read/write failures are reported rather than treated as successful empty history.
+
+The dashboard now exposes calculation version, observed indicator measurements, normalized weights, contributions and recording status. A separate authenticated, bounded reader exposes existing archived observations without reconstructing missing rows. No smoothing, hysteresis or new historical-storage schema was introduced in this pass.
+
+| Record | Current behavior | Limits |
+| --- | --- | --- |
+| `decision_log` | Daily-summary job; first row per symbol/UTC date is retained by the writer. Includes label, score and votes. | Scores use three-decimal database precision, which can obscure threshold distinctions. Shared symbol observations; not every dashboard calculation. No full settings, version, provider/as-of metadata or source snapshot. First-write behavior is a writer convention, not a database immutability guarantee. |
+| `forecast_log` | Eligible daily Yahoo insights requests; same symbol/UTC date/model replaces the previous row. Save outcome is now returned explicitly. | Different ranges, weights or horizons may share the key. Original `created_at` is not a replacement timestamp. This is not an append-only audit trail. |
+| `watchlist_signals` | Direction-deduplicated historical SMA events; retained date keys are not replaced. | A separate algorithm and event history, not the displayed ensemble label. Chart markers are recalculated from fetched data and are not proof of what the app displayed at that time. |
+
+Comparison context also matters: the dashboard uses selected range, interval and weights; the watchlist scan uses six months of daily bars and defaults; the daily summary uses three months and defaults. The dashboard's custom weights are currently session state and reset on reload. Different lookback windows can change seeded indicators even with the same final close. The UI discloses the current calculation context, but these paths have not been unified.
+
+The next storage step should preserve each original observation with an ID, observed-at timestamp, exchange session, calculation version, settings hash, full settings, provider metadata, exact score, votes, contributions and a retained input snapshot. A hash alone cannot reconstruct lost input bars. Store later provider corrections as new revisions, and compare only compatible configurations when attributing a change. Existing missing or overwritten observations cannot be recovered by rerunning today's data.
+
+Earlier observations belong in change explanations and out-of-sample evaluation. Any future temporal confirmation rule should be separately versioned and evaluated for both reduced switching and delayed recognition of real changes; feeding the prior label back as if it were independent evidence would be circular. Remaining methodology work includes exchange-calendar completion checks, consistent warm-up/missing-data behavior across calculation paths, and correcting legacy forecast grading to preserve original target dates.
 
 ### Shared metadata administration
 

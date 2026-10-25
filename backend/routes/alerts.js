@@ -142,13 +142,14 @@ function convictionEmoji(label) {
 
 // Returns the last committed signal row from DB (the locked-in state).
 async function getLastCommittedSignal(symbol) {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('watchlist_signals')
     .select('signal_date, signal, price')
     .eq('symbol', symbol)
     .order('signal_date', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
+  if (error) throw new Error('Stored signal history is unavailable.');
   return data ?? null;
 }
 
@@ -160,7 +161,7 @@ async function getLastCommittedSignal(symbol) {
 //   • A sell signal while flat (lastDir≠buy) has nothing to exit — skip it.
 export function filterNewSignalRows(history, signals, lastCommitted) {
   const lastDate = lastCommitted?.signal_date ?? null;
-  const lastDir = lastCommitted?.signal?.startsWith('buy') ? 'buy'
+  let lastDir = lastCommitted?.signal?.startsWith('buy') ? 'buy'
     : lastCommitted?.signal?.startsWith('sell') ? 'sell' : null;
 
   const rows = [];
@@ -178,6 +179,9 @@ export function filterNewSignalRows(history, signals, lastCommitted) {
     if (newDir === 'sell' && lastDir !== 'buy') continue; // nothing to exit
 
     rows.push({ signalDate, signal: s.signal, close: history[i].close });
+    // Advance through every accepted historical event in a catch-up batch.
+    // Keeping the initial direction would omit intervening opposite events.
+    lastDir = newDir;
   }
   return rows;
 }
@@ -194,7 +198,8 @@ async function persistNewSignals(symbol, history, signals, lastCommitted) {
   const rows = filtered.map(({ signalDate, signal, close }) => ({
     symbol, signal_date: signalDate, signal, price: Number(close),
   }));
-  await supabaseAdmin.from('watchlist_signals').upsert(rows, { onConflict: 'symbol,signal_date', ignoreDuplicates: true });
+  const { error } = await supabaseAdmin.from('watchlist_signals').upsert(rows, { onConflict: 'symbol,signal_date', ignoreDuplicates: true });
+  if (error) throw new Error('Signal history could not be recorded.');
 }
 
 function formatLastSignal(row) {

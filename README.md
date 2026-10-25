@@ -151,7 +151,7 @@ The React app proxies API requests to `http://localhost:4000/api/*` by default (
 - **Forecast models** (`backend/utils/predictions.js`): `drift` (mean log-return extrapolation), `ar` (autoregression on log returns, OLS-fit), `holt` (Holt linear exponential smoothing, grid-searched α/β). Legacy names `simple`/`arima`/`prophet` map onto these for backward compatibility. Every forecast point carries an 80% confidence band derived from historical volatility (`value·exp(±1.2816·σ·√h)`), which replaces the old fixed ±8% "targets".
 - **Walk-forward evaluation** (`backend/utils/evaluation.js`, `GET /api/analytics/evaluate?symbol=&range=&indicator=&horizon=&folds=`): rolling-origin out-of-sample folds reporting MAE/RMSE/MAPE/directional accuracy per model plus a naive baseline, and out-of-sample strategy return vs. buy-and-hold (with 0.1% transaction costs + 0.05% slippage) including win rate and max drawdown. Surfaced in the Advanced Lab tab ("Evaluate Models").
 - **Directional classifier** (`backend/utils/classifier.js`): plain-JS logistic regression over lagged returns, RSI, MACD divergence, volatility, and volume ratio → probability the price is higher in 5 days. Its embargoed-holdout accuracy is always reported next to the probability — treat sub-55% accuracy as noise.
-- **Ensemble conviction** (`backend/utils/computeSignals.js`): weighted vote across SMA/RSI/MACD/Bollinger/Stochastic/ADX with a stability rule — qualitative labels (overbought/oversold/trending) only flip after 2+ consecutive confirming sessions, so the recommendation no longer whipsaws on a single noisy bar.
+- **Ensemble classification** (`backend/utils/computeSignals.js`): a weighted vote across SMA/RSI/MACD/Bollinger/Stochastic/ADX, calculated independently from the supplied history and weights. Earlier labels are not inputs. Two-session confirmation applies to selected narrative conditions and RSI alerts, not to this classification. Version `ensemble-conviction.v2` normalizes omitted and explicit default weights identically and uses the same score, cleaned to 12 decimal places, for thresholds and display. The response includes measurements, votes, normalized weights and contributions.
 - **Simulation realism** (`backend/utils/backtesting.js`): transaction costs, slippage, and optional stop-loss are modeled; the insights payload reports trade count and total costs paid.
 - Honest-by-design: none of this predicts the market reliably; the point of the evaluation harness is that every number ships with its out-of-sample track record instead of an in-sample illusion.
 
@@ -160,8 +160,9 @@ The React app proxies API requests to `http://localhost:4000/api/*` by default (
 The alerts, portfolio, and accountability features need two one-time steps:
 
 1. **Supabase tables** — run `backend/sql/features.sql` once in the Supabase SQL editor
-   (creates `forecast_log`, `alerts`, `alert_events`, `positions`). All backend code
-   degrades gracefully (warns + returns empty) until the tables exist.
+   (creates `forecast_log`, `alerts`, `alert_events`, `positions`). The separate
+   `backend/sql/decision_log.sql` defines the daily-rating archive. The archive
+   reader reports missing or unreadable tables as unavailable, not empty history.
 2. **`CRON_SECRET`** — set this env var in Vercel so the weekday alerts cron
    (`vercel.json` → `/api/alerts/run`, 20:30 UTC Mon–Fri) can authenticate. Without it
    the run endpoint rejects everything.
@@ -169,7 +170,8 @@ The alerts, portfolio, and accountability features need two one-time steps:
 Feature map:
 - **Grounded assistant** — `/api/analytics/chat` accepts a `symbol`; the server injects live quote/indicators/conviction/forecast/news into the prompt.
 - **Watchlist scan** — `GET /api/watchlist/scan` ranks your watchlist by ensemble conviction (auth required).
-- **Forecast accountability** — every real `/insights` call snapshots the day's forecast to `forecast_log`; `GET /api/analytics/accountability?symbol=` grades past forecasts against what actually happened (band hit rate, direction hit rate).
+- **Forecast accountability** — eligible daily Yahoo `/insights` calls with structurally valid observations attempt to save a forecast row. The response reports `saved`, `failed`, `not_configured` or `not_eligible`. A later request can replace the same symbol/UTC-date/model row. `GET /api/analytics/accountability?symbol=` grades stored forecasts against subsequent observations; these legacy records are not a complete request history.
+- **Classification audit** — the dashboard's “Explain this state” panel shows current calculation inputs and recording status. Authenticated `GET /api/analytics/recorded-history?symbol=AAPL` reads up to 60 existing daily-summary and forecast records per archive, with separate availability states and retention limitations. Daily ratings keep the first observation per symbol/UTC date; they are not written by dashboard page requests. Legacy archives lack full settings and source snapshots, so an exact past reversal cannot always be reconstructed. See the [classification audit](docs/market-research-roadmap.md#classification-consistency-and-recording-audit).
 - **Alerts** — CRUD under `/api/alerts` (auth), rules: price above/below, confirmed RSI overbought/oversold, conviction flip; events surface in the Alerts tab.
 - **Ensemble weights** — `?weights={"sma":0.3,...}` on `/insights` and `/evaluate`; `indicator=ensemble` backtests the weighted vote as a strategy (±0.3 score crossings).
 - **Portfolio** — `/api/positions` (auth) with live P&L and a same-period SPY benchmark.

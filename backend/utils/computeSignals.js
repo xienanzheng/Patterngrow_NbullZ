@@ -1,4 +1,11 @@
-import { backtestStrategy, normalizeEnsembleWeights, runTradingSimulationDetailed, CONVICTION_THRESHOLDS } from './backtesting.js';
+import {
+  backtestStrategy,
+  normalizeEnsembleWeights,
+  roundEnsembleScore,
+  runTradingSimulationDetailed,
+  CONVICTION_THRESHOLDS,
+  ENSEMBLE_SCORE_PRECISION,
+} from './backtesting.js';
 import {
   calculateADX,
   calculateBollingerBands,
@@ -22,21 +29,41 @@ export function confirmedState(series, predicate, n = 2) {
   return tail.length === n && tail.every((v) => v != null && predicate(v));
 }
 
-const NEUTRAL_CONVICTION = {
-  score: 0,
-  label: 'Neutral',
-  votes: { sma: 0, rsi: 0, macd: 0, bollinger: 0, stochastic: 0, adx: 0 },
-  insufficientData: true,
-};
+const finiteMeasurement = (value) => Number.isFinite(value) ? value : null;
+const CONVICTION_MEASUREMENT_KEYS = [
+  'close', 'sma20', 'rsi14', 'rsiSmoothed3', 'macd', 'macdSignal', 'macdDivergence',
+  'bollingerUpper', 'bollingerLower', 'stochasticK14', 'adx14', 'plusDI', 'minusDI',
+];
 
 export function computeConvictionScore(history, customWeights) {
   // Indicator warm-up needs real history; EMA-based votes on a handful of
   // bars would produce confident garbage.
   const validCloses = history.filter((r) => Number.isFinite(Number(r.close)) && Number(r.close) > 0).length;
-  if (validCloses < 30) return NEUTRAL_CONVICTION;
+  const weights = normalizeEnsembleWeights(customWeights);
+  const metadata = {
+    normalizedWeights: weights,
+    scorePrecision: ENSEMBLE_SCORE_PRECISION,
+    calculationVersion: 'ensemble-conviction.v2',
+    previousDecisionsUsed: false,
+    inputs: { barCount: history.length, validCloseCount: validCloses },
+  };
+  if (validCloses < 30) {
+    const zeroVotes = Object.fromEntries(Object.keys(weights).map((key) => [key, 0]));
+    return {
+      score: 0,
+      rawScore: 0,
+      label: 'Neutral',
+      votes: zeroVotes,
+      contributions: { ...zeroVotes },
+      insufficientData: true,
+      ...metadata,
+      measurements: Object.fromEntries(CONVICTION_MEASUREMENT_KEYS.map((key) => [key, null])),
+    };
+  }
   const close = Number(history.at(-1)?.close);
   const sma = calculateSMA(history).at(-1);
-  const rsiSmoothed = ema(calculateRSI(history), 3).at(-1);
+  const rsi = calculateRSI(history);
+  const rsiSmoothed = ema(rsi, 3).at(-1);
   const { macd, signal } = calculateMACD(history);
   const macdDiv = macd.at(-1) != null && signal.at(-1) != null ? macd.at(-1) - signal.at(-1) : null;
   const bands = calculateBollingerBands(history);
@@ -55,8 +82,9 @@ export function computeConvictionScore(history, customWeights) {
     adx: adx.at(-1) == null || adx.at(-1) < 25 ? 0
       : (plusDI.at(-1) ?? 0) > (minusDI.at(-1) ?? 0) ? 1 : -1,
   };
-  const weights = normalizeEnsembleWeights(customWeights);
-  const score = Object.entries(votes).reduce((acc, [key, vote]) => acc + weights[key] * vote, 0);
+  const contributions = Object.fromEntries(Object.entries(votes).map(([key, vote]) => [key, weights[key] * vote]));
+  const rawScore = Object.values(contributions).reduce((sum, contribution) => sum + contribution, 0);
+  const score = roundEnsembleScore(rawScore);
   const { STRONG_BUY, MEDIUM_BUY, BUY, NEUTRAL_LOW, SELL, MEDIUM_SELL } = CONVICTION_THRESHOLDS;
   const label = score >= STRONG_BUY  ? 'Strong Buy'
     : score >= MEDIUM_BUY  ? 'Medium Buy'
@@ -65,7 +93,29 @@ export function computeConvictionScore(history, customWeights) {
     : score > SELL         ? 'Sell'
     : score > MEDIUM_SELL  ? 'Medium Sell'
     : 'Strong Sell';
-  return { score: Number(score.toFixed(3)), label, votes };
+  return {
+    score,
+    rawScore,
+    label,
+    votes,
+    contributions,
+    ...metadata,
+    measurements: {
+      close: validClose ? close : null,
+      sma20: finiteMeasurement(sma),
+      rsi14: finiteMeasurement(rsi.at(-1)),
+      rsiSmoothed3: finiteMeasurement(rsiSmoothed),
+      macd: finiteMeasurement(macd.at(-1)),
+      macdSignal: finiteMeasurement(signal.at(-1)),
+      macdDivergence: finiteMeasurement(macdDiv),
+      bollingerUpper: finiteMeasurement(bands.upper.at(-1)),
+      bollingerLower: finiteMeasurement(bands.lower.at(-1)),
+      stochasticK14: finiteMeasurement(k),
+      adx14: finiteMeasurement(adx.at(-1)),
+      plusDI: finiteMeasurement(plusDI.at(-1)),
+      minusDI: finiteMeasurement(minusDI.at(-1)),
+    },
+  };
 }
 
 function summariseSignals(signals) {

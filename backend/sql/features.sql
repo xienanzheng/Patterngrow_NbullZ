@@ -2,7 +2,9 @@
 -- The backend uses the service-role key (bypasses RLS), but RLS is enabled
 -- anyway so anon/authenticated Postgrest access stays locked down.
 
--- F3: forecast accountability log (one snapshot per symbol/model per day)
+-- F3: replaceable forecast snapshot (one row per symbol/model/UTC recording day).
+-- Later eligible requests overwrite this key. This is not a per-request audit
+-- trail; created_at is the original insertion time, not the replacement time.
 create table if not exists public.forecast_log (
   id uuid default gen_random_uuid() primary key,
   symbol text not null,

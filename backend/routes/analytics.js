@@ -1,5 +1,5 @@
 import express from 'express';
-import { fetchSnapshots, gradeSnapshots, logForecastSnapshot } from '../utils/accountability.js';
+import { fetchSnapshots, gradeSnapshots, isForecastRecordingConfigured, logForecastSnapshot } from '../utils/accountability.js';
 import { buildAssistantContext } from '../utils/assistantContext.js';
 import { requireAdmin, requireAuth } from '../utils/authMiddleware.js';
 import { directionalForecast } from '../utils/classifier.js';
@@ -220,13 +220,17 @@ router.get('/insights', async (req, res) => {
 
     const metadata = await getTickerMetadata(query.symbol);
 
+    const recording = {
+      forecast: { status: 'not_eligible', mode: 'replaces_same_day_model' },
+      rating: { status: 'not_recorded_by_this_request', mode: 'daily_summary_first_observation' },
+    };
     // Accountability: record today's forecast so it can be graded later.
     // Only daily observations with enough verified structure can produce a daily snapshot.
     if (interval === '1d' && payload.research?.quality?.status === 'ok' && payload.dataSource === 'yahoo' && payload.forecast?.length && payload.latestClose != null) {
       const lastPoint = payload.forecast.at(-1);
       // Awaited: on Vercel, un-awaited I/O can be frozen with the instance
       // before it completes, silently losing the snapshot.
-      await logForecastSnapshot({
+      const saved = isForecastRecordingConfigured() && await logForecastSnapshot({
         symbol: payload.symbol,
         lastClose: payload.latestClose,
         forecastModel: payload.forecastModel,
@@ -238,9 +242,10 @@ router.get('/insights', async (req, res) => {
         convictionLabel: payload.conviction?.label ?? null,
         probUp: payload.directional?.probUp ?? null,
       });
+      recording.forecast.status = !isForecastRecordingConfigured() ? 'not_configured' : saved ? 'saved' : 'failed';
     }
 
-    res.json({ ...payload, metadata });
+    res.json({ ...payload, metadata, recording });
   } catch (error) {
     res.status(error.status ?? 503).json({ error: error.status === 400 ? error.message : 'Analytics are unavailable for the requested market data. Please try again shortly.' });
   }

@@ -1,5 +1,7 @@
--- Immutable daily rating log. One row per (symbol × date) written by the
--- daily cron. Rows are never updated — the log is an append-only audit trail.
+-- Daily-summary rating archive, one row per (symbol × UTC recording date).
+-- The writer ignores duplicate keys, retaining the first observed row. This
+-- schema does not enforce immutability against service-role updates/deletes
+-- and does not store the complete inputs/settings needed for reproducibility.
 
 CREATE TABLE IF NOT EXISTS decision_log (
   id               uuid DEFAULT gen_random_uuid() PRIMARY KEY,

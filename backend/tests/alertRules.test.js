@@ -163,4 +163,27 @@ describe('filterNewSignalRows — direction-aware dedup', () => {
     const rows = filterNewSignalRows(history, signals, lastCommitted);
     expect(rows).toHaveLength(0);
   });
+
+  it('retains every alternating event in a catch-up batch', () => {
+    const history = makeHistory(['2025-01-11', '2025-01-12', '2025-01-13']);
+    const signals = ['buy_strong', 'sell_medium', 'buy_weak'].map(makeSig);
+    expect(filterNewSignalRows(history, signals, null).map((row) => row.signal))
+      .toEqual(['buy_strong', 'sell_medium', 'buy_weak']);
+  });
+
+  it('deduplicates against the latest accepted event within the batch', () => {
+    const history = makeHistory(['2025-01-11', '2025-01-12', '2025-01-13', '2025-01-14']);
+    const signals = ['sell_medium', 'sell_weak', 'buy_weak', 'sell_strong'].map(makeSig);
+    const lastCommitted = { signal_date: '2025-01-10', signal: 'buy_medium', price: 95 };
+    expect(filterNewSignalRows(history, signals, lastCommitted).map((row) => [row.signalDate, row.signal]))
+      .toEqual([['2025-01-11', 'sell_medium'], ['2025-01-13', 'buy_weak'], ['2025-01-14', 'sell_strong']]);
+  });
+
+  it('does not let old or neutral observations change the last accepted direction', () => {
+    const history = makeHistory(['2025-01-09', '2025-01-10', '2025-01-11', '2025-01-12', '2025-01-13']);
+    const signals = ['sell_strong', 'sell_strong', 'hold', 'buy_weak', 'sell_medium'].map(makeSig);
+    const lastCommitted = { signal_date: '2025-01-10', signal: 'buy_medium', price: 95 };
+    expect(filterNewSignalRows(history, signals, lastCommitted).map((row) => row.signalDate))
+      .toEqual(['2025-01-13']);
+  });
 });

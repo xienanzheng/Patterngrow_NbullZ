@@ -4,9 +4,14 @@
 import { supabaseAdmin } from './supabaseClient.js';
 import { addTradingDays } from './tradingDays.js';
 
+export function isForecastRecordingConfigured() {
+  return Boolean(supabaseAdmin);
+}
+
 export async function logForecastSnapshot({
   symbol, lastClose, forecastModel, horizon, base, lower, upper, convictionScore, convictionLabel, probUp,
 }) {
+  if (!supabaseAdmin) return false;
   try {
     const snapshotDate = new Date().toISOString().slice(0, 10);
     // One row per (symbol × date × model) — allows comparing multiple models on the same day.
@@ -22,12 +27,12 @@ export async function logForecastSnapshot({
       conviction_score: convictionScore,
       conviction_label: convictionLabel,
       prob_up: probUp,
-    }, { onConflict: 'symbol,snapshot_date,forecast_model' });
+    }, { onConflict: 'symbol,snapshot_date,forecast_model' }).abortSignal(AbortSignal.timeout(5_000));
     if (error) throw error;
     return true;
-  } catch (err) {
+  } catch {
     // Table may not exist yet; the log is best-effort by design.
-    console.warn('forecast_log write skipped:', err.message);
+    console.warn('forecast_log write unavailable.');
     return false;
   }
 }

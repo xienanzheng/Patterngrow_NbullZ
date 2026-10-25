@@ -69,13 +69,38 @@ export function getNews(symbol) {
   return request(`/api/analytics/news?symbol=${encodeURIComponent(symbol)}`);
 }
 
-export function getInsights(symbol, options = {}) {
+export function getInsights(symbol, { signal, ...options } = {}) {
   const params = new URLSearchParams({ symbol });
   Object.entries(options).forEach(([key, value]) => {
     if (value == null) return;
     params.set(key, value);
   });
-  return request(`/api/analytics/insights?${params.toString()}`);
+  return request(`/api/analytics/insights?${params.toString()}`, { signal });
+}
+
+// Both manual refreshes and configuration changes must share the same gate.
+// Invalidation also protects state updates when a fetch mock/provider ignores abort.
+export function createLatestRequestGate() {
+  let active = null;
+  return {
+    start() {
+      active?.abort();
+      const controller = new AbortController();
+      active = controller;
+      return {
+        signal: controller.signal,
+        isCurrent: () => active === controller && !controller.signal.aborted,
+      };
+    },
+    cancel() {
+      active?.abort();
+      active = null;
+    },
+  };
+}
+
+export function getRecordedHistory(symbol, { token, signal } = {}) {
+  return request(`/api/analytics/recorded-history?${new URLSearchParams({ symbol })}`, { token, signal });
 }
 
 export function getFundamentals(symbol) {

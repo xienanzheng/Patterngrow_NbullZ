@@ -10,6 +10,7 @@ import brokerRouter from './routes/broker.js';
 import backtestsRouter from './routes/backtests.js';
 import comparisonRouter from './routes/comparison.js';
 import marketOverviewRouter from './routes/marketOverview.js';
+import recordedHistoryRouter from './routes/recordedHistory.js';
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/alerts', alertsRouter);
 app.use('/api/analytics/comparison', comparisonRouter);
 app.use('/api/analytics/overview', marketOverviewRouter);
+app.use('/api/analytics/recorded-history', recordedHistoryRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/positions', positionsRouter);
 app.use('/api/watchlist', watchlistRouter);
